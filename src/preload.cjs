@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("vivo", {
   config: (mudanca) => ipcRenderer.invoke("config", mudanca),
   barra: (claro) => ipcRenderer.invoke("barra", claro),
   link: (url) => ipcRenderer.invoke("link", url),
+  abrirLink: (href) => ipcRenderer.invoke("abrir_link", href),
   comandos: () => ipcRenderer.invoke("comandos"),
   arquivos: (atualiza) => ipcRenderer.invoke("arquivos", atualiza),
   saida: (id) => ipcRenderer.invoke("saida", id),

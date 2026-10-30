@@ -1,0 +1,11 @@
+{
+  "Não deu pra abrir: não achei esse arquivo na pasta da conversa.": { "en": "Could not open it: that file was not found in the conversation's folder.", "vi": "Không mở được: không tìm thấy tệp này trong thư mục của cuộc trò chuyện." },
+  "Não consegui iniciar o Claude Code neste computador. Tentei: {0}. Instale a versão nativa em code.claude.com/docs/en/setup (ou defina CLAUDE_CODE_PATH) e abra o Claudie de novo.": {
+    "en": "I couldn't start Claude Code on this computer. Tried: {0}. Install the native version at code.claude.com/docs/en/setup (or set CLAUDE_CODE_PATH) and open Claudie again.",
+    "vi": "Không khởi động được Claude Code trên máy này. Đã thử: {0}. Hãy cài bản gốc tại code.claude.com/docs/en/setup (hoặc đặt CLAUDE_CODE_PATH) rồi mở lại Claudie."
+  },
+  "O Claude Code em {0} não iniciou. Instale a versão nativa em code.claude.com/docs/en/setup ou defina CLAUDE_CODE_PATH com um Claude Code que funcione.": {
+    "en": "Claude Code at {0} did not start. Install the native version at code.claude.com/docs/en/setup or set CLAUDE_CODE_PATH to a working Claude Code.",
+    "vi": "Claude Code tại {0} không khởi động được. Hãy cài bản gốc tại code.claude.com/docs/en/setup hoặc đặt CLAUDE_CODE_PATH trỏ tới một Claude Code chạy được."
+  }
+}

@@ -586,7 +586,18 @@ window.instalaAtualizacao = function instalaAtualizacao() {
   vivo.atualizacaoInstalar();
 };
 vivo.atualizacao().then(mostraAtualizacao);
-col.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a) { e.preventDefault(); vivo.link(a.href); } });
+// A link in the conversation: the web opens in the browser; anything else is a file
+// Claude named, read from the attribute (the DOM would resolve it against the app's own folder).
+async function abreLinkDaConversa(a) {
+  const h = a.getAttribute("href") || "";
+  if (/^https?:/i.test(h)) return vivo.link(a.href);
+  if (!h || h[0] === "#" || /^[a-z][a-z0-9+.-]+:/i.test(h) && !/^file:/i.test(h)) return;
+  const r = await vivo.abrirLink(h);
+  if (r?.imagem) abreImagem(r.imagem, r.nome);
+  else if (r?.erro === "fora") nota("Não deu pra abrir: o arquivo está fora das pastas desta conversa.", true);
+  else if (r?.erro) nota("Não deu pra abrir: não achei esse arquivo na pasta da conversa.", true);
+}
+col.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a) { e.preventDefault(); abreLinkDaConversa(a); } });
 
 // The empty conversation: the mark breathing, a greeting for the time of
 // day, and a few ways to start.

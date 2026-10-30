@@ -13,6 +13,7 @@ import crypto from "node:crypto";
 import { execFileSync, execFile, spawn } from "node:child_process";
 import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { acharClaudeExe, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
 import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
 
@@ -27,16 +28,10 @@ const NOME_IDIOMA = { pt: "português do Brasil", en: "inglês", vi: "vietnamita
 // installed (where claude, the native installer's folder, or npm's). In
 // development the SDK's own copy is the fallback. Sign-in is Claude Code's own
 // login, or an Anthropic API key the person saves here (encrypted by the OS).
-let claudeExe;
+// (claude-exe.js turns what `where` lists into something launchable and checks it starts)
+let claudeExe, claudeTentativas = [];
 function acharClaude() {
-  if (claudeExe !== undefined) return claudeExe;
-  const home = os.homedir(), appdata = process.env.APPDATA || "";
-  const candidatos = [process.env.CLAUDE_CODE_PATH, path.join(home, ".local", "bin", "claude.exe"), path.join(home, ".local", "bin", "claude")];
-  try { candidatos.push(...execFileSync(process.platform === "win32" ? "where" : "which", ["claude"], { encoding: "utf8", windowsHide: true }).split(/\r?\n/).map((x) => x.trim()).filter(Boolean)); } catch {}
-  candidatos.push(path.join(appdata, "npm", "node_modules", "@anthropic-ai", "claude-code", "cli.js"));
-  // an npm .cmd shim points at the package's cli.js, which the SDK runs with node
-  const real = (c) => (/\.cmd$/i.test(c) ? path.join(path.dirname(c), "node_modules", "@anthropic-ai", "claude-code", "cli.js") : c);
-  claudeExe = candidatos.filter(Boolean).map(real).find((c) => { try { return fs.statSync(c).isFile(); } catch { return false; } }) || null;
+  if (claudeExe === undefined) { const r = acharClaudeExe(); claudeExe = r.exe; claudeTentativas = r.tentativas; }
   return claudeExe;
 }
 const temClaudeEmbutido = () => { try { return fs.existsSync(path.join(path.dirname(fileURLToPath(import.meta.resolve("@anthropic-ai/claude-agent-sdk"))), "..", "claude-agent-sdk-" + process.platform + "-" + process.arch)); } catch { return false; } };
@@ -47,7 +42,9 @@ function chaveApi() {
 // every query goes through here: the person's Claude Code and the chosen sign-in
 function query(args) {
   const exe = acharClaude();
-  if (!exe && !temClaudeEmbutido()) throw new Error("Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o Claudie de novo.");
+  if (!exe && !temClaudeEmbutido()) throw new Error(claudeTentativas.length
+    ? t("Não consegui iniciar o Claude Code neste computador. Tentei: {0}. Instale a versão nativa em code.claude.com/docs/en/setup (ou defina CLAUDE_CODE_PATH) e abra o Claudie de novo.", claudeTentativas.slice(0, 4).join("; "))
+    : "Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o Claudie de novo.");
   const extra = {};
   if (exe) extra.pathToClaudeCodeExecutable = exe;
   const chave = config.entrar === "chave" ? chaveApi() : "";
@@ -604,7 +601,10 @@ async function turno(j, texto, anexos) {
       }
     }
   } catch (err) {
-    if (!ac.signal.aborted) aviso({ tipo: "erro", texto: String(err?.message || err) });
+    if (!ac.signal.aborted) {
+      const msg = String(err?.message || err);
+      aviso({ tipo: "erro", texto: /failed to launch/i.test(msg) && claudeExe ? t("O Claude Code em {0} não iniciou. Instale a versão nativa em code.claude.com/docs/en/setup ou defina CLAUDE_CODE_PATH com um Claude Code que funcione.", claudeExe) : msg });
+    }
   } finally {
     turnos.delete(t);
     if (t.sessionId) esquece(t.sessionId);
@@ -890,8 +890,8 @@ const esquecePainel = () => { for (const k of respostas.keys()) if (k.startsWith
 function claudeCli(args, cwd) {
   const exe = acharClaude();
   if (!exe) return Promise.resolve({ erro: "Não encontrei o Claude Code neste computador." });
-  const js = /\.m?js$/i.test(exe);
-  return new Promise((ok) => execFile(js ? process.execPath : exe, js ? [exe, ...args] : args, { cwd, encoding: "utf8", windowsHide: true, timeout: 45000, maxBuffer: 1 << 20, env: js ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" } : process.env },
+  const c = comandoClaude(exe, args);
+  return new Promise((ok) => execFile(c.cmd, c.args, { cwd, encoding: "utf8", windowsHide: true, timeout: 45000, maxBuffer: 1 << 20, env: c.env },
     (erro, saida, err) => ok(erro ? { erro: String(err || saida || erro.message).trim().slice(0, 1500) } : { saida: String(saida).trim().slice(0, 1500) })));
 }
 // command line of a stdio server: split on spaces, keeping "quoted parts" together
@@ -993,6 +993,24 @@ ipcMain.handle("novidades", async () => {
 });
 // Files Claude changed open in their own app, or show in their folder.
 ipcMain.handle("abrir_arquivo", (_e, caminho, naPasta) => abreArquivo(caminho, naPasta));
+// A file named in a reply (relative to the conversation's folder, absolute, file:// or
+// percent-encoded by the markdown). Images come back as a URL for the preview; the rest
+// opens as "abrir_arquivo" would. Same roots, so a link can't reach outside the folders.
+const IMAGEM_LINK = /\.(png|jpe?g|gif|webp|bmp|ico|avif|svg)$/i;
+ipcMain.handle("abrir_link", (e, href) => {
+  const j = J(e);
+  let alvo = typeof href === "string" ? href.trim() : "";
+  if (!alvo) return { erro: "nao_achou" };
+  try {
+    if (/^file:/i.test(alvo)) alvo = fileURLToPath(alvo.split(/[?#]/)[0]);
+    else { try { alvo = decodeURIComponent(alvo); } catch {} }
+  } catch { return { erro: "nao_achou" }; }
+  const real = caminhoReal(path.resolve(j?.atual?.cwd || j?.cwd || config.cwd, alvo));
+  if (!real) return { erro: "nao_achou" };
+  if (!dentroDeRaizPermitida(real)) return { erro: "fora" };
+  if (IMAGEM_LINK.test(real) && fs.statSync(real).isFile()) return { imagem: pathToFileURL(real).href, nome: path.basename(real) };
+  return abreArquivo(real) ? { ok: true } : { erro: "fora" };
+});
 
 // Review of the working tree against HEAD for the "changes" window. Git runs
 // with execFile in the conversation's folder only; output is bounded and
@@ -1545,10 +1563,8 @@ function avisaRemoto(mudanca) {
 function ligaRemoto(cwd) {
   const exe = acharClaude();
   if (!exe) return avisaRemoto({ estado: "erro", texto: "O Remote Control precisa do Claude Code instalado neste computador." });
-  const args = ["remote-control", "--name", `Claudie · ${path.basename(cwd)}`], js = /\.js$/i.test(exe);
-  const p = spawn(js ? process.execPath : exe, js ? [exe, ...args] : args, {
-    cwd, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: js ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" } : process.env,
-  });
+  const c = comandoClaude(exe, ["remote-control", "--name", `Claudie · ${path.basename(cwd)}`]);
+  const p = spawn(c.cmd, c.args, { cwd, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: c.env });
   remotoProc = p;
   avisaRemoto({ estado: "conectando", cwd, url: "", texto: "" });
   let resto = "";
