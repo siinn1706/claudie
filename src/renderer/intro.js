@@ -46,7 +46,7 @@ function boasVindas(aoAbrir) {
     H: ["#...#", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
     O: [".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
   };
-  const NOME = "CLAUDINHO", passo = Math.max(9, Math.min(W / (NOME.length * 6 + 2), unidade * 0.3));
+  const NOME = "CLAUDIE", passo = Math.max(9, Math.min(W / (NOME.length * 6 + 2), unidade * 0.3));
   const cw = passo, ch = passo, corpo = passo * 7;
   const cyNome = cyMarca + th * 2.5 + gap + passo * 3.5 + unidade * 0.6;
   const x0 = cx - ((NOME.length * 6 - 1) * passo) / 2, y0 = cyNome - 3.5 * passo, letras = [];
