@@ -204,19 +204,39 @@ function ferramentaFim(id, erro, saida) {
 
 function permissao(ev) {
   fechaSegmento(); tiraPensando();
+  if (ev.ferramenta === "ExitPlanMode" && typeof ev.entrada?.plan === "string") return cartaoPlano(ev);
   const el = bloco("perm");
   el.dataset.id = ev.id;
   const diff = diffDe(ev.ferramenta, ev.entrada);
-  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}</pre>`}`;
+  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}</pre>`}<input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que fazer em vez disso" />`;
   const linha = document.createElement("div"); linha.className = "b";
+  const fb = el.querySelector(".perm-fb");
   const botao = (rot, dec, cls) => {
     const b = document.createElement("button"); b.textContent = rot; b.className = "btn" + (cls ? " " + cls : "");
-    b.onclick = () => { vivo.permissao(ev.id, dec); el.className = "resolvido"; el.innerHTML = `${dec === "negar" ? ICONE.erro : ICONE.ok}<span>${dec === "negar" ? "Negado" : "Permitido"} · ${esc(rotulo(ev.ferramenta))}</span>`; mostraPensando(); };
-    linha.append(b);
+    b.onclick = () => { vivo.permissao(ev.id, dec, { texto: dec === "negar" ? fb.value : "" }); el.className = "resolvido"; el.innerHTML = `${dec === "negar" ? ICONE.erro : ICONE.ok}<span>${dec === "negar" ? "Negado" : "Permitido"} · ${esc(rotulo(ev.ferramenta))}</span>`; mostraPensando(); };
+    linha.append(b); return b;
   };
   botao("Permitir", "sim", "forte");
   if (ev.temSempre) botao("Sempre nesta sessão", "sempre");
-  botao("Negar", "negar");
+  const negar = botao("Negar", "negar");
+  fb.onkeydown = (e) => { if (e.key === "Enter" && fb.value.trim()) negar.click(); };
+  el.append(linha); forcaDesce();
+}
+// The plan Claude wants approved, as Markdown, with the mode to continue in.
+function cartaoPlano(ev) {
+  const el = bloco("perm plano-card");
+  el.dataset.id = ev.id;
+  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude montou um plano e quer <b>começar a executar</b></span></div><div class="corpo plano-md">${md(ev.entrada.plan)}</div><input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que ajustar no plano" />`;
+  decora(el);
+  const fb = el.querySelector(".perm-fb"), linha = document.createElement("div"); linha.className = "b";
+  const fecha = (ok, texto) => { el.className = "resolvido"; el.innerHTML = `${ok ? ICONE.ok : ICONE.erro}<span>${texto}</span>`; mostraPensando(); };
+  const botao = (rot, cls, fn) => { const b = document.createElement("button"); b.textContent = rot; b.className = "btn" + (cls ? " " + cls : ""); b.onclick = fn; linha.append(b); return b; };
+  const aprova = (modo, texto) => () => { vivo.permissao(ev.id, "sim", { modo }); fecha(true, texto); };
+  botao("Aprovar e perguntar a cada edição", "forte", aprova("default", "Plano aprovado · Perguntar"));
+  botao("Aprovar e editar sem perguntar", "", aprova("acceptEdits", "Plano aprovado · Editar sem perguntar"));
+  botao("Aprovar em modo automático", "", aprova("auto", "Plano aprovado · Automático"));
+  const manter = botao("Continuar planejando", "", () => { vivo.permissao(ev.id, "negar", { texto: fb.value }); fecha(false, "Continua planejando"); });
+  fb.onkeydown = (e) => { if (e.key === "Enter" && fb.value.trim()) manter.click(); };
   el.append(linha); forcaDesce();
 }
 
@@ -236,7 +256,7 @@ aoEvento((ev) => {
     case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", `Quer ${pedido(ev.ferramenta)}.`); break;
     case "permissao_fim": document.querySelector(`.perm[data-id="${ev.id}"], .pergunta[data-id="${ev.id}"]`)?.remove(); break;
     case "apagada": if (sessaoAtual === ev.id) { novaConversa(); nota("Esta conversa foi apagada em outra janela."); } break;
-    case "config": $("modo").value = ev.modo || "default"; $("modelo").value = ev.model || ""; $("esforco").value = ev.esforco || ""; ultracode = !!ev.ultracode; atualizaEscolhas(); break;
+    case "config": mostraEscolhas(ev); break;
     case "visual": if (typeof VIS !== "undefined") { VIS = ev.visual || {}; aplicaVisual(); } break;
     case "cartao_tema": { fechaSegmento(); tiraPensando(); const i = idx(ev.tema); if (i >= 0) cartao(bloco("msg claude"), i); break; }
     case "aplicar_tema": { const i = idx(ev.tema); if (i >= 0) aplica(i); break; }
@@ -702,6 +722,7 @@ async function abreSessao(id, titulo) {
   trocaFila(id);
   sessaoAtual = id; $("titulo").textContent = titulo;
   col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); limpaPlano(); escondeCache(); $("medidor").hidden = true;
+  if (r.cfg) mostraEscolhas(r.cfg);
   const t = r.turno;
   turnoVisto = t?.tid || null; turnoN = t?.n || 0; setRodando(!!t);
   for (const m of r.hist) {
@@ -731,9 +752,12 @@ async function novaConversa() {
 $("nova").onclick = novaConversa;
 $("pasta").onclick = async () => { if (rodando) { nota("Espere o Claude terminar para trocar de pasta."); return; } const p = await vivo.pasta(); if (p) { mostraPasta(p); novaConversa(); carregaSessoes(); todosComandos = buscandoComandos = null; } };
 const mostraPasta = (p) => { $("pastaNome").textContent = p.split(/[\\/]/).pop() || p; $("pasta").title = p; const b = col.querySelector(".boas b"); if (b) b.textContent = $("pastaNome").textContent; };
-$("modelo").onchange = () => vivo.config({ model: $("modelo").value });
-$("modo").onchange = () => vivo.config({ modo: $("modo").value });
-$("esforco").onchange = () => vivo.config({ esforco: $("esforco").value });
+// Choices belong to this conversation; what a running turn cannot take applies from the next message.
+const guardaEscolha = (m) => vivo.config(m).then((r) => { if (rodando && r?.depois?.length) nota("Vale a partir da próxima mensagem."); });
+const mostraEscolhas = (c) => { $("modo").value = c.modo || "default"; $("modelo").value = c.model || ""; $("esforco").value = c.esforco || ""; ultracode = !!c.ultracode; atualizaEscolhas(); };
+$("modelo").onchange = () => guardaEscolha({ model: $("modelo").value });
+$("modo").onchange = () => guardaEscolha({ modo: $("modo").value });
+$("esforco").onchange = () => guardaEscolha({ esforco: $("esforco").value });
 
 // ---- composer choices ------------------------------------------------------------
 // Permissions and model open a small menu that explains each option; effort is
@@ -815,7 +839,7 @@ montaEscolha("esforco", (pop, sel, escolhe) => {
     <p class="esf-desc"></p>
     <div class="esf-troca"><span>Rapidez</span><span class="esf-med" data-m="0"></span><span>Profundidade</span><span class="esf-med" data-m="1"></span></div>
     <div class="esf-ultra"><div><b>Ultracode</b><small>O Claude monta um fluxo com vários agentes para cada tarefa. Gasta bem mais do seu limite.</small></div><button class="chave" role="switch" aria-checked="${ultracode}" title="Ligar ou desligar"><i></i></button></div>`;
-  pop.querySelector(".esf-ultra .chave").onclick = () => { ultracode = !ultracode; vivo.config({ ultracode }); atualizaEscolhas(); };
+  pop.querySelector(".esf-ultra .chave").onclick = () => { ultracode = !ultracode; guardaEscolha({ ultracode }); atualizaEscolhas(); };
   const mostra = (k, previa) => {
     pop.querySelector(".esf-nome").textContent = ESFORCO[k][1];
     pop.querySelector(".esf-glifo").textContent = k ? GLIFO_ESF[k] : "";
@@ -1458,7 +1482,7 @@ $("atalhosBtn").onclick = abreAtalhos;
   telaInicial();
   const e = await vivo.estado();
   mostraPasta(e.cwd);
-  $("modelo").value = e.model || ""; $("modo").value = e.modo || "default"; $("esforco").value = e.esforco || ""; ultracode = !!e.ultracode; atualizaEscolhas();
+  mostraEscolhas(e);
   let salvo = ""; try { salvo = localStorage.getItem("tema") || ""; } catch {}
   if (salvo.includes(":")) aplicaChave(salvo); else if (idx(salvo) >= 0) aplica(idx(salvo));
   vivo.motionLista().then((l) => ($("meusN").textContent = l.length));

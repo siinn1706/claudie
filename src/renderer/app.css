@@ -181,7 +181,9 @@ main { position: relative; overflow: hidden; }
 .perm .t { display: flex; gap: 8px; align-items: center; font-weight: 500; margin-bottom: 8px; }
 .perm .t svg { color: var(--accent); }
 .perm pre { font: 12px/1.55 var(--mono); white-space: pre-wrap; max-height: 220px; overflow: auto; background: var(--code); padding: 10px; border-radius: 9px; margin: 0 0 12px; }
-.perm .b { display: flex; gap: 8px; }
+.perm .b { display: flex; gap: 8px; flex-wrap: wrap; }
+.perm-fb { width: 100%; box-sizing: border-box; padding: 7px 10px; margin: 0 0 10px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--code); outline: 0; font-size: 13px; }
+.plano-md { max-height: 340px; overflow: auto; margin: 0 0 12px; padding: 4px 12px; border-radius: 9px; background: var(--code); font-size: 13.5px; }
 .btn { border-radius: 9px; padding: 7px 14px; cursor: var(--cur-mao, pointer); border: 1px solid var(--line-2); background: var(--pill); font-weight: 500; font-size: 13px; transition: transform 0.12s var(--ease), filter 0.15s, background 0.15s; }
 .btn:hover { filter: brightness(1.12); } .btn:active { transform: scale(0.97); }
 .btn.forte { background: var(--accent); border-color: transparent; color: #fff; }

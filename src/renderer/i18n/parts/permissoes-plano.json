@@ -1,0 +1,15 @@
+{
+  "Diga ao Claude o que fazer em vez disso": { "en": "Tell Claude what to do instead", "vi": "Cho Claude biết nên làm gì thay vào đó" },
+  "Diga ao Claude o que ajustar no plano": { "en": "Tell Claude what to change in the plan", "vi": "Cho Claude biết cần chỉnh gì trong kế hoạch" },
+  "O Claude montou um plano e quer": { "en": "Claude drew up a plan and wants to", "vi": "Claude đã lập kế hoạch và muốn" },
+  "começar a executar": { "en": "start executing it", "vi": "bắt đầu thực hiện" },
+  "Aprovar e perguntar a cada edição": { "en": "Approve and ask before each edit", "vi": "Duyệt và hỏi trước mỗi lần sửa" },
+  "Aprovar e editar sem perguntar": { "en": "Approve and edit without asking", "vi": "Duyệt và sửa không cần hỏi" },
+  "Aprovar em modo automático": { "en": "Approve in automatic mode", "vi": "Duyệt ở chế độ tự động" },
+  "Continuar planejando": { "en": "Keep planning", "vi": "Tiếp tục lập kế hoạch" },
+  "Plano aprovado · Perguntar": { "en": "Plan approved · Ask", "vi": "Đã duyệt kế hoạch · Hỏi" },
+  "Plano aprovado · Editar sem perguntar": { "en": "Plan approved · Edit without asking", "vi": "Đã duyệt kế hoạch · Sửa không cần hỏi" },
+  "Plano aprovado · Automático": { "en": "Plan approved · Automatic", "vi": "Đã duyệt kế hoạch · Tự động" },
+  "Continua planejando": { "en": "Still planning", "vi": "Vẫn đang lập kế hoạch" },
+  "Vale a partir da próxima mensagem.": { "en": "Applies from the next message.", "vi": "Áp dụng từ tin nhắn tiếp theo." }
+}

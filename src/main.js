@@ -93,6 +93,22 @@ const J = (e) => janelas.get(e.sender.id);
 const pendentes = new Map(); // permission request id -> { resolve, suggestions, input, t }
 const turnos = new Set();    // every running turn: { tid, j, q, ac, sessionId, cwd, ... }
 const turnoDe = (id) => id && [...turnos].find((t) => t.sessionId === id);
+// Model, permission mode, effort and ultracode belong to each conversation
+// (config.porSessao); the top-level values are only what a new one starts with.
+const MODOS = ["default", "acceptEdits", "plan", "auto"];
+const cfgSessao = (id) => ({ model: config.model || "", modo: config.modo || "default", esforco: config.esforco || "", ultracode: !!config.ultracode, ...(id && config.porSessao?.[id]) });
+const cfgJ = (j) => cfgSessao(j?.sessionId);
+const guardaCfg = (id, c) => { (config.porSessao ||= {})[id] = { model: c.model || "", modo: c.modo || "default", esforco: c.esforco || "", ultracode: !!c.ultracode }; };
+// Pushes a change into a running turn; what the CLI refuses waits for the next message.
+async function aplicaNoTurno(t, m) {
+  const falhou = [];
+  const tenta = async (chave, fn) => { try { await fn(); } catch { falhou.push(chave); } };
+  if ("modo" in m) await tenta("modo", () => t.q.setPermissionMode(m.modo || "default"));
+  if ("model" in m) await tenta("model", () => t.q.setModel(m.model || undefined));
+  if ("esforco" in m) await tenta("esforco", () => t.q.applyFlagSettings({ effortLevel: m.esforco || null }));
+  if ("ultracode" in m) await tenta("ultracode", () => t.q.applyFlagSettings({ ultracode: !!m.ultracode }));
+  return falhou;
+}
 function avisaTurnos() {
   const rodando = [...turnos].filter((t) => t.sessionId).map((t) => t.sessionId);
   const aguardando = [...turnos].filter((t) => t.sessionId && t.pendentes.size).map((t) => t.sessionId);
@@ -392,18 +408,22 @@ async function turno(j, texto, anexos) {
     enviarEvento(t.j, { ...x, tid: t.tid, n: t.n });
   };
   const novo = !t.sessionId;
-  let resposta = "";
+  let resposta = "", contexto = 0, pedidoEm = 0;
+  t.cfg = { ...cfgJ(j) };
+  // Until the query exists the window follows no tagged stream, so a setup failure is sent untagged.
+  const aviso = (x) => (t.q ? ev(x) : enviarEvento(t.j, x));
+  try {
   const prompt = montaPrompt(texto, anexos, uuid);
   const q = t.q = query({
     prompt,
     options: {
       cwd: t.cwd,
-      model: config.model || undefined,
+      model: t.cfg.model || undefined,
       resume: t.sessionId || undefined,
-      permissionMode: config.modo || "default",
-      effort: config.esforco || undefined,
+      permissionMode: t.cfg.modo,
+      effort: t.cfg.esforco || undefined,
       // Ultracode: Claude plans a workflow of many agents for each real task.
-      settings: config.ultracode ? { ultracode: true } : undefined,
+      settings: t.cfg.ultracode ? { ultracode: true } : undefined,
       enableFileCheckpointing: true,
       thinking: geral.raciocinio === false ? undefined : { type: "adaptive", display: "summarized" },
       includePartialMessages: true,
@@ -426,13 +446,12 @@ async function turno(j, texto, anexos) {
   });
   turnos.add(t);
   j.atual = t;
-  let contexto = 0, pedidoEm = 0;
   ev({ tipo: "inicio", uuid: typeof prompt === "string" ? null : uuid });
   avisaTurnos();
-  try {
     for await (const msg of q) {
       if (msg.session_id && msg.session_id !== t.sessionId) {
         t.sessionId = msg.session_id;
+        if (novo && !config.porSessao?.[t.sessionId]) { guardaCfg(t.sessionId, t.cfg); salvarConfig(); }
         if (t.j.atual === t) t.j.sessionId = t.sessionId;
         ev({ tipo: "sessao", id: t.sessionId }); avisaTurnos();
       }
@@ -484,11 +503,16 @@ async function turno(j, texto, anexos) {
       }
     }
   } catch (err) {
-    if (!ac.signal.aborted) ev({ tipo: "erro", texto: String(err?.message || err) });
+    if (!ac.signal.aborted) aviso({ tipo: "erro", texto: String(err?.message || err) });
   } finally {
     turnos.delete(t);
     if (t.j.atual === t) t.j.atual = null;
-    ev({ tipo: "parado", id: t.sessionId });
+    // A turn that ends without an abort must not leave cards waiting for an answer.
+    for (const id of [...t.pendentes.keys()]) {
+      pendentes.get(id)?.resolve({ behavior: "deny", message: "Cancelado." }); pendentes.delete(id);
+      t.pendentes.delete(id); aviso({ tipo: "permissao_fim", id });
+    }
+    aviso({ tipo: "parado", id: t.sessionId });
     avisaTurnos();
     if (novo && t.sessionId && geral.titulo !== false && resposta && !texto.startsWith("/")) tituloAutomatico(t.j, t.sessionId, texto, resposta);
   }
@@ -614,7 +638,7 @@ function criarJanela(sessao) {
 // A conversation running in another window can't be opened to send here too.
 const emOutra = (j, id) => { const t = turnoDe(id); return !!t && t.j !== j; };
 
-ipcMain.handle("estado", (e) => ({ ...config, cwd: J(e).cwd, sessionId: J(e).sessionId, rodando: !!J(e).atual, temas: TEMAS, janelas: janelas.size }));
+ipcMain.handle("estado", (e) => ({ ...config, ...cfgJ(J(e)), cwd: J(e).cwd, sessionId: J(e).sessionId, rodando: !!J(e).atual, temas: TEMAS, janelas: janelas.size }));
 ipcMain.handle("enviar", (e, texto, anexos) => {
   const j = J(e);
   if (j.atual || (turnoDe(j.sessionId) && !emOutra(j, j.sessionId))) return false;
@@ -642,18 +666,17 @@ ipcMain.handle("motion_lista", () => {
 ipcMain.handle("motion_ler", (_e, id) => { try { return JSON.parse(fs.readFileSync(path.join(pastaMotion(), idMotion(id) + ".json"), "utf8")); } catch { return null; } });
 ipcMain.handle("motion_apagar", (_e, id) => { try { fs.unlinkSync(path.join(pastaMotion(), idMotion(id) + ".json")); return true; } catch { return false; } });
 ipcMain.handle("parar", async (e) => { const a = J(e).atual; if (a) { try { await a.q.interrupt(); } catch { a.ac.abort(); } } });
-ipcMain.handle("permissao", (_e, { id, decisao }) => {
+ipcMain.handle("permissao", (_e, { id, decisao, texto, modo }) => {
   const p = pendentes.get(id); if (!p) return;
   pendentes.delete(id); p.t.pendentes.delete(id); avisaTurnos();
-  if (decisao === "negar") p.resolve({ behavior: "deny", message: "A pessoa negou." });
-  else {
-    p.resolve({ behavior: "allow", updatedPermissions: decisao === "sempre" ? p.suggestions : undefined });
-    // Approving a plan leaves plan mode: the next turns may edit (asking first).
-    if (p.toolName === "ExitPlanMode" && config.modo === "plan") {
-      config.modo = "default"; salvarConfig(); avisaConfig();
-      p.t.q.setPermissionMode?.("default").catch?.(() => {});
-    }
-  }
+  const feedback = String(texto || "").trim().slice(0, 2000), plano = p.toolName === "ExitPlanMode";
+  if (decisao === "negar") p.resolve({ behavior: "deny", message: feedback ? (plano ? `A pessoa quer ajustar o plano antes de seguir: ${feedback}` : `A pessoa negou e pediu: ${feedback}`) : "A pessoa negou." });
+  else if (plano) {
+    // Approving a plan leaves plan mode for the mode the person chose, in the running turn and in the saved choice.
+    const novo = MODOS.includes(modo) && modo !== "plan" ? modo : "default";
+    p.resolve({ behavior: "allow", updatedPermissions: [{ type: "setMode", mode: novo, destination: "session" }] });
+    mudaConfig(p.t.j, { modo: novo }, p.t.sessionId);
+  } else p.resolve({ behavior: "allow", updatedPermissions: decisao === "sempre" ? p.suggestions : undefined });
 });
 // The side panel: where Claude works (computer, folder, git branch, model),
 // how full the context is by category, and the state of each connector (MCP
@@ -671,12 +694,12 @@ async function comConsulta(j, fn) {
   const ac = new AbortController();
   let solta;
   const espera = new Promise((r) => (solta = r));
-  const q = query({ prompt: (async function* () { await espera; })(), options: { cwd: j.cwd, resume: j.sessionId || undefined, model: config.model || undefined, abortController: ac, systemPrompt: { type: "preset", preset: "claude_code" }, mcpServers: { claudie: servidorTemasPara(j) } } });
+  const q = query({ prompt: (async function* () { await espera; })(), options: { cwd: j.cwd, resume: j.sessionId || undefined, model: cfgJ(j).model || undefined, abortController: ac, systemPrompt: { type: "preset", preset: "claude_code" }, mcpServers: { claudie: servidorTemasPara(j) } } });
   try { return await fn(q); } finally { solta(); ac.abort(); q.return?.().catch(() => {}); }
 }
 ipcMain.handle("painel", async (e) => {
   const j = J(e);
-  const ambiente = { computador: os.hostname(), pasta: j.cwd, ramo: ramoGit(j.cwd), modelo: config.model || "" };
+  const ambiente = { computador: os.hostname(), pasta: j.cwd, ramo: ramoGit(j.cwd), modelo: cfgJ(j).model || "" };
   try {
     // connectors are still connecting right after start: give them a few seconds
     const [contexto, conectores] = await comConsulta(j, async (q) => {
@@ -745,7 +768,7 @@ ipcMain.handle("desfazer", async (e, { uuid, simular }) => {
   finally { solta(); ac.abort(); q.return?.().catch(() => {}); }
 });
 // A running turn keeps going in the background; the window starts afresh.
-ipcMain.handle("nova", (e) => { const j = J(e); j.sessionId = null; j.atual = null; return true; });
+ipcMain.handle("nova", (e) => { const j = J(e); j.sessionId = null; j.atual = null; enviarEvento(j, { tipo: "config", ...cfgJ(j) }); return true; });
 // The Claude app (Code tab) keeps its own record of each conversation — the
 // title it shows, whether it is archived — next to the transcript Claude Code
 // writes. Reading those records lets the list use the same names the person
@@ -814,9 +837,10 @@ ipcMain.handle("abrir_sessao", async (e, id, cwd) => {
   // A turn of this conversation still running (here or left in the
   // background): the window picks it up where it is, after the transcript.
   const t = turnoDe(id);
-  if (!t || t.j !== j) return { hist };
+  const cfg = cfgSessao(id);
+  if (!t || t.j !== j) return { hist, cfg };
   j.atual = t;
-  return { hist, turno: { tid: t.tid, n: t.n, parcial: t.parcial, pendentes: [...t.pendentes.values()] } };
+  return { hist, cfg, turno: { tid: t.tid, n: t.n, parcial: t.parcial, pendentes: [...t.pendentes.values()] } };
 });
 // Branch: a new conversation with this one up to a reply (or all of it).
 ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {
@@ -825,6 +849,7 @@ ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {
   try {
     const dir = cwd && fs.existsSync(cwd) ? cwd : j.cwd;
     const r = await forkSession(origem, { dir, upToMessageId: uuid || undefined, title: titulo || undefined });
+    guardaCfg(r.sessionId, cfgSessao(origem)); salvarConfig();
     j.cwd = dir; j.sessionId = r.sessionId;
     return { id: r.sessionId, titulo: titulo || "Ramo", cwd: dir };
   } catch (e) { console.log("[ramificar]", e?.message || e); return null; }
@@ -870,6 +895,7 @@ ipcMain.handle("apagar", async (e, id, cwd) => {
   if (turnoDe(id)) return false;
   try {
     await deleteSession(id, { dir: cwd || J(e).cwd });
+    if (config.porSessao?.[id]) { delete config.porSessao[id]; salvarConfig(); }
     for (const o of janelas.values()) if (o.sessionId === id) { o.sessionId = null; if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
     return true;
   } catch { return false; }
@@ -881,8 +907,29 @@ ipcMain.handle("pasta", async (e) => {
   if (r.canceled || !r.filePaths[0]) return null;
   config.cwd = j.cwd = r.filePaths[0]; j.sessionId = null; salvarConfig(); return j.cwd;
 });
-ipcMain.handle("config", (_e, mudanca) => { config = { ...config, ...mudanca }; salvarConfig(); avisaConfig(); return config; });
-function avisaConfig() { for (const o of janelas.values()) enviarEvento(o, { tipo: "config", modo: config.modo, model: config.model, esforco: config.esforco, ultracode: !!config.ultracode }); }
+// A change of model, mode, effort or ultracode goes to the conversation it was made in (or, in a new
+// one, to the defaults) and into the turns running there; the rest of config is shared.
+async function mudaConfig(j, mudanca, id = j.sessionId) {
+  const m = {};
+  for (const k of ["model", "modo", "esforco", "ultracode"]) if (k in mudanca) m[k] = k === "ultracode" ? !!mudanca[k] : String(mudanca[k] || "");
+  if (m.modo && !MODOS.includes(m.modo)) delete m.modo;
+  const turnosAfetados = [...turnos].filter((t) => t.q && ((id && t.sessionId === id) || (!id && t === j.atual)));
+  if (id) guardaCfg(id, { ...cfgSessao(id), ...m });
+  else Object.assign(config, m);
+  for (const t of turnosAfetados) t.cfg = { ...t.cfg, ...m };
+  salvarConfig(); avisaConfig();
+  const falhou = new Set();
+  for (const t of turnosAfetados) for (const k of await aplicaNoTurno(t, m)) falhou.add(k);
+  return [...falhou];
+}
+ipcMain.handle("config", async (e, mudanca) => {
+  const { model, modo, esforco, ultracode, ...resto } = mudanca || {}, j = J(e);
+  if (Object.keys(resto).length) { config = { ...config, ...resto }; salvarConfig(); }
+  const depois = await mudaConfig(j, Object.fromEntries(Object.entries({ model, modo, esforco, ultracode }).filter(([, v]) => v !== undefined)));
+  return { ...config, ...cfgJ(j), depois };
+});
+// Each window shows the choices of the conversation it holds.
+function avisaConfig() { for (const o of janelas.values()) enviarEvento(o, { tipo: "config", ...cfgJ(o) }); }
 // Everything the person customised (colours, fonts, sounds, music, icon, name).
 ipcMain.handle("visual", () => config.visual || {});
 // Sync, so the window can translate itself before it first paints.

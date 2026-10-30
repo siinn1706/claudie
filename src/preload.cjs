@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld("vivo", {
   estado: () => ipcRenderer.invoke("estado"),
   enviar: (texto, anexos) => ipcRenderer.invoke("enviar", texto, anexos),
   parar: () => ipcRenderer.invoke("parar"),
-  permissao: (id, decisao) => ipcRenderer.invoke("permissao", { id, decisao }),
+  permissao: (id, decisao, extra) => ipcRenderer.invoke("permissao", { id, decisao, ...extra }),
   nova: () => ipcRenderer.invoke("nova"),
   sessoes: (opcoes) => ipcRenderer.invoke("sessoes", opcoes),
   abrirSessao: (id, cwd) => ipcRenderer.invoke("abrir_sessao", id, cwd),
