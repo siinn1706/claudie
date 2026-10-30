@@ -14,6 +14,7 @@ import { execFileSync, execFile, spawn } from "node:child_process";
 import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
+import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const idioma = () => (IDIOMAS.includes(config?.visual?.geral?.idioma) ? config.visual.geral.idioma : IDIOMA_PADRAO);
@@ -485,7 +486,8 @@ function aplicaIcone() {
 // open permission cards).
 async function turno(j, texto, anexos) {
   const ac = new AbortController(), uuid = crypto.randomUUID(), geral = config.visual?.geral || {};
-  const t = { tid: uuid, j, q: null, ac, sessionId: j.sessionId, cwd: j.cwd, n: 0, parcial: "", pendentes: new Map(), subs: [], tarefas: new Map() };
+  const t = { tid: uuid, j, q: null, ac, sessionId: j.sessionId, cwd: j.cwd, n: 0, parcial: "", pendentes: new Map(), subs: [] };
+  iniciaTarefas(t);
   const ev = t.ev = (x) => {
     t.n++;
     // Subagent activity is kept (bounded) so a window that opens the turn later can redraw it.
@@ -547,24 +549,8 @@ async function turno(j, texto, anexos) {
         ev({ tipo: "pensando", tokens: msg.estimated_tokens });
       } else if (msg.type === "system" && msg.subtype === "init") {
         ev({ tipo: "info", modelo: msg.model, cwd: msg.cwd, modo: msg.permissionMode });
-      } else if (msg.type === "system" && msg.subtype === "background_tasks_changed") {
-        // The whole set of live background tasks: replace what was known.
-        const vivas = new Set(msg.tasks.filter((x) => !x.ambient).map((x) => x.task_id));
-        for (const [id, x] of t.tarefas) if (x.bg && !vivas.has(id)) t.tarefas.delete(id);
-        for (const x of msg.tasks) if (!x.ambient) t.tarefas.set(x.task_id, { id: x.task_id, tipo: x.task_type, descricao: x.description, bg: true });
-        fundoEnvia(t);
-      } else if (msg.type === "system" && msg.subtype === "task_started") {
-        if (!msg.ambient && !msg.skip_transcript) { t.tarefas.set(msg.task_id, { id: msg.task_id, tipo: msg.task_type || msg.subagent_type || "", descricao: msg.description, bg: msg.is_backgrounded !== false }); fundoEnvia(t); }
-      } else if (msg.type === "system" && msg.subtype === "task_updated") {
-        const x = t.tarefas.get(msg.task_id), p = msg.patch || {};
-        if (x) {
-          if (p.is_backgrounded != null) x.bg = p.is_backgrounded;
-          if (p.description) x.descricao = p.description;
-          if (["completed", "failed", "killed"].includes(p.status)) t.tarefas.delete(msg.task_id);
-          fundoEnvia(t);
-        }
-      } else if (msg.type === "system" && msg.subtype === "task_notification") {
-        if (t.tarefas.delete(msg.task_id)) fundoEnvia(t);
+      } else if (trataMensagem(t, msg)) {
+        // background tasks: tarefas.js keeps the state and sends the "fundo" snapshots
       } else if (msg.type === "stream_event" && !msg.parent_tool_use_id) {
         const e = msg.event;
         if (e.type === "message_start") pedidoEm = Date.now();
@@ -576,7 +562,7 @@ async function turno(j, texto, anexos) {
         // The finished message is in the transcript now; nothing left to replay.
         t.parcial = "";
         for (const b of msg.message.content) {
-          if (b.type === "tool_use") ev({ tipo: "ferramenta", id: b.id, nome: b.name, entrada: b.input });
+          if (b.type === "tool_use") { ev({ tipo: "ferramenta", id: b.id, nome: b.name, entrada: b.input }); if (b.name === "Workflow") workflowEntrada(t, b.id, b.input); }
         }
         // The id of a reply with text, so the window can branch from it.
         if (msg.message.content.some((b) => b.type === "text" && b.text.trim())) ev({ tipo: "marca", uuid: msg.uuid });
@@ -592,6 +578,7 @@ async function turno(j, texto, anexos) {
         }
         if (msg.error) ev({ tipo: "erro", texto: `Erro da API: ${msg.error}` });
       } else if (msg.type === "user" && !msg.parent_tool_use_id && Array.isArray(msg.message?.content)) {
+        workflowSaida(t, msg.tool_use_result);
         for (const b of msg.message.content) {
           if (b.type === "tool_result") {
             const corpo = textoDoResultado(b.content), maior = corpo.length > SAIDA_VISTA;
@@ -627,6 +614,7 @@ async function turno(j, texto, anexos) {
       pendentes.get(id)?.resolve({ behavior: "deny", message: "Cancelado." }); pendentes.delete(id);
       t.pendentes.delete(id); aviso({ tipo: "permissao_fim", id });
     }
+    fechaTudo(t);
     aviso({ tipo: "parado", id: t.sessionId });
     avisaTurnos();
     if (novo && t.sessionId && geral.titulo !== false && resposta && !texto.startsWith("/")) tituloAutomatico(t.j, t.sessionId, texto, resposta);
@@ -656,9 +644,6 @@ function imagensDoResultado(c) {
 }
 // A tool input small enough for a live event: long strings cut, nested values dropped.
 const enxuto = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, typeof v === "string" ? v.slice(0, 300) : typeof v === "object" ? undefined : v]));
-// The background tasks running now, for the strip above the composer.
-const fundoLista = (t) => [...t.tarefas.values()].filter((x) => x.bg).map(({ id, tipo, descricao }) => ({ id, tipo, descricao }));
-const fundoEnvia = (t) => t.ev({ tipo: "fundo", tarefas: fundoLista(t) });
 // What a task tool gave back, for the plan: the new task's id, or the whole
 // list. The structured result is preferred; the text ("Task #3 created") is
 // what the transcript keeps.
@@ -814,6 +799,12 @@ ipcMain.handle("motion_lista", () => {
 ipcMain.handle("motion_ler", (_e, id) => { try { return JSON.parse(fs.readFileSync(path.join(pastaMotion(), idMotion(id) + ".json"), "utf8")); } catch { return null; } });
 ipcMain.handle("motion_apagar", (_e, id) => { try { fs.unlinkSync(path.join(pastaMotion(), idMotion(id) + ".json")); return true; } catch { return false; } });
 ipcMain.handle("parar", async (e) => { const a = J(e).atual; if (a) { try { await a.q.interrupt(); } catch { a.ac.abort(); } } });
+// Stops one background task (not the whole turn); the stream then reports it as stopped.
+ipcMain.handle("parar_tarefa", async (e, id) => {
+  const a = J(e).atual;
+  if (!a?.tarefas.has(id)) return false;
+  try { await a.q.stopTask(id); return true; } catch { return false; }
+});
 ipcMain.handle("permissao", (_e, { id, decisao, texto, modo }) => {
   const p = pendentes.get(id); if (!p) return;
   pendentes.delete(id); p.t.pendentes.delete(id); avisaTurnos();
@@ -1163,9 +1154,9 @@ ipcMain.handle("abrir_sessao", async (e, id, cwd) => {
   // background): the window picks it up where it is, after the transcript.
   const t = turnoDe(id);
   const cfg = cfgSessao(id);
-  if (!t || t.j !== j) return { hist, cfg };
+  if (!t || t.j !== j) return { hist, cfg, fundo: { ativas: [], concluidas: concluidasDe(id) } };
   j.atual = t;
-  return { hist, cfg, turno: { tid: t.tid, n: t.n, parcial: t.parcial, pendentes: [...t.pendentes.values()], subs: t.subs, fundo: fundoLista(t) } };
+  return { hist, cfg, fundo: fundoLista(t), turno: { tid: t.tid, n: t.n, parcial: t.parcial, pendentes: [...t.pendentes.values()], subs: t.subs } };
 });
 // Branch: a new conversation with this one up to a reply (or all of it).
 ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {
@@ -1232,7 +1223,7 @@ ipcMain.handle("apagar", async (e, id, cwd) => {
   if (turnoDe(id)) return false;
   try {
     await deleteSession(id, { dir: cwd || J(e).cwd });
-    textoDasSessoes.delete(id);
+    textoDasSessoes.delete(id); esqueceTarefas(id);
     if (config.porSessao?.[id]) { delete config.porSessao[id]; salvarConfig(); }
     for (const o of janelas.values()) if (o.sessionId === id) { o.sessionId = null; if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
     return true;

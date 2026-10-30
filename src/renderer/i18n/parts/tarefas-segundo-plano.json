@@ -1,0 +1,20 @@
+{
+  "Tarefas em segundo plano": { "en": "Background tasks", "vi": "Tác vụ chạy nền" },
+  "Rodando": { "en": "Running", "vi": "Đang chạy" },
+  "Concluídas": { "en": "Completed", "vi": "Đã hoàn thành" },
+  "Nenhuma tarefa em segundo plano": { "en": "No background tasks", "vi": "Không có tác vụ chạy nền" },
+  "tarefa": { "en": "task", "vi": "tác vụ" },
+  "tarefas": { "en": "tasks", "vi": "tác vụ" },
+  "1 tarefa": { "en": "1 task", "vi": "1 tác vụ" },
+  "{0} tarefas": { "en": "{0} tasks", "vi": "{0} tác vụ" },
+  "1 agente": { "en": "1 agent", "vi": "1 tác tử" },
+  "{0} agentes": { "en": "{0} agents", "vi": "{0} tác tử" },
+  "Agentes": { "en": "Agents", "vi": "Tác tử" },
+  "Parar tarefa": { "en": "Stop task", "vi": "Dừng tác vụ" },
+  "Confirmar: parar?": { "en": "Confirm: stop?", "vi": "Xác nhận: dừng?" },
+  "Não foi possível parar": { "en": "Could not stop", "vi": "Không thể dừng" },
+  "Concluída": { "en": "Completed", "vi": "Hoàn thành" },
+  "Falhou": { "en": "Failed", "vi": "Thất bại" },
+  "Parada": { "en": "Stopped", "vi": "Đã dừng" },
+  "Ver": { "en": "View", "vi": "Xem" }
+}

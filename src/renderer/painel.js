@@ -220,15 +220,20 @@ async function oferecePodarWorktree(s) {
 mostraRamo();
 if (le("infoAberta", false)) alternaInfo(true);
 
-// Background work of the running turn (shells, agents, monitors): a strip above
-// the plan, filled by the "fundo" events and emptied when the turn ends.
+// Background work (workflows, agents, shells, monitors): a strip above the plan
+// that opens the "Tarefas em segundo plano" sheet (tarefas.js). It follows the
+// "fundo" snapshots of the conversation on screen.
 const fundoEl = document.createElement("div");
-fundoEl.className = "fundo"; fundoEl.setAttribute("aria-label", "Em segundo plano");
+fundoEl.className = "fundo"; fundoEl.setAttribute("aria-label", "Em segundo plano"); fundoEl.tabIndex = 0; fundoEl.setAttribute("role", "button");
 $("plano").before(fundoEl);
-const tipoFundo = (tipo = "") => /bash|shell/.test(tipo) ? "Comando" : /agent/.test(tipo) ? "Agente" : /monitor/.test(tipo) ? "Monitor" : /workflow/.test(tipo) ? "Fluxo" : "Tarefa";
-function desenhaFundo(tarefas = []) {
-  fundoEl.innerHTML = tarefas.length ? `<div class="fundo-cab"><b>Em segundo plano</b><em>${tarefas.length}</em></div>` + tarefas.map((x) => `<div class="fundo-item"><i></i><b>${esc(tipoFundo(x.tipo))}</b><span title="${esc(x.descricao || "")}">${esc(x.descricao || "")}</span></div>`).join("") : "";
-  fundoEl.classList.toggle("on", tarefas.length > 0);
+fundoEl.onclick = () => abreTarefas();
+fundoEl.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abreTarefas(); } };
+const tipoFundo = (tipo = "") => /bash|shell/.test(tipo) ? "Shell" : /agent/.test(tipo) ? "Agente" : /monitor/.test(tipo) ? "Monitor" : /workflow/.test(tipo) ? "Fluxo" : "Tarefa";
+function desenhaFundo(ativas = []) {
+  const item = (x) => {
+    const wf = x.tipo === "local_workflow", nome = (wf && x.nome) || x.descricao || "";
+    return `<div class="fundo-item"><i></i><b>${esc(tipoFundo(x.tipo))}</b><span title="${esc(nome)}">${esc(nome)}</span>${wf && x.nAgentes ? `<em>${x.nFeitos}/${x.nAgentes}</em>` : ""}${x.tokens ? `<em>${esc(tfNum(x.tokens))}</em>` : ""}</div>`;
+  };
+  fundoEl.innerHTML = ativas.length ? `<div class="fundo-cab"><b>Em segundo plano</b><em>${ativas.length}</em><u>Ver</u></div>` + ativas.slice(0, 4).map(item).join("") + (ativas.length > 4 ? `<div class="fundo-item"><span>+${ativas.length - 4}</span></div>` : "") : "";
+  fundoEl.classList.toggle("on", ativas.length > 0);
 }
-const limpaFundo = () => desenhaFundo([]);
-aoEvento((ev) => { if (ev.tipo === "fundo") desenhaFundo(ev.tarefas); else if (ev.tipo === "inicio" || ev.tipo === "parado") limpaFundo(); });

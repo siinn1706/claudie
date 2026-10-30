@@ -1147,7 +1147,7 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .sub .estado svg { width: 12px; height: 12px; }
 .sub .estado.rodando { border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: gira 0.8s linear infinite; }
 .sub .estado.ok { color: var(--ok); } .sub .estado.erro { color: var(--err); }
-.fundo { display: none; margin-bottom: 8px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--composer); backdrop-filter: blur(var(--blur)); font-size: 12.5px; }
+.fundo { cursor: var(--cur-mao, pointer); display: none; margin-bottom: 8px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--composer); backdrop-filter: blur(var(--blur)); font-size: 12.5px; }
 .fundo.on { display: block; animation: entra 0.25s var(--ease) backwards; }
 .fundo-cab { display: flex; gap: 8px; align-items: center; margin-bottom: 2px; }
 .fundo-cab b { font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-2); }
@@ -1156,6 +1156,68 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .fundo-item i { width: 11px; height: 11px; flex: none; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: gira 0.8s linear infinite; }
 .fundo-item b { font-weight: 500; white-space: nowrap; }
 .fundo-item span { color: var(--ui-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.fundo-item em { font: normal 11px var(--mono); color: var(--ui-dim); flex: none; }
+.fundo-cab u { margin-left: auto; font: 11px var(--mono); color: var(--ui-dim); text-decoration: none; }
+.fundo:hover .fundo-cab u, .fundo:focus-visible .fundo-cab u { color: var(--accent-2); }
+.fundo:focus-visible { outline: 1px solid var(--accent); }
+
+/* ---- Tarefas em segundo plano: the chip by the composer and the sheet ---- */
+@keyframes tf-pulsa { 50% { opacity: 0.35; } }
+.tf-gira { width: 10px; height: 10px; flex: none; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: gira 0.8s linear infinite; }
+.tf-chip { display: none; align-items: center; gap: 6px; margin-left: auto; margin-right: 6px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: var(--ui-2); font: 11.5px var(--mono); white-space: nowrap; cursor: var(--cur-mao, pointer); }
+.tf-chip.on { display: flex; flex: none; }
+.tf-chip b { font-weight: 600; }
+@media (max-width: 1240px) { .tf-chip span { display: none; } .tf-chip { gap: 5px; padding: 2px 8px; } }
+.tf-chip:hover { background: var(--hover); color: var(--ui); }
+.tf-chip + .cache, .tf-chip + .medidor { margin-left: 0; }
+.janelinha[data-id="tarefas"] { max-width: calc(100% - 16px); }
+.janelinha:focus { outline: none; }
+.janelinha .jl-corpo.tf { padding: 6px 10px 12px; }
+.tf-sec-cab { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 2px; background: none; border: 0; cursor: var(--cur-mao, pointer); color: var(--ui-2); text-align: left; }
+.tf-sec-cab b { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; }
+.tf-sec-cab em { font: normal 11px var(--mono); color: var(--ui-dim); }
+.tf-chev { display: inline-flex; transition: transform 0.15s; } .tf-chev svg { width: 12px; height: 12px; }
+.tf-sec-cab[aria-expanded="true"] .tf-chev, .tf-fase.aberta > .tf-fase-cab .tf-chev { transform: rotate(90deg); }
+.tf-sec.fechada .tf-lista { display: none; }
+.tf-card { margin: 0 0 8px; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--hover); min-width: 0; }
+.tf-l1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.tf-ponto { width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--accent); animation: tf-pulsa 1.4s ease-in-out infinite; }
+.tf-nome { flex: 1; min-width: 0; font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-tipo { flex: none; padding: 0 6px; border-radius: 6px; border: 1px solid var(--line-2); font: 10.5px var(--mono); color: var(--ui-dim); }
+.tf-tempo, .tf-atempo { flex: none; font: 11.5px var(--mono); font-variant-numeric: tabular-nums; color: var(--ui-2); }
+.tf-parar { flex: none; width: 24px; height: 24px; } .tf-parar svg { width: 13px; height: 13px; fill: currentColor; }
+.tf-parar.perigo { color: var(--err); } .tf-parar:disabled { opacity: 0.4; }
+.tf-desc { margin: 4px 0 0 16px; font-size: 12.5px; color: var(--ui-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tf-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; margin: 4px 0 0 16px; font: 11.5px var(--mono); color: var(--ui-dim); }
+.tf-ultima { margin: 3px 0 0 16px; font: 11.5px var(--mono); color: var(--ui-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-card p[hidden], .tf-card div[hidden], .tf-meta span[hidden], .tf-conc p[hidden], .tf-agente small[hidden] { display: none; }
+.tf-fases { margin: 8px 0 0; border-top: 1px solid var(--line); padding-top: 4px; }
+.tf-fase-cab { display: flex; align-items: center; gap: 6px; width: 100%; padding: 4px 0; background: none; border: 0; text-align: left; cursor: var(--cur-mao, pointer); min-width: 0; }
+.tf-ft { flex: 1; min-width: 0; font-weight: 500; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-fc { font: normal 11.5px var(--mono); color: var(--ui-dim); flex: none; }
+.tf-fase.completa .tf-fc { color: var(--ok); } .tf-fase.vazia { opacity: 0.55; }
+.tf-sq { display: flex; flex-wrap: wrap; gap: 3px; justify-content: flex-end; max-width: 46%; }
+.tf-sq i, .tf-pt { width: 8px; height: 8px; flex: none; border-radius: 2px; background: var(--line-2); }
+.e-done { background: var(--ui-dim) !important; }
+.e-running { background: var(--accent) !important; animation: tf-pulsa 1.2s ease-in-out infinite; }
+.e-queued { background: transparent !important; box-shadow: inset 0 0 0 1px var(--line-2); }
+.e-error { background: var(--err) !important; }
+.e-stopped { background: transparent !important; box-shadow: inset 0 0 0 1.5px var(--ui-dim); }
+.tf-ags { display: none; margin: 2px 0 6px 16px; }
+.tf-fase.aberta .tf-ags { display: block; }
+.tf-agente { display: grid; grid-template-columns: 10px 1fr auto auto; align-items: center; gap: 1px 8px; padding: 2px 0; font-size: 12px; min-width: 0; }
+.tf-ar { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-at { font: 11.5px var(--mono); color: var(--ui-dim); text-align: right; }
+.tf-au { grid-column: 2 / -1; min-width: 0; font: 11px var(--mono); color: var(--ui-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-conc { padding: 6px 4px; border-top: 1px solid var(--line); cursor: var(--cur-mao, pointer); min-width: 0; }
+.tf-conc:hover { background: var(--hover); }
+.tf-ic { display: inline-flex; flex: none; } .tf-ic svg { width: 13px; height: 13px; }
+.tf-ic.e-completed, .tf-ic.e-completed svg { color: var(--ok); } .tf-ic.e-failed { color: var(--err); } .tf-ic.e-stopped { color: var(--ui-dim); }
+.tf-ic[class*="e-"] { background: none !important; box-shadow: none; animation: none; }
+.tf-estado { flex: none; font-size: 11.5px; color: var(--ui-dim); }
+.tf-conc .tf-nome { font-weight: 500; }
+.tf-resumo { margin: 3px 0 0 20px; font-size: 12px; color: var(--ui-dim); white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tf-conc.aberta .tf-resumo { display: block; -webkit-line-clamp: unset; max-height: 220px; overflow-y: auto; }
 /* git review window */
 .jl-corpo.alt { display: flex; flex-direction: column; overflow: hidden; }
 .alt-topo { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex: none; }

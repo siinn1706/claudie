@@ -860,11 +860,12 @@ async function abreSessao(id, titulo) {
     else { const id = m.id || crypto.randomUUID(); ferramenta(id, m.nome, m.entrada, "ok"); planoUsa(id, m.nome, m.entrada); }
   }
   desenhaPlano();
+  repassa({ tipo: "fundo", ativas: r.fundo?.ativas || [], concluidas: r.fundo?.concluidas || [] });
   if (t) {
     repassa({ tipo: "inicio" });
     if (t.parcial) { repassa({ tipo: "texto_inicio" }); repassa({ tipo: "texto", delta: t.parcial }); }
     t.pendentes.forEach(repassa);
-    (t.subs || []).forEach(repassa); repassa({ tipo: "fundo", tarefas: t.fundo || [] });
+    (t.subs || []).forEach(repassa);
   } else aviso("Conversa retomada: o Claude lembra de tudo acima.");
   requestAnimationFrame(() => (scroll.scrollTop = scroll.scrollHeight)); marcaSessao();
   solta();
