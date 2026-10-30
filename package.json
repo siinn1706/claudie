@@ -25,7 +25,7 @@
     "name": "Luis Roberto",
     "url": "https://luisrobertoportifolio.com"
   },
-  "homepage": "https://github.com/siinn1706/vnams-claudie",
+  "homepage": "https://github.com/siinn1706/claudie",
   "build": {
     "appId": "com.claudie.app",
     "productName": "Claudie",
@@ -67,7 +67,7 @@
       {
         "provider": "github",
         "owner": "siinn1706",
-        "repo": "vnams-claudie",
+        "repo": "claudie",
         "releaseType": "release"
       }
     ]
