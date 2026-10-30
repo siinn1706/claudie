@@ -333,7 +333,7 @@ const atualizaEnviar = () => { $("enviar").disabled = !rodando && !entrada.value
 async function envia(textoForcado) {
   const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null ? anexos : [];
   if (!t && !junto.length) return;
-  const limpa = () => { entrada.value = ""; ajustaAltura(); fechaComandos(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
+  const limpa = () => { entrada.value = ""; ajustaAltura(); fechaComandos(); fechaMencoes(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
   if (t === "/tema") { abrePicker("claudie"); limpa(); return; }
   if (t.startsWith("/tema ")) {
     const pedido = t.slice(6).trim().toLowerCase(), i = THEMES.findIndex((x) => x.id === pedido || x.name.toLowerCase() === pedido);
@@ -363,6 +363,11 @@ async function envia(textoForcado) {
   }
 }
 entrada.addEventListener("keydown", (e) => {
+  if (mencoesEl.classList.contains("on")) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); mencSel = (mencSel + (e.key === "ArrowDown" ? 1 : -1) + mencVis.length) % mencVis.length; mostraMencoes(); return; }
+    if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) { e.preventDefault(); escolheMencao(mencVis[mencSel]); return; }
+    if (e.key === "Escape") { e.stopPropagation(); fechaMencoes(); return; }
+  }
   if (comandosEl.classList.contains("on")) {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); cmdSel = (cmdSel + (e.key === "ArrowDown" ? 1 : -1) + cmdVis.length) % cmdVis.length; mostraComandos(); return; }
     if (e.key === "Tab") { e.preventDefault(); escolheComando(cmdVis[cmdSel], false); return; }
@@ -373,7 +378,11 @@ entrada.addEventListener("keydown", (e) => {
   if (e.key === "Escape") fechaPicker();
 });
 const ajustaAltura = () => { entrada.style.height = "auto"; entrada.style.height = Math.min(240, entrada.scrollHeight) + "px"; };
-entrada.addEventListener("input", () => { ajustaAltura(); atualizaEnviar(); cmdSel = 0; mostraComandos(); });
+entrada.addEventListener("input", () => { ajustaAltura(); atualizaEnviar(); cmdSel = 0; mencSel = 0; mostraComandos(); mostraMencoes(); });
+// Moving the caret into or out of an "@word" opens or closes the picker.
+entrada.addEventListener("keyup", (e) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) mostraMencoes(); });
+entrada.addEventListener("click", () => mostraMencoes());
+entrada.addEventListener("blur", () => setTimeout(fechaMencoes, 120));
 
 // ---- slash commands ----------------------------------------------------------
 // Typing "/" lists the app's own commands and Claude Code's (skills, custom
@@ -416,6 +425,63 @@ function escolheComando(c, executa) {
 }
 comandosEl.addEventListener("mousedown", (e) => { const d = e.target.closest(".cmd"); if (d) { e.preventDefault(); escolheComando(cmdVis[+d.dataset.i], true); } });
 comandosEl.addEventListener("mousemove", (e) => { const d = e.target.closest(".cmd"); if (d && +d.dataset.i !== cmdSel) { cmdSel = +d.dataset.i; comandosEl.querySelectorAll(".cmd").forEach((x) => x.classList.toggle("on", x === d)); } });
+
+// ---- @ mentions --------------------------------------------------------------
+// "@" followed by a word lists the files and folders of the conversation's
+// folder, fuzzy-filtered; picking inserts "@path" (quoted when it has spaces)
+// and a folder keeps the list open one level deeper. Claude Code reads the @path.
+const mencoesEl = document.createElement("div");
+mencoesEl.className = "comandos"; mencoesEl.id = "mencoes"; mencoesEl.setAttribute("role", "listbox");
+comandosEl.after(mencoesEl);
+let arquivosLista = [], buscandoArquivos = false, atualizadoEm = 0, mencVis = [], mencSel = 0;
+function mencaoAtual() {
+  const pos = entrada.selectionStart, m = /(^|\s)@("[^"]*|[^\s"@]*)$/.exec(entrada.value.slice(0, pos));
+  return m ? { ini: pos - m[2].length - 1, fim: pos, q: m[2].replace(/^"/, "").toLowerCase() } : null;
+}
+// Each time the picker opens the list is asked for again (the main process
+// keeps it for a short while per folder, so the right folder is always used).
+function carregaArquivos(atualiza) {
+  if (buscandoArquivos) return;
+  buscandoArquivos = true; atualizadoEm = Date.now();
+  vivo.arquivos(atualiza).then((l) => { arquivosLista = l || []; }).catch(() => {}).finally(() => { buscandoArquivos = false; if (mencaoAtual()) mostraMencoes(); });
+}
+// Higher is better; 0 drops the entry.
+function notaArquivo(a, q) {
+  const c = a.c.toLowerCase(), base = c.slice(c.lastIndexOf("/") + 1);
+  if (!q) return c.includes("/") ? 0 : a.d ? 2 : 1;
+  let n = 0;
+  if (c.startsWith(q)) n = 1000 + (c.indexOf("/", q.length) < 0 ? 100 : 0);
+  else if (base.startsWith(q)) n = 800;
+  else if (base.includes(q)) n = 600;
+  else if (c.includes(q)) n = 500;
+  else { let i = 0; for (const ch of c) if (ch === q[i]) i++; if (i === q.length) n = 200; }
+  return n && n - c.length / 1000;
+}
+function mostraMencoes() {
+  const m = mencaoAtual();
+  if (!m) return fechaMencoes();
+  if (!mencoesEl.classList.contains("on")) carregaArquivos(false);
+  mencVis = arquivosLista.map((a) => [a, notaArquivo(a, m.q)]).filter((x) => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 60).map((x) => x[0]);
+  // Nothing matches: the folder may have changed since it was listed, so look again (at most every few seconds).
+  if (!mencVis.length && m.q && !buscandoArquivos && Date.now() - atualizadoEm > 4000) carregaArquivos(true);
+  if (!mencVis.length && !buscandoArquivos) return fechaMencoes();
+  mencSel = Math.min(mencSel, Math.max(0, mencVis.length - 1));
+  mencoesEl.innerHTML = mencVis.map((a, i) => { const k = a.c.lastIndexOf("/"); return `<div class="cmd${i === mencSel ? " on" : ""}" data-i="${i}" role="option"><b>${esc(a.c.slice(k + 1))}${a.d ? "/" : ""}</b><span>${esc(k >= 0 ? a.c.slice(0, k) : "")}</span></div>`; }).join("")
+    + (buscandoArquivos ? '<div class="cmd-espera">Procurando arquivos…</div>' : "");
+  mencoesEl.classList.add("on"); fechaPicker();
+  mencoesEl.querySelector(".cmd.on")?.scrollIntoView({ block: "nearest" });
+}
+function fechaMencoes() { mencoesEl.classList.remove("on"); mencVis = []; mencSel = 0; }
+function escolheMencao(a) {
+  const m = mencaoAtual();
+  if (!m || !a) return fechaMencoes();
+  const aspas = /\s/.test(a.c), corpo = (aspas ? '@"' : "@") + a.c;
+  entrada.setRangeText(a.d ? corpo + "/" : corpo + (aspas ? '" ' : " "), m.ini, m.fim, "end");
+  ajustaAltura(); atualizaEnviar(); mencSel = 0; entrada.focus();
+  if (a.d) mostraMencoes(); else fechaMencoes();
+}
+mencoesEl.addEventListener("mousedown", (e) => { const d = e.target.closest(".cmd"); if (d) { e.preventDefault(); escolheMencao(mencVis[+d.dataset.i]); } });
+mencoesEl.addEventListener("mousemove", (e) => { const d = e.target.closest(".cmd"); if (d && +d.dataset.i !== mencSel) { mencSel = +d.dataset.i; mencoesEl.querySelectorAll(".cmd").forEach((x) => x.classList.toggle("on", x === d)); } });
 
 // ---- attachments -------------------------------------------------------------
 // Files come from the paperclip, a drop or a paste. Files on disk travel as

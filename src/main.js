@@ -10,7 +10,7 @@ import atualizador from "electron-updater";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, execFile, spawn } from "node:child_process";
 import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
@@ -269,6 +269,39 @@ async function comandos(j) {
   return comCache(`comandos|${cwd}`, 10 * 60e3, async () => {
     const lista = await comConsulta(j || { cwd }, (q) => q.supportedCommands());
     return lista.map((c) => ({ nome: c.name, descricao: c.description || "", dica: c.argumentHint || "" }));
+  });
+}
+
+// Files and folders of a conversation's folder for the "@" picker: what git
+// tracks or does not ignore, otherwise a bounded walk skipping the usual build
+// and dependency folders. Shallow paths first so the cap drops the deepest.
+const ARQUIVOS_MAX = 5000, PASTAS_PULADAS = new Set(["node_modules", ".git", "dist", "build", "out", ".next", "target", "__pycache__", "venv", ".venv"]);
+const listaGit = (cwd) => new Promise((ok) => execFile("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], { cwd, encoding: "utf8", windowsHide: true, maxBuffer: 64 * 1024 * 1024, timeout: 10000 }, (erro, saida) => ok(erro ? null : saida.split("\0").filter(Boolean).map((f) => f.replace(/\\/g, "/")))));
+async function andaPasta(cwd) {
+  const achados = [], fila = [""];
+  while (fila.length && achados.length < ARQUIVOS_MAX * 2) {
+    const rel = fila.shift();
+    let itens = [];
+    try { itens = await fs.promises.readdir(path.join(cwd, rel), { withFileTypes: true }); } catch { continue; }
+    for (const d of itens) {
+      const c = rel + d.name;
+      if (d.isDirectory()) { if (!PASTAS_PULADAS.has(d.name)) { achados.push(c + "/"); fila.push(c + "/"); } } else achados.push(c);
+    }
+  }
+  return achados;
+}
+async function arquivos(j, atualiza) {
+  const cwd = j?.cwd || config.cwd;
+  if (atualiza) respostas.delete(`arquivos|${cwd}`);
+  return comCache(`arquivos|${cwd}`, 30e3, async () => {
+    let caminhos = await listaGit(cwd);
+    if (caminhos) {
+      const pastas = new Set();
+      for (const f of caminhos) for (let i = f.indexOf("/"); i >= 0; i = f.indexOf("/", i + 1)) pastas.add(f.slice(0, i + 1));
+      caminhos = [...pastas, ...caminhos];
+    } else caminhos = await andaPasta(cwd);
+    const prof = (c) => c.replace(/\/$/, "").split("/").length;
+    return caminhos.sort((a, b) => prof(a) - prof(b) || a.localeCompare(b)).slice(0, ARQUIVOS_MAX).map((c) => c.endsWith("/") ? { c: c.slice(0, -1), d: true } : { c, d: false });
   });
 }
 
@@ -752,6 +785,7 @@ ipcMain.handle("enviar", (e, texto, anexos) => {
   turno(j, String(texto), Array.isArray(anexos) ? anexos : []); return j.atual?.tid || true;
 });
 ipcMain.handle("janela_nova", (_e, sessao) => { criarJanela(sessao || undefined); });
+ipcMain.handle("arquivos", async (e, atualiza) => { try { return await arquivos(J(e), !!atualiza); } catch (err) { console.log("[arquivos]", err?.message || err); return []; } });
 ipcMain.handle("comandos", async (e) => { try { return await comandos(J(e)); } catch (e) { console.log("[comandos]", e?.message || e); return []; } });
 ipcMain.handle("anexar", async (e) => {
   const r = await dialog.showOpenDialog(J(e).win, { title: t("Anexar arquivos"), defaultPath: J(e).cwd, properties: ["openFile", "multiSelections"] });
