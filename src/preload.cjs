@@ -21,7 +21,8 @@ contextBridge.exposeInMainWorld("vivo", {
   saida: (id) => ipcRenderer.invoke("saida", id),
   anexar: () => ipcRenderer.invoke("anexar"),
   // A dropped file's path on disk ("" for pasted data, which has none).
-  caminhoDe: (arquivo) => { try { return webUtils.getPathForFile(arquivo) || ""; } catch { return ""; } },
+  // main only trusts for "abrir_arquivo" the paths read here from real File objects
+  caminhoDe: (arquivo) => { try { const p = webUtils.getPathForFile(arquivo) || ""; if (p) ipcRenderer.send("anexo_soltou", p); return p; } catch { return ""; } },
   motionImportar: (caminho) => ipcRenderer.invoke("motion_importar", caminho),
   motionLista: () => ipcRenderer.invoke("motion_lista"),
   motionLer: (id) => ipcRenderer.invoke("motion_ler", id),

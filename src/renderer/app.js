@@ -364,8 +364,9 @@ async function envia(textoForcado) {
 }
 entrada.addEventListener("keydown", (e) => {
   if (mencoesEl.classList.contains("on")) {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); mencSel = (mencSel + (e.key === "ArrowDown" ? 1 : -1) + mencVis.length) % mencVis.length; mostraMencoes(); return; }
-    if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) { e.preventDefault(); escolheMencao(mencVis[mencSel]); return; }
+    // with nothing to pick (still searching) the keys fall through, so Enter still sends
+    if (mencVis.length && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); mencSel = (mencSel + (e.key === "ArrowDown" ? 1 : -1) + mencVis.length) % mencVis.length; mostraMencoes(); return; }
+    if (mencVis.length && (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey))) { e.preventDefault(); escolheMencao(mencVis[mencSel]); return; }
     if (e.key === "Escape") { e.stopPropagation(); fechaMencoes(); return; }
   }
   if (comandosEl.classList.contains("on")) {
@@ -443,7 +444,8 @@ function mencaoAtual() {
 function carregaArquivos(atualiza) {
   if (buscandoArquivos) return;
   buscandoArquivos = true; atualizadoEm = Date.now();
-  vivo.arquivos(atualiza).then((l) => { arquivosLista = l || []; }).catch(() => {}).finally(() => { buscandoArquivos = false; if (mencaoAtual()) mostraMencoes(); });
+  // a missing or failing call must not leave the "searching" state stuck; the picker only reopens while the box has focus
+  Promise.resolve().then(() => vivo.arquivos(atualiza)).then((l) => { arquivosLista = l || []; }).catch(() => {}).finally(() => { buscandoArquivos = false; if (document.activeElement === entrada && mencaoAtual()) mostraMencoes(); });
 }
 // Higher is better; 0 drops the entry.
 function notaArquivo(a, q) {

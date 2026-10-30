@@ -126,9 +126,10 @@ function dentroDaPasta(pasta, rel) {
   return alvo && sobRaiz(raiz, alvo) && alvo !== raiz ? alvo : null;
 }
 // What "abrir_arquivo" may touch: the folders being worked in, the app's own
-// files and what the person attached. Launchable file types are never opened.
+// files and what the person attached. Only plain viewable file types are opened
+// by their default app; anything else is just shown in its folder.
 const anexosPermitidos = new Set();
-const EXECUTAVEL = /\.(exe|bat|cmd|com|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|msi|msc|scr|lnk|url|reg|hta|cpl|jar)$/i;
+const ABRIVEL = /\.(txt|md|markdown|json|jsonc|csv|tsv|log|xml|ya?ml|toml|ini|html?|css|svg|png|jpe?g|gif|webp|bmp|ico|avif|pdf|mp3|wav|ogg|flac|mp4|webm|mov|mkv)$/i;
 function dentroDeRaizPermitida(alvo) {
   const raizes = [config.cwd, ...[...janelas.values()].flatMap((j) => [j.cwd, j.atual?.cwd]), ...[...turnos].map((t) => t.cwd), path.join(app.getPath("userData"), "pessoal"), path.join(app.getPath("userData"), "motion"), ...anexosPermitidos];
   return raizes.some((r) => { const real = r && caminhoReal(r); return real && sobRaiz(real, alvo); });
@@ -136,7 +137,9 @@ function dentroDeRaizPermitida(alvo) {
 function abreArquivo(caminho, naPasta) {
   const alvo = typeof caminho === "string" && caminho ? caminhoReal(path.resolve(caminho)) : null;
   if (!alvo || !dentroDeRaizPermitida(alvo)) return false;
-  if (naPasta || EXECUTAVEL.test(caminho) || EXECUTAVEL.test(alvo)) shell.showItemInFolder(alvo);
+  let pasta = false; try { pasta = fs.statSync(alvo).isDirectory(); } catch {}
+  if (pasta) shell.openPath(alvo);
+  else if (naPasta || !ABRIVEL.test(alvo)) shell.showItemInFolder(alvo);
   else shell.openPath(alvo);
   return true;
 }
@@ -221,7 +224,7 @@ function montaPrompt(texto, anexos = [], uuid, avisa = () => {}) {
   for (const a of anexos) {
     let { dados, mime } = a;
     if (a.caminho) {
-      caminhos.push(a.caminho); anexosPermitidos.add(a.caminho);
+      caminhos.push(a.caminho);
       const tipo = IMAGEM[path.extname(a.caminho).toLowerCase()];
       try {
         if (tipo && fs.statSync(a.caminho).size <= ARQUIVO_MAX) { dados = fs.readFileSync(a.caminho).toString("base64"); mime = tipo; }
@@ -786,6 +789,8 @@ ipcMain.handle("enviar", (e, texto, anexos) => {
   if (j.sessionId && emOutra(j, j.sessionId)) { enviarEvento(j, { tipo: "erro", texto: "Essa conversa está rodando em outra janela. Espere ela terminar." }); return false; }
   turno(j, String(texto), Array.isArray(anexos) ? anexos : []); return j.atual?.tid || true;
 });
+// Paths the preload read from real dropped File objects; the window can't forge these.
+ipcMain.on("anexo_soltou", (_e, p) => { if (typeof p === "string" && p) anexosPermitidos.add(p); });
 ipcMain.handle("janela_nova", (_e, sessao) => { criarJanela(sessao || undefined); });
 ipcMain.handle("arquivos", async (e, atualiza) => { try { return await arquivos(J(e), !!atualiza); } catch (err) { console.log("[arquivos]", err?.message || err); return []; } });
 ipcMain.handle("comandos", async (e) => { try { return await comandos(J(e)); } catch (e) { console.log("[comandos]", e?.message || e); return []; } });
@@ -864,6 +869,8 @@ async function comConsulta(j, fn) {
 const respostas = new Map(), emVoo = new Map();
 function comCache(chave, ttl, fn) {
   const r = respostas.get(chave);
+  // expired entries are dropped once the map grows, so folders no longer viewed don't pile up
+  if (respostas.size > 40) for (const [k, v] of respostas) if (Date.now() - v.quando > 10 * 60000) respostas.delete(k);
   if (r && Date.now() - r.quando < ttl) return Promise.resolve(r.valor);
   if (emVoo.has(chave)) return emVoo.get(chave);
   const p = fn().then((valor) => { respostas.set(chave, { quando: Date.now(), valor }); return valor; }).finally(() => emVoo.delete(chave));
@@ -1006,13 +1013,13 @@ function fatiaDiff(bruto) {
   for (const parte of bruto.split(/^diff --git /m).slice(1)) {
     const h = parte.search(/^@@ /m), cab = parte.slice(0, h < 0 ? parte.length : h);
     const novo = /^new file mode/m.test(cab), apagado = /^deleted file mode/m.test(cab), binario = /^Binary files|^GIT binary patch/m.test(cab);
-    const m = cab.match(/^\+\+\+ b\/(.+)$/m) || cab.match(/^--- a\/(.+)$/m) || cab.match(/^a\/(.+) b\/\1$/m);
+    const m = cab.match(/^\+\+\+ b\/([^\t\r\n]+)/m) || cab.match(/^--- a\/([^\t\r\n]+)/m) || cab.match(/^a\/(.+) b\/\1$/m);
     if (!m) continue;
     let diff = binario ? "" : parte.slice(cab.length), mais = 0, menos = 0;
     for (const l of diff.split("\n")) { if (l[0] === "+") mais++; else if (l[0] === "-") menos++; }
     const grande = diff.length > GIT_ARQ_MAX;
     if (grande) diff = diff.slice(0, diff.lastIndexOf("\n", GIT_ARQ_MAX));
-    arquivos.push({ caminho: m[1].replace(/\r$/, ""), estado: novo ? "A" : apagado ? "D" : "M", binario, grande, mais, menos, diff });
+    arquivos.push({ caminho: m[1], estado: novo ? "A" : apagado ? "D" : "M", binario, grande, mais, menos, diff });
   }
   return arquivos;
 }
@@ -1048,15 +1055,18 @@ ipcMain.handle("git_alteracoes", async (e) => {
 ipcMain.handle("git_reverter", async (e, rel) => {
   const cwd = J(e)?.cwd, raiz = cwd && caminhoReal(cwd);
   if (!raiz || typeof rel !== "string" || !rel) return { ok: false, erro: "Sem pasta." };
-  const abs = path.resolve(raiz, rel), pai = caminhoReal(path.dirname(abs));
+  const abs = path.resolve(raiz, rel);
+  // a deleted folder is recreated by the restore, so check its nearest ancestor that still exists
+  let acima = path.dirname(abs), pai = caminhoReal(acima);
+  while (!pai && acima !== path.dirname(acima)) { acima = path.dirname(acima); pai = caminhoReal(acima); }
   if (!sobRaiz(raiz, abs) || abs === raiz || !pai || !sobRaiz(raiz, pai)) return { ok: false, erro: "Fora da pasta." };
   const alvo = path.relative(raiz, abs).replace(/\\/g, "/");
   const falha = (r) => ({ ok: false, erro: r.err.trim() || String(r.erro.message) });
   if (!(await git(raiz, ["cat-file", "-e", "HEAD:./" + alvo], 1024)).erro) {
-    const r = await git(raiz, ["restore", "--source=HEAD", "--staged", "--worktree", "--", alvo], 1024 * 1024);
+    const r = await git(raiz, ["--literal-pathspecs", "restore", "--source=HEAD", "--staged", "--worktree", "--", alvo], 1024 * 1024);
     return r.erro ? falha(r) : { ok: true };
   }
-  if (!(await git(raiz, ["ls-files", "--error-unmatch", "--", alvo], 1024 * 1024)).erro) { const r = await git(raiz, ["rm", "-f", "-q", "--", alvo], 1024 * 1024); if (r.erro) return falha(r); }
+  if (!(await git(raiz, ["--literal-pathspecs", "ls-files", "--error-unmatch", "--", alvo], 1024 * 1024)).erro) { const r = await git(raiz, ["--literal-pathspecs", "rm", "-f", "-q", "--", alvo], 1024 * 1024); if (r.erro) return falha(r); }
   try { fs.rmSync(abs, { force: true }); return { ok: true }; } catch (x) { return { ok: false, erro: String(x.message || x) }; }
 });
 
@@ -1350,7 +1360,7 @@ ipcMain.handle("term_enviar", (e, linha) => {
   const j = J(e);
   if (!j || typeof linha !== "string" || linha.length > 20000) return false;
   const term = terminalLiga(j);
-  try { term.p.stdin.write(linha.replace(/\r?\n?$/, "\n")); return true; } catch { return false; }
+  try { term.p.stdin.write(linha.replace(/\r?\n?$/, "\n\n")); return true; } catch { return false; }
 });
 ipcMain.handle("term_parar", (e) => { const j = J(e); if (!j) return false; terminalMata(j); terminalLiga(j); return true; });
 

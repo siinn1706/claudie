@@ -48,7 +48,7 @@ async function termExecuta(linha) {
   termInicioUltimo = termTexto.length;
   termAcrescenta(`> ${linha}\n`);
   if (linha.trim() && termHist[termHist.length - 1] !== linha) { termHist.push(linha); termHist = termHist.slice(-100); guarda("termHist", termHist); }
-  if (!(await vivo.termEnviar(linha))) termAcrescenta("[não deu pra enviar o comando]\n");
+  if (!(await vivo.termEnviar(linha))) termAcrescenta(window.t("[não deu pra enviar o comando]") + "\n");
 }
 async function termParar() { termAcrescenta("^C\n"); await vivo.termParar(); }
 termEntrada.addEventListener("keydown", (e) => {
@@ -75,5 +75,5 @@ termEl.querySelector('[data-a="manda"]').onclick = () => {
 aoEvento((ev) => {
   if (ev.tipo !== "terminal") return;
   if (ev.texto) termAcrescenta(limpaSaida(ev.texto));
-  if (ev.fim) termAcrescenta("[o terminal foi encerrado; o próximo comando abre outro]\n");
+  if (ev.fim) termAcrescenta(window.t("[o terminal foi encerrado; o próximo comando abre outro]") + "\n");
 });

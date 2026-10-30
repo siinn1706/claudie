@@ -139,7 +139,7 @@ function abreAlteracoes() {
       }).join("")}</div></div>`;
     cont.querySelectorAll("details").forEach((d) => d.addEventListener("toggle", () => altAbertos.set(a[+d.dataset.k].caminho, d.open)));
     cont.querySelectorAll(".alt-lista button").forEach((b) => (b.onclick = () => { const d = cont.querySelector(`details[data-k="${b.dataset.k}"]`); d.open = true; d.scrollIntoView({ behavior: "smooth", block: "start" }); }));
-    cont.querySelectorAll("[data-abre]").forEach((b) => (b.onclick = () => vivo.abrirArquivo(a[+b.dataset.abre].abs)));
+    cont.querySelectorAll("[data-abre]").forEach((b) => (b.onclick = async () => { if (!(await vivo.abrirArquivo(a[+b.dataset.abre].abs))) nota("Não deu pra abrir: o arquivo está fora das pastas desta conversa.", true); }));
     // reverting needs a second click: the first one only arms the button
     cont.querySelectorAll("[data-reverte]").forEach((b) => (b.onclick = async () => {
       const f = a[+b.dataset.reverte];

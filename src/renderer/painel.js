@@ -149,11 +149,12 @@ function desenhaInfo() {
   info.querySelectorAll(".info-cab").forEach((b) => (b.onclick = () => { const s = b.parentElement, id = s.dataset.sec; s.classList.toggle("aberta"); s.classList.contains("aberta") ? abertas.add(id) : abertas.delete(id); guarda("infoAbertas", [...abertas]); }));
   info.querySelector('[data-a="atualiza"]').onclick = atualizaInfo;
   info.querySelector('[data-a="fecha"]').onclick = () => alternaInfo(false);
-  info.querySelector('[data-a="pasta"]')?.addEventListener("click", () => vivo.abrirArquivo(a.pasta));
+  info.querySelector('[data-a="pasta"]')?.addEventListener("click", () => abreOuAvisa(a.pasta));
   info.querySelector('[data-a="compacta"]')?.addEventListener("click", () => envia("/compact"));
-  info.querySelectorAll("[data-abre]").forEach((b) => (b.onclick = () => vivo.abrirArquivo(b.dataset.abre)));
-  info.querySelectorAll("[data-mostra]").forEach((b) => (b.onclick = () => vivo.abrirArquivo(b.dataset.mostra, true)));
+  info.querySelectorAll("[data-abre]").forEach((b) => (b.onclick = () => abreOuAvisa(b.dataset.abre)));
+  info.querySelectorAll("[data-mostra]").forEach((b) => (b.onclick = () => abreOuAvisa(b.dataset.mostra, true)));
 }
+async function abreOuAvisa(caminho, naPasta) { if (!(await vivo.abrirArquivo(caminho, naPasta))) nota("Não deu pra abrir: o arquivo está fora das pastas desta conversa.", true); }
 function alternaInfo(v = !document.body.classList.contains("info-aberta")) {
   document.body.classList.toggle("info-aberta", v); guarda("infoAberta", v);
   botaoInfo.classList.toggle("on", v);
