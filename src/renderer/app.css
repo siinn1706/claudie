@@ -129,7 +129,9 @@ main { position: relative; overflow: hidden; }
 .sugestoes button { display: flex; align-items: center; gap: 7px; border: 1px solid var(--line-2); background: var(--pill); border-radius: 12px; padding: 8px 14px; cursor: var(--cur-mao, pointer); color: var(--ui-2); transition: transform 0.15s var(--ease), background 0.15s, color 0.15s; backdrop-filter: blur(var(--blur)); }
 .sugestoes button:hover { transform: translateY(-2px); color: var(--ui); border-color: color-mix(in srgb, var(--accent) 40%, var(--line-2)); }
 .sugestoes svg { width: 15px; height: 15px; color: var(--accent-2); }
-.msg { position: relative; margin: 0 0 18px; animation: entra 0.38s var(--ease) both; }
+.msg { position: relative; margin: 0 0 18px; animation: entra 0.38s var(--ease) backwards; }
+/* backwards, not both: a filter left on after the entrance (even blur(0)) stops
+   the backdrop blur of everything inside, so the bubbles would turn see-through */
 @keyframes entra { from { opacity: 0; transform: translateY(8px); filter: blur(2px); } }
 .msg.eu { margin-left: auto; width: fit-content; max-width: 80%; padding: 9px 16px; border-radius: 18px 18px 6px 18px; background: var(--pill); border: 1px solid var(--line); white-space: pre-wrap; }
 .msg.claude p { margin: 0 0 10px; } .msg.claude p:last-child { margin-bottom: 0; }
@@ -151,13 +153,13 @@ main { position: relative; overflow: hidden; }
 .cursor::after { content: ""; display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; background: var(--accent); border-radius: 1px; animation: pisca 1s steps(1) infinite; }
 @keyframes pisca { 50% { opacity: 0; } }
 
-.pensando { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--ui-dim); font-size: 13.5px; animation: entra 0.3s var(--ease) both; }
+.pensando { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--ui-dim); font-size: 13.5px; animation: entra 0.3s var(--ease) backwards; }
 .pensando .faisca { animation: gira 2.4s linear infinite; }
 @keyframes gira { to { transform: rotate(360deg); } }
 .pensando b { font-weight: 500; background: linear-gradient(90deg, var(--ui-dim) 0%, var(--ui) 50%, var(--ui-dim) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: brilho 1.8s linear infinite; }
 @keyframes brilho { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
-.ferr { margin: 0 0 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); backdrop-filter: blur(var(--blur)); animation: entra 0.3s var(--ease) both; overflow: hidden; }
+.ferr { margin: 0 0 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); backdrop-filter: blur(var(--blur)); animation: entra 0.3s var(--ease) backwards; overflow: hidden; }
 .ferr summary { cursor: var(--cur-mao, pointer); padding: 7px 11px; list-style: none; display: flex; gap: 9px; align-items: center; font-size: 13px; transition: background 0.15s; }
 .ferr summary:hover { background: var(--hover); }
 .ferr summary::-webkit-details-marker { display: none; }
@@ -171,7 +173,7 @@ main { position: relative; overflow: hidden; }
 .ferr[open] pre { animation: abre 0.25s var(--ease); }
 @keyframes abre { from { opacity: 0; transform: translateY(-4px); } }
 
-.perm { border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 14px; padding: 14px; margin: 0 0 16px; background: var(--card); backdrop-filter: blur(var(--blur)); animation: entra 0.35s var(--ease) both; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent); }
+.perm { border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 14px; padding: 14px; margin: 0 0 16px; background: var(--card); backdrop-filter: blur(var(--blur)); animation: entra 0.35s var(--ease) backwards; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent); }
 .perm .t { display: flex; gap: 8px; align-items: center; font-weight: 500; margin-bottom: 8px; }
 .perm .t svg { color: var(--accent); }
 .perm pre { font: 12px/1.55 var(--mono); white-space: pre-wrap; max-height: 220px; overflow: auto; background: var(--code); padding: 10px; border-radius: 9px; margin: 0 0 12px; }
@@ -183,7 +185,7 @@ main { position: relative; overflow: hidden; }
 .resolvido { color: var(--ui-dim); font-size: 12.5px; margin: 0 0 12px; display: flex; gap: 6px; align-items: center; }
 .resolvido svg { width: 14px; height: 14px; }
 
-.card { display: flex; gap: 14px; align-items: center; width: min(430px, 100%); padding: 10px; margin: 6px 0 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); backdrop-filter: blur(var(--blur)); animation: entra 0.4s var(--ease) both; transition: transform 0.2s var(--ease), border-color 0.2s; }
+.card { display: flex; gap: 14px; align-items: center; width: min(430px, 100%); padding: 10px; margin: 6px 0 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); backdrop-filter: blur(var(--blur)); animation: entra 0.4s var(--ease) backwards; transition: transform 0.2s var(--ease), border-color 0.2s; }
 .card:hover { transform: translateY(-2px); border-color: var(--line-2); }
 .card canvas { width: 108px; height: 68px; border-radius: 9px; flex: none; }
 .card b { display: block; font-weight: 600; } .card small { display: block; color: var(--ui-dim); font-size: 12px; margin-bottom: 9px; }
@@ -225,10 +227,10 @@ main { position: relative; overflow: hidden; }
 .tc p { margin: 5px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .banner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line-2); display: none; z-index: 2; }
-.banner.on { display: block; animation: entra 0.3s var(--ease) both; }
+.banner.on { display: block; animation: entra 0.3s var(--ease) backwards; }
 
 .menu { position: fixed; z-index: 40; min-width: 160px; padding: 5px; border-radius: 11px; border: 1px solid var(--line-2); background: var(--card); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); display: none; }
-.menu.on { display: block; animation: entra 0.15s var(--ease) both; }
+.menu.on { display: block; animation: entra 0.15s var(--ease) backwards; }
 .menu button { display: flex; gap: 8px; align-items: center; width: 100%; border: 0; background: transparent; padding: 7px 9px; border-radius: 7px; cursor: var(--cur-mao, pointer); text-align: left; font-size: 13px; }
 .menu button:hover { background: var(--hover); }
 .menu button.perigo { color: var(--err); }
@@ -289,7 +291,7 @@ body.arte canvas.bg { opacity: 0; }
 .comandos { position: absolute; bottom: calc(100% + 10px); left: 0; right: 0; max-height: min(46vh, 380px); overflow-y: auto; padding: 5px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--card); backdrop-filter: blur(var(--blur)) saturate(1.25); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
   display: none; }
 body:not(.themed) .comandos { background: #262523; }
-.comandos.on { display: block; animation: entra 0.16s var(--ease) both; }
+.comandos.on { display: block; animation: entra 0.16s var(--ease) backwards; }
 .cmd { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; border-radius: 9px; cursor: var(--cur-mao, pointer); }
 .cmd.on { background: var(--active); }
 .cmd b { font: 500 12.5px var(--mono); color: var(--ui); flex: none; }
@@ -303,7 +305,7 @@ body:not(.themed) .comandos { background: #262523; }
 .clipe svg { width: 16px; height: 16px; }
 .anexos { display: none; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
 .anexos.on { display: flex; }
-.anexo { position: relative; display: flex; align-items: center; gap: 6px; height: 46px; max-width: 220px; padding: 0 30px 0 10px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--pill); font-size: 12.5px; color: var(--ui-2); animation: entra 0.2s var(--ease) both; }
+.anexo { position: relative; display: flex; align-items: center; gap: 6px; height: 46px; max-width: 220px; padding: 0 30px 0 10px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--pill); font-size: 12.5px; color: var(--ui-2); animation: entra 0.2s var(--ease) backwards; }
 .anexo svg { width: 16px; height: 16px; flex: none; color: var(--ui-dim); }
 .anexo span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .anexo.img { padding: 0; width: 46px; overflow: hidden; }
@@ -409,12 +411,12 @@ body.themed .acoes { width: fit-content; border-radius: 9px; background: var(--v
 /* Queue and plan above the composer */
 .fila { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .fila:empty { display: none; }
-.na-fila { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; border-radius: 12px; border: 1px dashed var(--line-2); background: var(--composer); backdrop-filter: blur(var(--blur)); font-size: 13px; animation: entra 0.2s var(--ease) both; }
+.na-fila { display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; border-radius: 12px; border: 1px dashed var(--line-2); background: var(--composer); backdrop-filter: blur(var(--blur)); font-size: 13px; animation: entra 0.2s var(--ease) backwards; }
 .na-fila .rot { font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-2); flex: none; }
 .na-fila .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ui-2); }
 .na-fila .icone { width: 24px; height: 24px; } .na-fila .icone svg { width: 13px; height: 13px; }
 .plano { display: none; margin-bottom: 8px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--composer); backdrop-filter: blur(var(--blur)); overflow: hidden; }
-.plano.on { display: block; animation: entra 0.25s var(--ease) both; }
+.plano.on { display: block; animation: entra 0.25s var(--ease) backwards; }
 .plano-topo { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; padding: 8px 12px; cursor: var(--cur-mao, pointer); font-size: 12.5px; }
 .plano-topo b { font-weight: 600; }
 .plano-barra { flex: 1; height: 4px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
@@ -565,7 +567,7 @@ body.leve.themed.light { --panel: rgba(250, 250, 250, 0.9) !important; --vidro: 
 .perm .caminho { font: 12px var(--mono); color: var(--ui-dim); margin: -4px 0 8px; }
 
 /* Reasoning */
-.raciocinio { margin: 0 0 14px; animation: entra 0.3s var(--ease) both; }
+.raciocinio { margin: 0 0 14px; animation: entra 0.3s var(--ease) backwards; }
 .rac-topo { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 4px 8px 4px 2px; border-radius: 8px; cursor: var(--cur-mao, pointer); color: var(--ui-dim); font-size: 13px; }
 body.themed .rac-topo { background: var(--vidro); backdrop-filter: blur(var(--blur)); padding-left: 10px; }
 .rac-topo:hover { color: var(--ui); }
@@ -579,7 +581,7 @@ body.themed .rac-texto { background: var(--vidro); backdrop-filter: blur(var(--b
 @keyframes mini { 0%, 100% { opacity: 0.25; transform: scale(0.7); } 40% { opacity: 1; transform: scale(1); } }
 
 /* Claude's questions */
-.pergunta { border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 14px; padding: 14px; margin: 0 0 16px; background: var(--card); backdrop-filter: blur(var(--blur)); animation: entra 0.35s var(--ease) both; }
+.pergunta { border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 14px; padding: 14px; margin: 0 0 16px; background: var(--card); backdrop-filter: blur(var(--blur)); animation: entra 0.35s var(--ease) backwards; }
 .pergunta .t { display: flex; align-items: center; gap: 8px; font-weight: 500; margin-bottom: 8px; } .pergunta .t svg { color: var(--accent); }
 .pergunta .q { margin: 0 0 12px; }
 .pergunta .rotulo { display: inline-block; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-2); margin-bottom: 4px; }
@@ -601,7 +603,7 @@ body.themed .rac-texto { background: var(--vidro); backdrop-filter: blur(var(--b
 .msg.eu:not([data-uuid]) .desfaz { display: none; }
 .msg.eu .desfaz:hover { background: var(--hover); color: var(--ui); }
 .msg.eu[data-hora]::before { right: calc(100% + 40px); }
-.desfaz-card { display: flex; flex-direction: column; gap: 6px; margin: -8px 0 18px auto; width: fit-content; max-width: 80%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--card); backdrop-filter: blur(var(--blur)); animation: entra 0.25s var(--ease) both; font-size: 13px; }
+.desfaz-card { display: flex; flex-direction: column; gap: 6px; margin: -8px 0 18px auto; width: fit-content; max-width: 80%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--card); backdrop-filter: blur(var(--blur)); animation: entra 0.25s var(--ease) backwards; font-size: 13px; }
 .desfaz-card small { color: var(--ui-dim); font: 11.5px var(--mono); }
 .desfaz-card .b { display: flex; gap: 8px; margin-top: 4px; }
 .anexo.colado { cursor: var(--cur-mao, pointer); }
@@ -1081,7 +1083,7 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 
 /* A new version ready: a small card at the foot of the sidebar */
 .atualiza { display: flex; align-items: center; gap: 10px; margin: 0 2px 8px; padding: 9px 9px 9px 11px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-2));
-  background: color-mix(in srgb, var(--accent) 12%, var(--card)); animation: entra 0.4s var(--ease) both; }
+  background: color-mix(in srgb, var(--accent) 12%, var(--card)); animation: entra 0.4s var(--ease) backwards; }
 .atualiza[hidden] { display: none; }
 .atualiza-faisca { color: var(--accent-2); font-size: 18px; line-height: 1; animation: gira-faisca 6s linear infinite; }
 @keyframes gira-faisca { to { transform: rotate(360deg); } }
