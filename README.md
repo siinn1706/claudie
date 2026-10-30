@@ -47,6 +47,7 @@ npm run dist       # gera o instalador em dist/
 - **Meus**: crie no [ASCII Motion](https://www.ascii-motion.com), exporte como JSON e importe (botão, `/importar` ou arrastando o arquivo para a aba). Sessões `.asciimtn` sem camadas também entram.
 - **Anexos**: clipe no campo de mensagem, arrastar arquivos para a janela ou colar imagens (Ctrl+V). Imagens vão para o Claude; os outros arquivos ele abre pelo caminho.
 - **Comandos**: digite `/` para ver os comandos do app e os do Claude Code (skills, `/compact`, `/review`…). Setas escolhem, Tab completa, Enter executa.
+- **Cache do prompt**: o relógio ao lado do medidor de contexto conta quanto falta para o cache expirar (5 min ou 1 h, conforme o que a API gravou). Mandar a próxima mensagem antes disso reaproveita o contexto; depois, ele é lido de novo inteiro.
 - **Esforço**: a barrinha ao lado do modelo define quanto o Claude pensa (padrão a máximo). Permissões e modelo abrem um menu que explica cada opção.
 - **Conversas**: fixar no topo, duplicar, exportar em Markdown, renomear e apagar (menu ⋯). A busca (Ctrl+K) procura também dentro das mensagens.
 - **Respostas**: copiar, ler em voz alta e **ramificar daqui** (nova conversa a partir daquela resposta; a original fica intacta). Hora em cada mensagem.

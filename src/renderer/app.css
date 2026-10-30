@@ -425,6 +425,11 @@ body.themed .acoes { width: fit-content; border-radius: 9px; background: var(--v
 .medidor b { display: block; height: 100%; background: var(--ui-2); border-radius: 4px; transition: width 0.5s var(--ease); }
 .medidor.alto b { background: var(--err); } .medidor.alto { color: var(--err); }
 .medidor:not([hidden]) + .enviar { margin-left: 0; }
+.cache { margin-left: auto; margin-right: 8px; display: flex; align-items: center; gap: 5px; font: 11px var(--mono); font-variant-numeric: tabular-nums; color: var(--ui-dim); cursor: var(--cur-seta, default); }
+.cache[hidden] { display: none; }
+.cache svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cache.pouco { color: var(--accent); } .cache.frio { opacity: 0.55; }
+.cache:not([hidden]) ~ .medidor, .cache:not([hidden]) ~ .enviar { margin-left: 0; }
 
 /* Shortcut list */
 .atalhos div { display: flex; align-items: center; gap: 14px; padding: 5px 0; font-size: 13px; color: #c9c6bf; }

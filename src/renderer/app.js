@@ -204,6 +204,7 @@ vivo.aoEvento((ev) => {
     case "ferramenta": ferramenta(ev.id, ev.nome, ev.entrada); if (ev.nome === "TodoWrite") mostraPlano(ev.entrada?.todos); break;
     case "marca": { const el = segmento || [...col.querySelectorAll(".msg.claude:not([data-uuid])")].pop(); if (el) el.dataset.uuid = ev.uuid; break; }
     case "uso": mostraUso(ev); break;
+    case "cache": mostraCache(ev); break;
     case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida); break;
     case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", `Quer ${pedido(ev.ferramenta)}.`); break;
     case "permissao_fim": document.querySelector(`.perm[data-id="${ev.id}"], .pergunta[data-id="${ev.id}"]`)?.remove(); break;
@@ -657,7 +658,7 @@ async function abreSessao(id, titulo) {
   if (alvo?.cwd && alvo.cwd !== pastaAntes) { mostraPasta(alvo.cwd); todosComandos = buscandoComandos = null; }
   window.transicaoDither?.();
   sessaoAtual = id; $("titulo").textContent = titulo;
-  col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); escondePlano(); $("medidor").hidden = true;
+  col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); escondePlano(); escondeCache(); $("medidor").hidden = true;
   for (const m of hist) {
     if (m.papel === "eu") { meu(m.texto, [], m.imagens || 0, ""); if (m.uuid) [...col.querySelectorAll(".msg.eu")].pop().dataset.uuid = m.uuid; }
     else if (m.papel === "claude") { const el = bloco("msg claude", `<div class="corpo">${md(m.texto)}</div>`); decora(el); if (m.uuid) el.dataset.uuid = m.uuid; acoesResposta(el, m.texto, ""); window.camadas?.(el); }
@@ -670,7 +671,7 @@ async function novaConversa() {
   if (rodando || !(await vivo.nova())) return;
   window.transicaoDither?.();
   sessaoAtual = null; $("titulo").textContent = "Nova conversa";
-  ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); escondePlano(); $("medidor").hidden = true; entrada.focus();
+  ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); escondePlano(); escondeCache(); $("medidor").hidden = true; entrada.focus();
 }
 $("nova").onclick = novaConversa;
 $("pasta").onclick = async () => { if (rodando) { nota("Espere o Claude terminar para trocar de pasta."); return; } const p = await vivo.pasta(); if (p) { mostraPasta(p); novaConversa(); carregaSessoes(); todosComandos = buscandoComandos = null; } };
@@ -1274,6 +1275,25 @@ function mostraUso({ contexto, janela, saida }) {
   el.querySelector("span").textContent = `${p}%`;
   el.title = `Contexto: ${milhar(contexto)} de ${milhar(janela)} tokens (${p}%).\nÚltima resposta: ${milhar(saida)} tokens escritos.${p >= 80 ? "\nEstá enchendo: /compact resume a conversa." : ""}`;
 }
+
+// ---- prompt cache ----------------------------------------------------------------------
+// Time left before the prompt cache expires: a message sent before then reuses
+// the context instead of reading it all again.
+let cacheAte = 0, cacheRelogio = null;
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+function mostraCache({ ate, ttl }) {
+  const el = $("cache"), hora = new Date(ate).toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
+  cacheAte = ate; el.hidden = false;
+  el.title = `Cache do prompt: expira às ${hora} (TTL de ${ttl / 60} min).\nMande a próxima mensagem antes disso para o Claude reaproveitar o contexto: é mais rápido e gasta menos do plano.`;
+  clearInterval(cacheRelogio); tiqueCache(); cacheRelogio = setInterval(tiqueCache, 1000);
+}
+function tiqueCache() {
+  const el = $("cache"), s = Math.max(0, Math.round((cacheAte - Date.now()) / 1000));
+  el.classList.toggle("pouco", s > 0 && s <= 60); el.classList.toggle("frio", !s);
+  el.querySelector("span").textContent = s ? mmss(s) : "expirou";
+  if (!s) { clearInterval(cacheRelogio); el.title = "O cache do prompt expirou: a próxima mensagem vai reler o contexto inteiro."; }
+}
+function escondeCache() { clearInterval(cacheRelogio); $("cache").hidden = true; }
 
 // ---- jump between your messages -----------------------------------------------------
 function pulaPrompt(dir) {

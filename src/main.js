@@ -400,7 +400,7 @@ async function turno(j, texto, anexos) {
     },
   });
   j.atual = { q, ac };
-  let contexto = 0;
+  let contexto = 0, pedidoEm = 0;
   ev({ tipo: "inicio", uuid: typeof prompt === "string" ? null : uuid });
   try {
     for await (const msg of q) {
@@ -411,6 +411,7 @@ async function turno(j, texto, anexos) {
         ev({ tipo: "info", modelo: msg.model, cwd: msg.cwd, modo: msg.permissionMode });
       } else if (msg.type === "stream_event" && !msg.parent_tool_use_id) {
         const e = msg.event;
+        if (e.type === "message_start") pedidoEm = Date.now();
         if (e.type === "content_block_start" && e.content_block.type === "text") ev({ tipo: "texto_inicio" });
         if (e.type === "content_block_delta" && e.delta.type === "text_delta") { resposta += e.delta.text; ev({ tipo: "texto", delta: e.delta.text }); }
         if (e.type === "content_block_start" && e.content_block.type === "thinking") ev({ tipo: "raciocinio_inicio" });
@@ -424,6 +425,13 @@ async function turno(j, texto, anexos) {
         // What the last request carried is how full the context is.
         const u = msg.message.usage;
         if (u) contexto = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.output_tokens || 0);
+        // The prompt cache lives for its TTL from the last request that wrote or
+        // read it; what was written says whether that TTL is 5 minutes or 1 hour.
+        if (u && (u.cache_read_input_tokens || u.cache_creation_input_tokens)) {
+          const c = u.cache_creation;
+          j.cacheTtl = c?.ephemeral_1h_input_tokens ? 3600 : c?.ephemeral_5m_input_tokens ? 300 : j.cacheTtl || 300;
+          ev({ tipo: "cache", ate: (pedidoEm || Date.now()) + j.cacheTtl * 1000, ttl: j.cacheTtl });
+        }
         if (msg.error) ev({ tipo: "erro", texto: `Erro da API: ${msg.error}` });
       } else if (msg.type === "user" && !msg.parent_tool_use_id && Array.isArray(msg.message?.content)) {
         for (const b of msg.message.content) {

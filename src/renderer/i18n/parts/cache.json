@@ -1,0 +1,18 @@
+{
+  "Cache do prompt: expira às {0} (TTL de {1} min).": {
+    "en": "Prompt cache: expires at {0} ({1} min TTL).",
+    "vi": "Cache prompt: hết hạn lúc {0} (TTL {1} phút)."
+  },
+  "Mande a próxima mensagem antes disso para o Claude reaproveitar o contexto: é mais rápido e gasta menos do plano.": {
+    "en": "Send your next message before then and Claude reuses the context: faster, and lighter on your plan.",
+    "vi": "Gửi tin nhắn tiếp trước lúc đó để Claude dùng lại ngữ cảnh: nhanh hơn và tốn ít hạn mức hơn."
+  },
+  "O cache do prompt expirou: a próxima mensagem vai reler o contexto inteiro.": {
+    "en": "The prompt cache expired: the next message will read the whole context again.",
+    "vi": "Cache prompt đã hết hạn: tin nhắn tiếp theo sẽ phải đọc lại toàn bộ ngữ cảnh."
+  },
+  "expirou": {
+    "en": "expired",
+    "vi": "hết hạn"
+  }
+}
