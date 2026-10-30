@@ -1238,7 +1238,7 @@ async function abreCreditos() {
   const categorias = (window.MAGIA?.cats || []).map(([id]) => `<details><summary>${esc(CAT_PT[id] || id)} <small>${(porCat[id] || []).length}</small></summary><p>${(porCat[id] || []).sort().map(esc).join(" · ")}</p></details>`).join("");
   creditosCaixa.innerHTML = `
     <div class="cred-topo"><span class="marca">${$("side").querySelector(".marca-svg").outerHTML}<b>Claudie</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
-    <p class="cred-autor">Feito por ${link("https://luisrobertoportifolio.com", "Luis Roberto")}</p>
+    <p class="cred-autor">Feito por ${link("https://github.com/siinn1706", "Nguyễn Văn Nam")}</p>
     <section><h3>A ideia</h3>
       <p>Inspirado no conceito <i>“theme for Claude Code but every wallpaper is alive”</i>, de Marko Vineli, ${link("https://x.com/handsher_NGU/status/2115618341675319417", "visto no X")}. O Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.</p></section>
     <section><h3>Temas animados <small>${THEMES.length}</small></h3>

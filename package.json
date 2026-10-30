@@ -22,14 +22,14 @@
     "electron-builder": "^26.18.0"
   },
   "author": {
-    "name": "Luis Roberto",
-    "url": "https://luisrobertoportifolio.com"
+    "name": "Nguyễn Văn Nam",
+    "url": "https://github.com/siinn1706"
   },
   "homepage": "https://github.com/siinn1706/claudie",
   "build": {
     "appId": "com.claudie.app",
     "productName": "Claudie",
-    "copyright": "Luis Roberto",
+    "copyright": "Copyright © 2026 Nguyễn Văn Nam. Based on Claudinho by Luis Roberto (MIT).",
     "directories": {
       "output": "dist"
     },
@@ -71,5 +71,11 @@
         "releaseType": "release"
       }
     ]
-  }
+  },
+  "contributors": [
+    {
+      "name": "Luis Roberto",
+      "url": "https://luisrobertoportifolio.com"
+    }
+  ]
 }

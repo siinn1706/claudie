@@ -1,8 +1,8 @@
 # Claudie
 
-A fork of [Claudinho](https://github.com/Lu1sR0/claudinho) by [Luis Roberto](https://luisrobertoportifolio.com): a Windows desktop app that talks to your local **Claude Code** through the official Agent SDK and draws the chat over live ASCII wallpapers. This fork adds an **English** and **Vietnamese** interface next to the original Portuguese.
+Made by [Nguyễn Văn Nam](https://github.com/siinn1706). A fork of [Claudinho](https://github.com/Lu1sR0/claudinho) by [Luis Roberto](https://luisrobertoportifolio.com): a Windows desktop app that talks to your local **Claude Code** through the official Agent SDK and draws the chat over live ASCII wallpapers. This fork adds an **English** and **Vietnamese** interface next to the original Portuguese.
 
-Bản fork của Claudinho, thêm giao diện **tiếng Anh** và **tiếng Việt** bên cạnh tiếng Bồ Đào Nha gốc.
+Do Nguyễn Văn Nam thực hiện. Bản fork của Claudinho, thêm giao diện **tiếng Anh** và **tiếng Việt** bên cạnh tiếng Bồ Đào Nha gốc.
 
 ## Language / Ngôn ngữ
 
@@ -13,11 +13,15 @@ How it works: the code stays in Portuguese. [`src/renderer/i18n/i18n.js`](src/re
 ## Run / Chạy
 
 1. Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in.
-2. `npm install`, then `npm start`. Windows 10 or 11.
+2. Download `Claudie-Setup.exe` from [Releases](https://github.com/siinn1706/claudie/releases/latest) and run it (it is not code-signed, so SmartScreen asks first: More info → Run anyway). Or, from source: `npm install`, then `npm start`. Windows 10 or 11.
 
 **Sign-in:** by default the app uses your Claude Code login (your plan). Anthropic's Agent SDK docs say third-party apps should not offer claude.ai login without approval, so read [the note in the SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) and decide for yourself. Customize → General → Account lets you use an **Anthropic API key** instead (billed per use, encrypted by the OS).
 
 Not affiliated with or endorsed by Anthropic. Claude, Claude Code and Clawd are trademarks of Anthropic.
+
+## License
+
+[MIT](LICENSE). Copyright (c) 2026 Nguyễn Văn Nam for Claudie, and Copyright (c) 2026 Luis Roberto for the original Claudinho code it builds on; both notices stay in the license, as MIT requires.
 
 ---
 
