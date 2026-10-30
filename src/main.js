@@ -166,7 +166,7 @@ const semPeca = (slug) => ({ ...texto(`Não existe a peça "${slug}". Use buscar
 const servidorTemasPara = (t) => createSdkMcpServer({
   name: "claudie",
   version: "0.2.0",
-  instructions: "Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os 16 temas do Claudie (interativos, com música) e a biblioteca ASCII Magic, com " +
+  instructions: `Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os ${Object.keys(TEMAS).length} temas do Claudie (interativos, com música) e a biblioteca ASCII Magic, com ` +
     `${MAGIA.pecas.size} animações. Quando a pessoa pedir um tema ou um visual, prefira um tema do Claudie se algum combinar; senão use buscar_fundo (em inglês: os nomes e tags da biblioteca são em inglês) e depois sugerir_fundo ou aplicar_fundo. ` +
     "Responda sempre no idioma em que a pessoa escreve. " +
     "Use as ferramentas de sugerir para mostrar um cartão (a pessoa decide aplicar), e as de aplicar só se ela pedir para aplicar direto. Temas da Claudie: " +
