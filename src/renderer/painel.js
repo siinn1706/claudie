@@ -12,6 +12,7 @@ botaoInfo.innerHTML = svg('<rect x="3.5" y="4.5" width="17" height="15" rx="3"/>
 $("som").before(botaoInfo);
 
 const abertas = new Set(le("infoAbertas", ["ambiente", "contexto", "conectores", "saidas"]));
+if (!le("prVisto", false)) { abertas.add("pr"); guarda("prVisto", true); guarda("infoAbertas", [...abertas]); }
 const k = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + "M" : n >= 1000 ? (n / 1000).toFixed(1).replace(".0", "") + "k" : String(n));
 // Category colours: messages blue, built-in tools orange, connector tools
 // teal, the rest grey (free space darker).
@@ -23,13 +24,37 @@ function secao(id, titulo, extra, corpo) {
   return `<section class="info-sec${aberta ? " aberta" : ""}" data-sec="${id}"><button class="info-cab">${esc(titulo)}${svg('<path d="m8 10 4 4 4-4"/>')}<span class="info-extra">${extra || ""}</span></button><div class="info-corpo">${corpo}</div></section>`;
 }
 let dados = null, carregando = false, deNovo = false;
+// The branch's pull request (null: unknown or no GitHub CLI) and the last
+// message about creating one.
+let prDados = null, prOcupado = false, prMsg = null;
+const PR_ESTADO = { OPEN: "Aberto", MERGED: "Mesclado", CLOSED: "Fechado" };
+async function atualizaPr() {
+  if (!document.body.classList.contains("info-aberta")) return;
+  try { prDados = await vivo.prInfo(); } catch { prDados = null; }
+  desenhaInfo();
+}
+function prCorpo() {
+  const d = prDados, msg = prMsg ? `<div class="${prMsg.erro ? "con-erro" : "con-ok"}">${esc(prMsg.erro || prMsg.ok)}</div>` : "";
+  if (!d.pr) return `<p class="info-vazio">Nenhum pull request para este ramo.</p>${msg}<div class="con-acoes"><button class="mcp-bt" data-a="pr-criar"${prOcupado ? " disabled" : ""}>${prOcupado ? "Criando…" : "Criar pull request"}</button></div>`;
+  const c = d.pr.checks, partes = c.total ? [window.t("{0} de {1} checks passaram", c.ok, c.total), c.falhas ? window.t("{0} falharam", c.falhas) : "", c.pendentes ? window.t("{0} em andamento", c.pendentes) : ""].filter(Boolean) : ["Sem checks"];
+  return `<div class="pr-linha"><b>#${d.pr.numero}</b><span title="${esc(d.pr.titulo)}">${esc(d.pr.titulo)}</span></div>
+    <div class="pr-meta"><em class="pr-estado ${esc(d.pr.estado)}">${esc(PR_ESTADO[d.pr.estado] || d.pr.estado)}</em><span class="${c.falhas ? "pr-falha" : ""}">${esc(partes.join(" · "))}</span></div>${msg}
+    <div class="con-acoes"><button class="mcp-bt" data-a="pr-abrir">Abrir no navegador</button></div>`;
+}
+async function prCria() {
+  if (prOcupado || !confirm(window.t("Enviar o ramo {0} para o origin e criar um pull request?", prDados?.ramo || ""))) return;
+  prOcupado = true; prMsg = null; desenhaInfo();
+  const r = await vivo.prCriar().catch((e) => ({ erro: String(e?.message || e) }));
+  prOcupado = false; prMsg = r.erro ? { erro: r.erro } : { ok: "Pull request criado." };
+  desenhaInfo(); atualizaPr();
+}
 async function atualizaInfo() {
   if (!document.body.classList.contains("info-aberta")) return;
   if (carregando) { deNovo = true; return; }
   carregando = true; info.classList.add("carregando");
   try { dados = await vivo.painel(); } catch { dados = null; }
   carregando = false; info.classList.remove("carregando");
-  desenhaInfo();
+  desenhaInfo(); atualizaPr();
   if (deNovo) { deNovo = false; atualizaInfo(); }
 }
 // Connector management: turn off/on, reconnect, remove and add. The work runs in
@@ -110,6 +135,7 @@ function desenhaInfo() {
       <div class="ctx-barra">${barra}</div><div class="ctx-cats">${linhas}</div>
       <div class="ctx-base"><span>Compacta sozinho perto do limite</span><button class="btn" data-a="compacta"${rodando || !sessaoAtual ? " disabled" : ""}>Compactar sessão</button></div>`);
   } else h += secao("contexto", "Contexto", "", `<p class="info-vazio">${dados?.erro ? "Não deu para ler o contexto agora." : carregando ? "Lendo…" : "Abra ou comece uma conversa."}</p>`);
+  if (prDados?.gh) h += secao("pr", "Pull request", prDados.pr ? "#" + prDados.pr.numero : "", prCorpo());
   const ok = con.filter((x) => x.estado === "connected").length;
   h += secao("conectores", "Conectores", con.length ? `${ok} de ${con.length}` : "", `${con.length ? con.map(mcpLinha).join("") : `<p class="info-vazio">Nenhum conector configurado.</p>`}${mcpRodape()}`);
   const arquivos = typeof alteracoes === "function" ? [...alteracoes().keys()] : [];
@@ -118,6 +144,8 @@ function desenhaInfo() {
     : `<p class="info-vazio">Nenhum arquivo mudado nesta conversa.</p>`);
   info.innerHTML = h;
   mcpLiga();
+  info.querySelector('[data-a="pr-abrir"]')?.addEventListener("click", () => vivo.link(prDados.pr.url));
+  info.querySelector('[data-a="pr-criar"]')?.addEventListener("click", prCria);
   info.querySelectorAll(".info-cab").forEach((b) => (b.onclick = () => { const s = b.parentElement, id = s.dataset.sec; s.classList.toggle("aberta"); s.classList.contains("aberta") ? abertas.add(id) : abertas.delete(id); guarda("infoAbertas", [...abertas]); }));
   info.querySelector('[data-a="atualiza"]').onclick = atualizaInfo;
   info.querySelector('[data-a="fecha"]').onclick = () => alternaInfo(false);
@@ -133,10 +161,62 @@ function alternaInfo(v = !document.body.classList.contains("info-aberta")) {
 }
 botaoInfo.onclick = () => alternaInfo();
 addEventListener("keydown", (e) => { if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "j") { e.preventDefault(); alternaInfo(); } });
-aoEvento((ev) => { if (ev.tipo === "parado" || ev.tipo === "sessao") setTimeout(atualizaInfo, 400); });
+aoEvento((ev) => { if (ev.tipo === "parado" || ev.tipo === "sessao") { setTimeout(atualizaInfo, 400); setTimeout(mostraRamo, 500); } });
 // opening another conversation or folder refreshes it too
 for (const id of ["nova", "pasta"]) $(id).addEventListener("click", () => setTimeout(atualizaInfo, 600));
-lista.addEventListener("click", () => setTimeout(atualizaInfo, 800));
+lista.addEventListener("click", () => { setTimeout(atualizaInfo, 800); setTimeout(mostraRamo, 800); });
+for (const id of ["nova", "pasta"]) $(id).addEventListener("click", () => setTimeout(mostraRamo, 600));
+addEventListener("focus", () => mostraRamo());
+
+// The current git branch beside the title (worktrees included), and the entry
+// point for a new conversation on its own worktree.
+const ramoEl = document.createElement("span");
+ramoEl.className = "ramo-topo"; ramoEl.hidden = true; ramoEl.title = "Ramo do git desta pasta";
+$("titulo").after(ramoEl);
+const botaoWt = document.createElement("button");
+botaoWt.className = "nova"; botaoWt.id = "worktreeBtn"; botaoWt.hidden = true; botaoWt.title = "Cria um ramo novo num worktree separado e abre uma conversa nele";
+botaoWt.innerHTML = `${ICONE.ramo}<span>Nova conversa num worktree</span>`;
+$("nova").after(botaoWt);
+async function mostraRamo() {
+  let r = "";
+  try { r = await vivo.ramo(); } catch {}
+  ramoEl.hidden = botaoWt.hidden = !r;
+  ramoEl.innerHTML = r ? `${ICONE.ramo}<span>${esc(r)}</span>` : "";
+}
+botaoWt.onclick = () => {
+  if (rodando) { nota("Espere o Claude terminar para criar um worktree."); return; }
+  if (lista.querySelector(".grupo-novo")) return;
+  const inp = document.createElement("input");
+  inp.className = "grupo-novo"; inp.placeholder = "Do que se trata? (vira o nome do ramo) e Enter"; inp.maxLength = 60;
+  lista.prepend(inp); inp.focus();
+  let feito = false;
+  const cria = async (ok) => {
+    if (feito) return; feito = true; inp.onblur = null;
+    const texto = inp.value.trim(); inp.remove();
+    if (!ok || !texto) return;
+    const r = await vivo.worktreeCriar(texto).catch((e) => ({ erro: String(e?.message || e) }));
+    if (r.erro) { nota(r.erro, true); return; }
+    mostraPasta(r.cwd); await novaConversa(); carregaSessoes(); todosComandos = buscandoComandos = null; mostraRamo();
+    nota(window.t("Worktree criado no ramo {0}.", r.ramo));
+  };
+  inp.onkeydown = (e) => { if (e.key === "Enter") cria(true); if (e.key === "Escape") cria(false); };
+  inp.onblur = () => cria(false);
+};
+// After a conversation is deleted, offers to remove its worktree too.
+const normaCaminho = (c) => String(c || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+async function oferecePodarWorktree(s) {
+  if (!s.cwd) return;
+  const w = await vivo.worktreeInfo(s.cwd).catch(() => null);
+  if (!w?.git || !w.ligado) return;
+  const topo = normaCaminho(w.topo);
+  if (sessoes.some((x) => x.id !== s.id && normaCaminho(x.cwd).startsWith(topo))) return;
+  if (!confirm(window.t("Remover também o worktree desta conversa?\n{0}\nO ramo continua no git; mudanças ainda não salvas impedem a remoção.", w.topo))) return;
+  const r = await vivo.worktreeRemover(s.cwd).catch((e) => ({ erro: String(e?.message || e) }));
+  if (r.erro) { nota(r.erro, true); return; }
+  if (normaCaminho($("pasta").title).startsWith(topo)) mostraPasta(r.cwd);
+  nota("Worktree removido."); carregaSessoes(); mostraRamo();
+}
+mostraRamo();
 if (le("infoAberta", false)) alternaInfo(true);
 
 // Background work of the running turn (shells, agents, monitors): a strip above

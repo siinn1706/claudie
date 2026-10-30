@@ -738,6 +738,7 @@ function criarJanela(sessao) {
   win.on("closed", () => {
     for (const t of turnos) if (t.j === j) t.ac.abort();
     janelas.delete(id);
+    terminalMata(j);
     if (principal === j) principal = janelas.values().next().value || null;
   });
   win.loadFile(path.join(here, "renderer", "index.html"), sessao ? { query: { sessao } } : undefined);
@@ -824,13 +825,19 @@ ipcMain.handle("permissao", (_e, { id, decisao, texto, modo }) => {
 // how full the context is by category, and the state of each connector (MCP
 // server). Context and connectors come from Claude Code itself: the running
 // turn when there is one, otherwise a short idle query on the conversation.
+// In a linked worktree ".git" is a file pointing at the real git directory.
 function ramoGit(dir) {
   for (let d = dir, i = 0; d && i < 30; d = path.dirname(d), i++) {
-    try { const h = fs.readFileSync(path.join(d, ".git", "HEAD"), "utf8").trim(); return h.startsWith("ref:") ? h.split("/").slice(2).join("/") : h.slice(0, 8); } catch {}
+    try {
+      const g = path.join(d, ".git"), ptr = fs.statSync(g).isFile() ? /^gitdir:\s*(.+)$/m.exec(fs.readFileSync(g, "utf8")) : null;
+      const h = fs.readFileSync(path.join(ptr ? path.resolve(d, ptr[1].trim()) : g, "HEAD"), "utf8").trim();
+      return h.startsWith("ref:") ? h.split("/").slice(2).join("/") : h.slice(0, 8);
+    } catch {}
     if (path.dirname(d) === d) break;
   }
   return "";
 }
+ipcMain.handle("ramo", (e) => ramoGit(J(e)?.cwd));
 // Every helper question goes through here so Claude Code (and the MCP servers
 // it loads) starts at most once for it: a running turn of the conversation
 // answers directly, and idle callers share one short query that closes when the
@@ -993,7 +1000,7 @@ ipcMain.handle("abrir_arquivo", (_e, caminho, naPasta) => abreArquivo(caminho, n
 // with execFile in the conversation's folder only; output is bounded and
 // files too large or binary are only noted.
 const GIT_MAX = 12 * 1024 * 1024, GIT_ARQ_MAX = 200 * 1024, GIT_NOVOS_MAX = 200, ARVORE_VAZIA = "4b825dc642cb6eb9a060e54bf8d69288fbcb8904";
-const git = (cwd, args, max = GIT_MAX) => new Promise((ok) => execFile("git", ["-c", "core.quotepath=false", ...args], { cwd, encoding: "utf8", windowsHide: true, maxBuffer: max, timeout: 20000 }, (erro, saida, err) => ok({ erro, saida: saida || "", err: String(err || "") })));
+const git = (cwd, args, max = GIT_MAX, timeout = 20000) => new Promise((ok) => execFile("git", ["-c", "core.quotepath=false", ...args], { cwd, encoding: "utf8", windowsHide: true, maxBuffer: max, timeout }, (erro, saida, err) => ok({ erro, saida: saida || "", err: String(err || "") })));
 function fatiaDiff(bruto) {
   const arquivos = [];
   for (const parte of bruto.split(/^diff --git /m).slice(1)) {
@@ -1129,7 +1136,7 @@ ipcMain.handle("sessoes", async (e, { todas } = {}) => {
       // a name the person gave wins (in the app or here); then the app's own title
       const titulo = (a?.doUsuario && a.titulo) || s.customTitle || a?.titulo || s.summary || s.firstPrompt || "Sem título";
       return { id: s.sessionId, titulo, quando: Math.max(s.lastModified || 0, a?.quando || 0), cwd: s.cwd || "", projeto: projeto(s.cwd), doApp: !!a, arquivada: !!a?.arquivada };
-    }).filter((s) => !s.arquivada);
+    });
   } catch { return []; }
 });
 // Opening a conversation from another project moves this window there, so
@@ -1228,6 +1235,125 @@ ipcMain.handle("pasta", async (e) => {
   if (r.canceled || !r.filePaths[0]) return null;
   config.cwd = j.cwd = r.filePaths[0]; j.sessionId = null; salvarConfig(); return j.cwd;
 });
+// Worktrees: a new conversation on its own branch in its own folder. It goes
+// under <repo>/.claude/worktrees when the project already uses that, else next
+// to the repo in <repo>-worktrees. Git runs with argument arrays only.
+const mesmoCaminho = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+const slugRamo = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
+// The main repo's folder, and whether cwd is a linked worktree of it.
+async function infoWorktree(cwd) {
+  if (!cwd || !fs.existsSync(cwd)) return null;
+  const r = await git(cwd, ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-dir", "--git-common-dir"], 4096);
+  const [topo, dir, comum] = r.saida.split(/\r?\n/).map((x) => x.trim());
+  if (r.erro || !topo || !comum) return null;
+  return { topo, raiz: path.dirname(comum), ligado: !mesmoCaminho(dir, comum) };
+}
+ipcMain.handle("worktree_info", async (e, cwd) => { const w = await infoWorktree(cwd); return w ? { git: true, ligado: w.ligado, raiz: w.raiz, topo: w.topo } : { git: false }; });
+ipcMain.handle("worktree_criar", async (e, texto) => {
+  const j = J(e);
+  if (j.atual) return { erro: t("Espere o Claude terminar para criar um worktree.") };
+  const w = await infoWorktree(j.cwd);
+  if (!w) return { erro: t("Esta pasta não é um repositório git.") };
+  const base = fs.existsSync(path.join(w.raiz, ".claude", "worktrees")) ? path.join(w.raiz, ".claude", "worktrees") : w.raiz + "-worktrees";
+  const nome = slugRamo(texto) || "conversa";
+  let ramo = nome, dir = path.join(base, ramo);
+  for (let i = 2; i < 50; i++) {
+    const existe = !(await git(j.cwd, ["rev-parse", "--verify", "-q", "refs/heads/" + ramo], 1024)).erro;
+    if (!existe && !fs.existsSync(dir)) break;
+    ramo = `${nome}-${i}`; dir = path.join(base, ramo);
+  }
+  const r = await git(j.cwd, ["worktree", "add", "-b", ramo, dir]);
+  if (r.erro) return { erro: (r.err || String(r.erro.message)).trim().split("\n").pop() };
+  config.cwd = j.cwd = dir; j.sessionId = null; salvarConfig();
+  return { cwd: dir, ramo };
+});
+ipcMain.handle("worktree_remover", async (e, cwd) => {
+  const w = await infoWorktree(cwd);
+  if (!w?.ligado) return { erro: t("Esta pasta não é um worktree.") };
+  if ([...turnos].some((x) => x.cwd && mesmoCaminho(x.cwd, w.topo))) return { erro: t("Há uma resposta em andamento nesta pasta.") };
+  // a terminal sitting in the folder would hold it open on Windows
+  const dentro = (c) => { const rel = path.relative(w.topo, c || ""); return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel)); };
+  let matou = false;
+  for (const o of janelas.values()) if (o.term && dentro(o.term.cwd)) { terminalMata(o, true); matou = true; }
+  if (matou) await new Promise((ok) => setTimeout(ok, 400));
+  // from the main repo, so the folder being removed is not git's own cwd; no --force: uncommitted work keeps it
+  const r = await git(w.raiz, ["worktree", "remove", w.topo]);
+  if (r.erro) return { erro: (r.err || String(r.erro.message)).trim().split("\n").pop() };
+  for (const o of janelas.values()) if (mesmoCaminho(o.cwd, w.topo)) { o.cwd = w.raiz; o.sessionId = null; if (config.cwd && mesmoCaminho(config.cwd, w.topo)) config.cwd = w.raiz; }
+  salvarConfig();
+  return { cwd: w.raiz };
+});
+
+// The branch's pull request through the GitHub CLI, when it is installed:
+// reading is automatic, pushing and creating only on a click.
+const gh = (cwd, args, timeout = 20000) => new Promise((ok) => execFile("gh", args, { cwd, encoding: "utf8", windowsHide: true, maxBuffer: 4 << 20, timeout, env: { ...process.env, GH_PROMPT_DISABLED: "1", NO_COLOR: "1" } }, (erro, saida, err) => ok({ erro, saida: saida || "", err: String(err || "") })));
+const CHECK_FALHA = /^(FAILURE|ERROR|TIMED_OUT|CANCELLED|ACTION_REQUIRED|STARTUP_FAILURE)$/, CHECK_OK = /^(SUCCESS|NEUTRAL|SKIPPED)$/;
+ipcMain.handle("pr_info", async (e) => {
+  const cwd = J(e)?.cwd, ramo = ramoGit(cwd);
+  if (!cwd || !ramo || !fs.existsSync(cwd)) return { gh: false };
+  const r = await gh(cwd, ["pr", "view", "--json", "number,title,state,url,statusCheckRollup"]);
+  if (r.erro?.code === "ENOENT") return { gh: false };
+  if (r.erro) return /no pull requests found/i.test(r.err) ? { gh: true, ramo, pr: null } : { gh: false };
+  try {
+    const d = JSON.parse(r.saida), cs = (d.statusCheckRollup || []).map((c) => String(c.conclusion || c.state || c.status || "").toUpperCase());
+    const checks = { total: cs.length, ok: cs.filter((c) => CHECK_OK.test(c)).length, falhas: cs.filter((c) => CHECK_FALHA.test(c)).length };
+    checks.pendentes = checks.total - checks.ok - checks.falhas;
+    return { gh: true, ramo, pr: { numero: d.number, titulo: d.title, estado: d.state, url: d.url, checks } };
+  } catch { return { gh: false }; }
+});
+ipcMain.handle("pr_criar", async (e) => {
+  const cwd = J(e)?.cwd, ramo = ramoGit(cwd);
+  if (!cwd || !ramo) return { erro: t("Esta pasta não está num ramo do git.") };
+  const p = await git(cwd, ["push", "-u", "origin", "HEAD"], 1 << 20, 90000);
+  if (p.erro) return { erro: (p.err || String(p.erro.message)).trim().split("\n").pop() };
+  const r = await gh(cwd, ["pr", "create", "--fill"], 60000);
+  if (r.erro) return { erro: (r.err || String(r.erro.message)).trim().split("\n").pop() };
+  return { url: r.saida.trim().split(/\s+/).filter((x) => /^https?:/.test(x)).pop() || "" };
+});
+
+// Integrated terminal: one persistent shell per window, fed through stdin (no
+// pty), its output streamed back as "terminal" events. Stopping kills the
+// whole process tree and starts a fresh shell; closing the window or quitting
+// kills it too, so nothing is left running.
+let pwshExiste = null;
+function comandoDoTerminal() {
+  if (process.platform !== "win32") return [process.env.SHELL || "/bin/bash", ["-s"]];
+  if (pwshExiste === null) { try { execFileSync("where", ["pwsh"], { windowsHide: true, stdio: "ignore" }); pwshExiste = true; } catch { pwshExiste = false; } }
+  return [pwshExiste ? "pwsh" : "powershell.exe", ["-NoLogo", "-NoProfile", "-NoExit", "-Command", "-"]];
+}
+function terminalMata(j, sincrono) {
+  const term = j.term;
+  j.term = null;
+  if (!term?.p.pid || term.p.exitCode !== null) return;
+  if (process.platform === "win32") {
+    const args = ["/pid", String(term.p.pid), "/T", "/F"];
+    if (sincrono) { try { execFileSync("taskkill", args, { windowsHide: true, stdio: "ignore" }); } catch {} } else execFile("taskkill", args, { windowsHide: true }, () => {});
+  } else { try { process.kill(-term.p.pid, "SIGTERM"); } catch { term.p.kill("SIGTERM"); } }
+}
+function terminalLiga(j) {
+  if (j.term && mesmoCaminho(j.term.cwd, j.cwd) && j.term.p.exitCode === null) return j.term;
+  terminalMata(j);
+  const [exe, args] = comandoDoTerminal();
+  const p = spawn(exe, args, { cwd: fs.existsSync(j.cwd) ? j.cwd : os.homedir(), windowsHide: true, detached: process.platform !== "win32", env: { ...process.env, NO_COLOR: "1", TERM: "dumb" } });
+  const term = { p, cwd: j.cwd };
+  j.term = term;
+  const sai = (d) => { if (j.term === term) enviarEvento(j, { tipo: "terminal", texto: d }); };
+  p.stdout.setEncoding("utf8"); p.stderr.setEncoding("utf8");
+  p.stdout.on("data", sai); p.stderr.on("data", sai);
+  p.stdin.on("error", () => {});
+  p.on("error", (err) => { if (j.term === term) { j.term = null; enviarEvento(j, { tipo: "terminal", texto: String(err?.message || err) + "\n", fim: true }); } });
+  p.on("exit", () => { if (j.term === term) { j.term = null; enviarEvento(j, { tipo: "terminal", fim: true }); } });
+  if (process.platform === "win32") p.stdin.write("[Console]::OutputEncoding = [Text.UTF8Encoding]::new(); $OutputEncoding = [Text.UTF8Encoding]::new()\n");
+  return term;
+}
+ipcMain.handle("term_enviar", (e, linha) => {
+  const j = J(e);
+  if (!j || typeof linha !== "string" || linha.length > 20000) return false;
+  const term = terminalLiga(j);
+  try { term.p.stdin.write(linha.replace(/\r?\n?$/, "\n")); return true; } catch { return false; }
+});
+ipcMain.handle("term_parar", (e) => { const j = J(e); if (!j) return false; terminalMata(j); terminalLiga(j); return true; });
+
 // A change of model, mode, effort or ultracode goes to the conversation it was made in (or, in a new
 // one, to the defaults) and into the turns running there; the rest of config is shared.
 async function mudaConfig(j, mudanca, id = j.sessionId) {
@@ -1466,7 +1592,7 @@ ipcMain.handle("remoto_ligar", (e, ligar) => {
   else if (!remotoProc) ligaRemoto(J(e).cwd);
   return remoto;
 });
-app.on("before-quit", desligaRemoto);
+app.on("before-quit", () => { desligaRemoto(); for (const j of janelas.values()) terminalMata(j, true); });
 
 app.whenReady().then(() => {
   if (!instanciaUnica) return;

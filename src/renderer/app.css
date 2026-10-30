@@ -1175,3 +1175,32 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .diff .l.hunk { color: var(--ui-dim); background: rgba(127, 127, 127, 0.1); }
 .alt-nota { padding: 6px 10px; margin: 0; }
 .btn.perigo { background: var(--err); border-color: transparent; color: #fff; }
+
+/* Branch chip, archive toggle, worktree button, pull request and terminal */
+.ramo-topo { display: flex; align-items: center; gap: 5px; min-width: 0; max-width: 220px; padding: 2px 9px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--ui-dim); font: 500 11.5px var(--mono); white-space: nowrap; -webkit-app-region: no-drag; }
+.ramo-topo[hidden], #worktreeBtn[hidden], .linha.arquivo[hidden] { display: none; }
+.ramo-topo svg { flex: none; width: 13px; height: 13px; }
+.ramo-topo span { overflow: hidden; text-overflow: ellipsis; }
+#worktreeBtn { font-size: 13px; color: var(--ui-2); font-weight: 400; }
+#worktreeBtn svg { width: 16px; height: 16px; }
+.linha.arquivo { margin-top: 4px; font-size: 13px; }
+.linha.arquivo svg { width: 16px; height: 16px; flex: none; }
+.linha.arquivo.on { color: var(--ui); }
+.pr-linha { display: flex; gap: 6px; padding: 2px 0 4px; font-size: 13px; min-width: 0; }
+.pr-linha b { flex: none; color: var(--accent-2); }
+.pr-linha span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--ui-dim); }
+.pr-estado { font-style: normal; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-2); }
+.pr-estado.OPEN { color: #3fb97f; } .pr-estado.MERGED { color: #a78bfa; } .pr-estado.CLOSED { color: var(--err); }
+.pr-falha { color: var(--err); }
+.term { display: flex; flex-direction: column; margin-bottom: 8px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--composer); backdrop-filter: blur(var(--blur)); overflow: hidden; }
+.term[hidden] { display: none; }
+.term-cab { display: flex; align-items: center; gap: 6px; padding: 5px 8px 5px 12px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.term-cab b { font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-2); }
+.term-cab em { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-dim); font-style: normal; direction: rtl; text-align: left; }
+.term-cab .btn { padding: 3px 10px; font-size: 12px; }
+.term-cab .icone { width: 26px; height: 26px; } .term-cab .icone svg { width: 14px; height: 14px; }
+.term-saida { margin: 0; padding: 8px 12px; height: 200px; min-height: 80px; max-height: 50vh; resize: vertical; overflow: auto; font: 12.5px/1.45 var(--mono); white-space: pre-wrap; word-break: break-all; user-select: text; outline: 0; }
+.term-linha { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-top: 1px solid var(--line); font: 12.5px var(--mono); }
+.term-linha span { color: var(--accent-2); }
+.term-linha input { flex: 1; min-width: 0; padding: 7px 0; background: none; border: 0; outline: 0; font: inherit; }

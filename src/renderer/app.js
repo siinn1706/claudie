@@ -640,6 +640,11 @@ const guarda = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } c
 const le = (k, padrao) => { try { return JSON.parse(localStorage.getItem(k)) ?? padrao; } catch { return padrao; } };
 let grupos = le("grupos", {}), coresConversa = le("coresConversa", {}), fechados = new Set(le("gruposFechados", []));
 const CORES_CONVERSA = ["#e5484d", "#f5a524", "#e7c15a", "#5fb08a", "#3fb6d9", "#a78bfa", "#e58fb8"];
+// Archived conversations leave the list and wait in their own view. The ones the
+// Claude app archived count too; "desarquivadas" is the person's say over those.
+let arquivadas = new Set(le("arquivadas", [])), desarquivadas = new Set(le("desarquivadas", [])), verArquivadas = false;
+const arquivada = (s) => !desarquivadas.has(s.id) && (arquivadas.has(s.id) || !!s.arquivada);
+const salvaArquivo = () => { guarda("arquivadas", [...arquivadas]); guarda("desarquivadas", [...desarquivadas]); };
 const grupoDaConversa = (id) => Object.keys(grupos).find((g) => grupos[g].includes(id));
 function cabecalho(nome, n, dobravel) {
   const h = document.createElement(dobravel ? "button" : "div");
@@ -662,9 +667,9 @@ function itemLista(s, filtro) {
 }
 function desenhaLista() {
   const filtro = $("busca").value.trim().toLowerCase();
-  const vis = sessoes.filter((s) => !filtro || s.titulo.toLowerCase().includes(filtro) || (s.projeto || "").toLowerCase().includes(filtro) || achados.has(s.id));
+  const vis = sessoes.filter((s) => arquivada(s) === verArquivadas).filter((s) => !filtro || s.titulo.toLowerCase().includes(filtro) || (s.projeto || "").toLowerCase().includes(filtro) || achados.has(s.id));
   lista.innerHTML = "";
-  if (!vis.length) { lista.innerHTML = `<div class="vazio-lista">${filtro ? (buscaPendente ? "Procurando nas conversas…" : "Nada encontrado.") : "Nenhuma conversa nesta pasta ainda."}</div>`; return; }
+  if (!vis.length) { lista.innerHTML = `<div class="vazio-lista">${filtro ? (buscaPendente ? "Procurando nas conversas…" : "Nada encontrado.") : verArquivadas ? "Nenhuma conversa arquivada." : "Nenhuma conversa nesta pasta ainda."}</div>`; mostraArquivo(); return; }
   const usadas = new Set();
   const fix = vis.filter((s) => fixadas.has(s.id));
   if (fix.length) { cabecalho("Fixadas", fix.length, false); fix.forEach((s) => { usadas.add(s.id); itemLista(s, filtro); }); }
@@ -703,7 +708,17 @@ function desenhaLista() {
       itemLista(s, filtro);
     }
   }
-  marcaSessao();
+  marcaSessao(); mostraArquivo();
+}
+// The toggle under the list: "Arquivadas (n)" opens the archived view and back.
+const botaoArquivo = document.createElement("button");
+botaoArquivo.className = "linha arquivo"; botaoArquivo.id = "arquivoBtn";
+botaoArquivo.onclick = () => { verArquivadas = !verArquivadas; desenhaLista(); };
+lista.after(botaoArquivo);
+function mostraArquivo() {
+  const n = sessoes.filter(arquivada).length;
+  botaoArquivo.hidden = !n && !verArquivadas; botaoArquivo.classList.toggle("on", verArquivadas);
+  botaoArquivo.innerHTML = verArquivadas ? `${svg('<path d="m15 6-6 6 6 6"/>')}<span>Voltar às conversas</span>` : `${svg('<rect x="3.5" y="4.5" width="17" height="4" rx="1"/><path d="M5 8.5v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9M10 12.5h4"/>')}<span>Arquivadas</span><span class="valor">${n}</span>`;
 }
 function moveParaGrupo(id, g) {
   for (const k of Object.keys(grupos)) grupos[k] = grupos[k].filter((x) => x !== id);
@@ -738,7 +753,7 @@ async function carregaSessoes() {
   sessoes = lista; b?.classList.remove("girando");
   if (document.activeElement?.closest?.("#lista input")) return;
   desenhaLista();
-  $("contaConversas").textContent = sessoes.length;
+  $("contaConversas").textContent = sessoes.filter((s) => !arquivada(s)).length;
 }
 const sessaoPorId = (id) => sessoes.find((x) => x.id === id);
 function mostraEscopo() {
@@ -765,7 +780,8 @@ $("busca").addEventListener("input", () => {
 
 function menuSessao(ancora, s) {
   const r = ancora.getBoundingClientRect();
-  menu.innerHTML = `<button data-a="fixar">${ICONE.pino}${fixadas.has(s.id) ? "Desafixar" : "Fixar no topo"}</button><button data-a="renomear">${ICONE.lapis}Renomear</button>`
+  const arq = arquivada(s);
+  menu.innerHTML = `<button data-a="arquivar">${svg('<rect x="3.5" y="4.5" width="17" height="4" rx="1"/><path d="M5 8.5v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9M10 12.5h4"/>')}${arq ? "Desarquivar" : "Arquivar"}</button><button data-a="fixar">${ICONE.pino}${fixadas.has(s.id) ? "Desafixar" : "Fixar no topo"}</button><button data-a="renomear">${ICONE.lapis}Renomear</button>`
     + `<button data-a="janela">${ICONE.janela}Abrir em nova janela</button><button data-a="duplicar">${ICONE.duplicar}Duplicar</button><button data-a="exportar">${ICONE.exportar}Exportar (Markdown)</button><button data-a="apagar" class="perigo">${ICONE.lixo}Apagar</button>`;
   const gAtual = grupoDaConversa(s.id);
   menu.insertAdjacentHTML("beforeend", `<div class="menu-sep"></div><div class="menu-cores">${CORES_CONVERSA.map((c) => `<button class="cor${coresConversa[s.id] === c ? " on" : ""}" data-cor="${c}" style="--cor:${c}" title="Cor"></button>`).join("")}<button class="cor sem" data-cor="" title="Sem cor"></button></div>`
@@ -778,6 +794,12 @@ function menuSessao(ancora, s) {
   menu.querySelector('[data-a="novoGrupo"]').onclick = () => { fechaMenu(); novoGrupo(s.id); };
   menu.querySelector('[data-a="semGrupo"]')?.addEventListener("click", () => { fechaMenu(); moveParaGrupo(s.id, null); });
   menu.querySelector('[data-a="fixar"]').onclick = () => { fechaMenu(); fixadas.has(s.id) ? fixadas.delete(s.id) : fixadas.add(s.id); salvaFixadas(); desenhaLista(); };
+  menu.querySelector('[data-a="arquivar"]').onclick = () => {
+    fechaMenu();
+    if (!arq && (emCurso.has(s.id) || (s.id === sessaoAtual && rodando))) { nota("Espere o Claude terminar para arquivar esta conversa.", true); return; }
+    if (arq) { arquivadas.delete(s.id); if (s.arquivada) desarquivadas.add(s.id); } else { arquivadas.add(s.id); desarquivadas.delete(s.id); }
+    salvaArquivo(); desenhaLista(); $("contaConversas").textContent = sessoes.filter((x) => !arquivada(x)).length;
+  };
   menu.querySelector('[data-a="renomear"]').onclick = () => { fechaMenu(); renomeia(s); };
   menu.querySelector('[data-a="janela"]').onclick = () => { fechaMenu(); vivo.janelaNova(s.id); };
   menu.querySelector('[data-a="duplicar"]').onclick = async () => {
@@ -790,7 +812,7 @@ function menuSessao(ancora, s) {
   apagar.onclick = async () => {
     if (!apagar.dataset.certeza) { apagar.dataset.certeza = "1"; apagar.innerHTML = `${ICONE.lixo}Confirmar: apagar`; return; }
     fechaMenu();
-    if (await vivo.apagar(s.id, s.cwd)) { if (sessaoAtual === s.id) novaConversa(); carregaSessoes(); }
+    if (await vivo.apagar(s.id, s.cwd)) { if (sessaoAtual === s.id) novaConversa(); arquivadas.delete(s.id); desarquivadas.delete(s.id); salvaArquivo(); await carregaSessoes(); if (typeof oferecePodarWorktree === "function") oferecePodarWorktree(s); }
   };
 }
 const fechaMenu = () => menu.classList.remove("on");
