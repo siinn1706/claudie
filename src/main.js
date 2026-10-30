@@ -13,8 +13,13 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const idioma = () => (IDIOMAS.includes(config?.visual?.geral?.idioma) ? config.visual.geral.idioma : IDIOMA_PADRAO);
+const t = criaT(idioma);
+// Text Claude writes for the app (titles, news) follows the interface language.
+const NOME_IDIOMA = { pt: "português do Brasil", en: "inglês", vi: "vietnamita" };
 
 // ---- which Claude Code runs, and how it signs in --------------------------------------
 // The installer does not carry Claude Code: the app uses the one the person
@@ -41,7 +46,7 @@ function chaveApi() {
 // every query goes through here: the person's Claude Code and the chosen sign-in
 function query(args) {
   const exe = acharClaude();
-  if (!exe && !temClaudeEmbutido()) throw new Error("Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o Claudinho de novo.");
+  if (!exe && !temClaudeEmbutido()) throw new Error("Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o vnam's Claudie de novo.");
   const extra = {};
   if (exe) extra.pathToClaudeCodeExecutable = exe;
   const chave = config.entrar === "chave" ? chaveApi() : "";
@@ -109,9 +114,10 @@ const semPeca = (slug) => ({ ...texto(`Não existe a peça "${slug}". Use buscar
 const servidorTemasPara = (j) => createSdkMcpServer({
   name: "claudinho",
   version: "0.2.0",
-  instructions: "Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os 16 temas do Claudinho (interativos, com música) e a biblioteca ASCII Magic, com " +
-    `${MAGIA.pecas.size} animações. Quando a pessoa pedir um tema ou um visual, prefira um tema do Claudinho se algum combinar; senão use buscar_fundo (em inglês: os nomes e tags da biblioteca são em inglês) e depois sugerir_fundo ou aplicar_fundo. ` +
-    "Use as ferramentas de sugerir para mostrar um cartão (a pessoa decide aplicar), e as de aplicar só se ela pedir para aplicar direto. Temas da Claudinho: " +
+  instructions: "Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os 16 temas do vnam's Claudie (interativos, com música) e a biblioteca ASCII Magic, com " +
+    `${MAGIA.pecas.size} animações. Quando a pessoa pedir um tema ou um visual, prefira um tema do vnam's Claudie se algum combinar; senão use buscar_fundo (em inglês: os nomes e tags da biblioteca são em inglês) e depois sugerir_fundo ou aplicar_fundo. ` +
+    "Responda sempre no idioma em que a pessoa escreve. " +
+    "Use as ferramentas de sugerir para mostrar um cartão (a pessoa decide aplicar), e as de aplicar só se ela pedir para aplicar direto. Temas da vnam's Claudie: " +
     Object.entries(TEMAS).map(([id, nome]) => `${id} (${nome})`).join(", ") + ". Categorias da biblioteca: " + Object.entries(MAGIA.cats).map(([id, nome]) => `${id} (${nome})`).join(", ") + ".",
   tools: [
     tool("sugerir_tema", "Mostra na conversa um cartão do tema, com prévia animada e os botões Aplicar e Prévia.", { tema: z.enum(Object.keys(TEMAS)) },
@@ -164,7 +170,7 @@ async function tituloAutomatico(j, id, pergunta, resposta) {
   const dir = j.cwd;
   try {
     for await (const m of query({
-      prompt: `Dê um título curto (de 2 a 6 palavras, em português, sem aspas e sem ponto final) para esta conversa.\n\nPedido: ${pergunta.slice(0, 600)}\n\nResposta: ${resposta.slice(0, 600)}`,
+      prompt: `Dê um título curto (de 2 a 6 palavras, em ${NOME_IDIOMA[idioma()]}, sem aspas e sem ponto final) para esta conversa.\n\nPedido: ${pergunta.slice(0, 600)}\n\nResposta: ${resposta.slice(0, 600)}`,
       options: { cwd: dir, model: "claude-haiku-5-5", tools: [], maxTurns: 1, persistSession: false, settingSources: [], systemPrompt: "Você só responde com um título curto." },
     })) if (m.type === "result" && m.subtype === "success") titulo = String(m.result || "").split("\n")[0].replace(/^["'“”*#\s]+|["'“”*.\s]+$/g, "").slice(0, 60);
   } catch {}
@@ -317,7 +323,7 @@ function listaWallpaperEngine() {
 // Shims so a web wallpaper starts the way it does inside Wallpaper Engine: its
 // audio and media hooks exist (and stay quiet), and its settings arrive with
 // the defaults from project.json once the page has loaded.
-const shimWeb = (props) => `// Claudinho: o que o Wallpaper Engine daria a este papel de parede.
+const shimWeb = (props) => `// vnam's Claudie: o que o Wallpaper Engine daria a este papel de parede.
 (function () {
   var nada = function () {};
   ["wallpaperRegisterAudioListener", "wallpaperRegisterMediaStatusListener", "wallpaperRegisterMediaPropertiesListener", "wallpaperRegisterMediaThumbnailListener", "wallpaperRegisterMediaPlaybackListener", "wallpaperRegisterMediaTimelineListener"].forEach(function (k) { window[k] = nada; });
@@ -474,7 +480,7 @@ function criarJanela(sessao) {
   const win = new BrowserWindow({
     width: sessao ? 1180 : 1440, height: sessao ? 820 : 920, minWidth: 940, minHeight: 620,
     backgroundColor: "#262624",
-    title: config.visual?.nome || "Claudinho",
+    title: config.visual?.nome || "vnam's Claudie",
     titleBarStyle: "hidden",
     titleBarOverlay: { color: "#00000000", symbolColor: "#e9e6e1", height: 44 },
     webPreferences: { preload: path.join(here, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: !!process.env.VIVO_GRAVAR },
@@ -555,13 +561,13 @@ ipcMain.handle("enviar", (e, texto, anexos) => {
 ipcMain.handle("janela_nova", (_e, sessao) => { criarJanela(sessao || undefined); });
 ipcMain.handle("comandos", async (e) => { try { return await comandos(J(e)); } catch (e) { console.log("[comandos]", e?.message || e); return []; } });
 ipcMain.handle("anexar", async (e) => {
-  const r = await dialog.showOpenDialog(J(e).win, { title: "Anexar arquivos", defaultPath: J(e).cwd, properties: ["openFile", "multiSelections"] });
+  const r = await dialog.showOpenDialog(J(e).win, { title: t("Anexar arquivos"), defaultPath: J(e).cwd, properties: ["openFile", "multiSelections"] });
   return r.canceled ? [] : r.filePaths;
 });
 ipcMain.handle("motion_importar", async (e, caminho) => {
   let arquivo = caminho;
   if (!arquivo) {
-    const r = await dialog.showOpenDialog(J(e).win, { title: "Importar animação do ASCII Motion", filters: [{ name: "ASCII Motion", extensions: ["json", "asciimtn", "txt"] }], properties: ["openFile"] });
+    const r = await dialog.showOpenDialog(J(e).win, { title: t("Importar animação do ASCII Motion"), filters: [{ name: "ASCII Motion", extensions: ["json", "asciimtn", "txt"] }], properties: ["openFile"] });
     if (r.canceled || !r.filePaths[0]) return null;
     arquivo = r.filePaths[0];
   }
@@ -643,7 +649,7 @@ ipcMain.handle("novidades", async () => {
   let texto = "";
   try {
     for await (const m of query({
-      prompt: "Pesquise na web as novidades mais recentes (últimas semanas) sobre a Anthropic, o Claude e o Claude Code. Responda só com 4 frases curtas em português do Brasil, uma por linha, sem marcadores nem links, cada uma com um fato novo e concreto (no máximo 120 caracteres cada). Se não achar nada recente, responda vazio.",
+      prompt: "Pesquise na web as novidades mais recentes (últimas semanas) sobre a Anthropic, o Claude e o Claude Code. Responda só com 4 frases curtas em " + NOME_IDIOMA[idioma()] + ", uma por linha, sem marcadores nem links, cada uma com um fato novo e concreto (no máximo 120 caracteres cada). Se não achar nada recente, responda vazio.",
       options: { cwd: app.getPath("home"), model: "claude-haiku-5-5", tools: ["WebSearch"], allowedTools: ["WebSearch"], maxTurns: 4, persistSession: false, settingSources: [], systemPrompt: "Você pesquisa e resume notícias com precisão. Nunca invente." },
     })) if (m.type === "result" && m.subtype === "success") texto = String(m.result || "");
   } catch {}
@@ -753,15 +759,15 @@ ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {
 });
 // Export a conversation as Markdown, where the person chooses.
 ipcMain.handle("exportar", async (e, { id, titulo, cwd }) => {
-  const nome = (titulo || "conversa").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || "conversa";
-  const r = await dialog.showSaveDialog(J(e).win, { title: "Exportar conversa", defaultPath: path.join(app.getPath("documents"), nome + ".md"), filters: [{ name: "Markdown", extensions: ["md"] }] });
+  const nome = (titulo || t("conversa")).replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || t("conversa");
+  const r = await dialog.showSaveDialog(J(e).win, { title: t("Exportar conversa"), defaultPath: path.join(app.getPath("documents"), nome + ".md"), filters: [{ name: "Markdown", extensions: ["md"] }] });
   if (r.canceled || !r.filePath) return null;
   try {
-  const partes = [`# ${titulo || "Conversa"}`, ""];
+  const partes = [`# ${titulo || t("Conversa")}`, ""];
   for (const m of await historico(id, cwd || J(e).cwd)) {
-    if (m.papel === "eu") partes.push(`**Você:**${m.imagens ? ` _(${m.imagens} imagem${m.imagens > 1 ? "ns" : ""})_` : ""}`, "", m.texto || "", "");
+    if (m.papel === "eu") partes.push(t("**Você:**") + (m.imagens ? " " + (m.imagens > 1 ? t("_({0} imagens)_", m.imagens) : t("_(1 imagem)_")) : ""), "", m.texto || "", "");
     else if (m.papel === "claude") partes.push("**Claude:**", "", m.texto, "");
-    else partes.push(`> Ferramenta: ${m.nome}`, "");
+    else partes.push(t("> Ferramenta: {0}", m.nome), "");
   }
   fs.writeFileSync(r.filePath, partes.join("\n"));
   return r.filePath;
@@ -799,7 +805,7 @@ ipcMain.handle("apagar", async (e, id, cwd) => {
 ipcMain.handle("pasta", async (e) => {
   const j = J(e);
   if (j.atual) return null;
-  const r = await dialog.showOpenDialog(j.win, { title: "Pasta do projeto", defaultPath: j.cwd, properties: ["openDirectory"] });
+  const r = await dialog.showOpenDialog(j.win, { title: t("Pasta do projeto"), defaultPath: j.cwd, properties: ["openDirectory"] });
   if (r.canceled || !r.filePaths[0]) return null;
   config.cwd = j.cwd = r.filePaths[0]; j.sessionId = null; salvarConfig(); return j.cwd;
 });
@@ -807,6 +813,8 @@ ipcMain.handle("config", (_e, mudanca) => { config = { ...config, ...mudanca }; 
 function avisaConfig() { for (const o of janelas.values()) enviarEvento(o, { tipo: "config", modo: config.modo, model: config.model, esforco: config.esforco }); }
 // Everything the person customised (colours, fonts, sounds, music, icon, name).
 ipcMain.handle("visual", () => config.visual || {});
+// Sync, so the window can translate itself before it first paints.
+ipcMain.on("i18n", (e) => { e.returnValue = { idioma: idioma(), dicionario: DICIONARIO }; });
 ipcMain.handle("visual_salvar", (_e, visual) => {
   const antes = config.visual || {};
   config.visual = visual && typeof visual === "object" ? visual : {}; salvarConfig();
@@ -820,7 +828,7 @@ ipcMain.handle("pessoal_importar", async (e, tipo, caminhos) => {
   if (!TIPOS[tipo]) return { erro: "Tipo desconhecido." };
   let lista = Array.isArray(caminhos) ? caminhos.filter(Boolean) : [];
   if (!lista.length) {
-    const r = await dialog.showOpenDialog(J(e).win, { title: `Escolher ${TIPOS[tipo].nome.toLowerCase()}`, filters: [{ name: TIPOS[tipo].nome, extensions: TIPOS[tipo].ext }], properties: ["openFile", ...(tipo === "icone" ? [] : ["multiSelections"])] });
+    const r = await dialog.showOpenDialog(J(e).win, { title: t("Escolher {0}", t(TIPOS[tipo].nome).toLocaleLowerCase()), filters: [{ name: t(TIPOS[tipo].nome), extensions: TIPOS[tipo].ext }], properties: ["openFile", ...(tipo === "icone" ? [] : ["multiSelections"])] });
     if (r.canceled) return { itens: [] };
     lista = r.filePaths;
   }
@@ -886,14 +894,14 @@ function atalhoGlobal() {
 
 // One identity for the window and its shortcuts, so a pinned shortcut and the
 // open window share one taskbar button and one icon.
-const APP_ID = "com.claudinho.app";
+const APP_ID = "com.vnam.claudie";
 app.setAppUserModelId(APP_ID);
 // the canvases, videos and web wallpapers go straight to the GPU
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 app.commandLine.appendSwitch("enable-zero-copy");
 // Test runs (VIVO_PASTA / VIVO_JS) use a profile of their own, so they never
 // touch the person's settings and can run with the app open.
-if (process.env.VIVO_PASTA || process.env.VIVO_JS) app.setPath("userData", path.join(app.getPath("appData"), process.env.VIVO_PERFIL || "Claudinho-teste"));
+if (process.env.VIVO_PASTA || process.env.VIVO_JS) app.setPath("userData", path.join(app.getPath("appData"), process.env.VIVO_PERFIL || "vnam's Claudie-teste"));
 if (!process.env.VIVO_ATALHOS && !app.requestSingleInstanceLock()) app.quit();
 app.on("second-instance", () => {
   const w = principal?.win; if (!w) return;
@@ -903,8 +911,8 @@ app.on("second-instance", () => {
 // lets you pin it to the taskbar) and the project folder.
 // Run once with VIVO_ATALHOS=1.
 function criaAtalhos() {
-  const alvo = { target: process.execPath, args: `"${app.getAppPath()}"`, cwd: app.getAppPath(), icon: path.join(here, "icone.ico"), iconIndex: 0, appUserModelId: APP_ID, description: "Claudinho: o Claude Code com papéis de parede vivos" };
-  const lugares = [path.join(app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "Claudinho.lnk"), path.join(app.getAppPath(), "Claudinho.lnk")];
+  const alvo = { target: process.execPath, args: `"${app.getAppPath()}"`, cwd: app.getAppPath(), icon: path.join(here, "icone.ico"), iconIndex: 0, appUserModelId: APP_ID, description: "vnam's Claudie: o Claude Code com papéis de parede vivos" };
+  const lugares = [path.join(app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "vnams Claudie.lnk"), path.join(app.getAppPath(), "vnams Claudie.lnk")];
   for (const l of lugares) console.log("[atalho]", shell.writeShortcutLink(l, fs.existsSync(l) ? "replace" : "create", alvo) ? "ok" : "falhou", l);
 }
 

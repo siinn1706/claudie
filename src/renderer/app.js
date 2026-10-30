@@ -30,7 +30,7 @@ const ICONE = {
   janela: svg('<rect x="3.5" y="5.5" width="13" height="13" rx="2"/><path d="M8.5 5.5V4.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-1"/>'),
   duplicar: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>'),
 };
-const horaAgora = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const horaAgora = () => new Date().toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
 const iconeDa = (nome) => (nome === "Bash" ? ICONE.terminal : /^(Read|NotebookRead)$/.test(nome) ? ICONE.arquivo : /^(Write|Edit|MultiEdit|NotebookEdit)$/.test(nome) ? ICONE.editar
   : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudinho__") ? ICONE.tema : ICONE.ferramenta);
 
@@ -295,7 +295,7 @@ entrada.addEventListener("input", () => { ajustaAltura(); atualizaEnviar(); cmdS
 // Enter runs.
 const comandosEl = $("comandos");
 const LOCAIS = [
-  { nome: "tema", dica: "[nome]", descricao: "Escolher um tema do Claudinho" },
+  { nome: "tema", dica: "[nome]", descricao: "Escolher um tema do vnam's Claudie" },
   { nome: "fundo", dica: "[busca]", descricao: "Procurar um fundo na biblioteca ASCII Magic" },
   { nome: "importar", descricao: "Importar uma animação feita no ASCII Motion" },
   { nome: "personalizar", descricao: "Fundos, cores, fontes, sons, música, ícone e nome" },
@@ -487,7 +487,7 @@ function cabecalho(nome, n, dobravel) {
 }
 function itemLista(s, filtro) {
   const d = document.createElement("div"), trecho = filtro && !s.titulo.toLowerCase().includes(filtro) ? achados.get(s.id) : null, cor = coresConversa[s.id];
-  d.className = "item" + (fixadas.has(s.id) ? " fixa" : "") + (trecho ? " com-trecho" : ""); d.dataset.id = s.id; d.title = new Date(s.quando).toLocaleString("pt-BR");
+  d.className = "item" + (fixadas.has(s.id) ? " fixa" : "") + (trecho ? " com-trecho" : ""); d.dataset.id = s.id; d.title = new Date(s.quando).toLocaleString(i18n.local());
   if (cor) d.style.setProperty("--cor", cor);
   d.innerHTML = `${cor ? '<i class="ponto"></i>' : ""}<span>${esc(s.titulo)}</span>${todasPastas && filtro && s.projeto ? `<em class="proj" title="${esc(s.cwd)}">${esc(s.projeto)}</em>` : ""}${trecho ? `<small>${esc(trecho)}</small>` : ""}<button class="icone mais" title="Opções">${ICONE.mais}</button>`;
   d.onclick = (e) => { if (!e.target.closest(".mais")) abreSessao(s.id, s.titulo); };
@@ -984,7 +984,7 @@ function cartaoBase(el, chave, nome, sub, tela) {
   pv.onclick = () => previaChave(chave);
   info.append(ap, pv); c.append(info); el.append(c); marcaAplicada(); desce();
 }
-function cartao(el, i) { cartaoBase(el, THEMES[i].id, THEMES[i].name, "Tema do Claudinho · ASCII ao vivo", mini(i, 216, 136)); }
+function cartao(el, i) { cartaoBase(el, THEMES[i].id, THEMES[i].name, "Tema do vnam's Claudie · ASCII ao vivo", mini(i, 216, 136)); }
 async function cartaoArte(el, chave) {
   const info = await infoArte(chave);
   if (!info) { el.remove(); return; }
@@ -1208,13 +1208,13 @@ async function abreCreditos() {
   for (const p of PECAS.values()) (porCat[p.cat] ||= []).push(p.nome);
   const categorias = (window.MAGIA?.cats || []).map(([id]) => `<details><summary>${esc(CAT_PT[id] || id)} <small>${(porCat[id] || []).length}</small></summary><p>${(porCat[id] || []).sort().map(esc).join(" · ")}</p></details>`).join("");
   creditosCaixa.innerHTML = `
-    <div class="cred-topo"><span class="marca">${$("side").querySelector(".marca-svg").outerHTML}<b>Claudinho</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
+    <div class="cred-topo"><span class="marca">${$("side").querySelector(".marca-svg").outerHTML}<b>vnam's Claudie</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <p class="cred-autor">Feito por ${link("https://luisrobertoportifolio.com", "Luis Roberto")}</p>
     <section><h3>A ideia</h3>
-      <p>Inspirado no conceito <i>“theme for Claude Code but every wallpaper is alive”</i>, de Marko Vineli, ${link("https://x.com/handsher_NGU/status/2115618341675319417", "visto no X")}. O Claudinho conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.</p></section>
+      <p>Inspirado no conceito <i>“theme for Claude Code but every wallpaper is alive”</i>, de Marko Vineli, ${link("https://x.com/handsher_NGU/status/2115618341675319417", "visto no X")}. O vnam&#39;s Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.</p></section>
     <section><h3>Temas animados <small>${THEMES.length}</small></h3>
       <p>${THEMES.map((t) => esc(t.name)).join(" · ")}</p>
-      <p class="fraco">Desenhados para o Claudinho: motor de mosaico ASCII, interações e música gerada no próprio app. A Honu Lagoon e os temas de água seguem a linguagem visual do vídeo de Marko Vineli. A Galáxia Distante é arte original, sem marcas de terceiros.</p></section>
+      <p class="fraco">Desenhados para o Claudinho (o app original): motor de mosaico ASCII, interações e música gerada no próprio app. A Honu Lagoon e os temas de água seguem a linguagem visual do vídeo de Marko Vineli. A Galáxia Distante é arte original, sem marcas de terceiros.</p></section>
     <section><h3>Biblioteca ASCII Magic <small>${PECAS.size}</small></h3>
       <p>Animações de ${link("https://www.ascii-magic.com/ascii", "ASCII Magic")} (© 2026 ASCII Magic), licença MIT. <b>Ocean Sunset</b> é baseada numa foto de César Couto e <b>Starry Ridge</b> numa foto de Vincentiu Solomon, ambas sob a ${link("https://unsplash.com/license", "Licença Unsplash")}.</p>
       ${categorias}</section>
@@ -1292,13 +1292,13 @@ irFim.onclick = forcaDesce;
 // an answer. Clicking it brings the window back.
 function avisaSistema(titulo, corpo) {
   if (document.hasFocus() || typeof Notification === "undefined" || geral().notificacoes === false) return;
-  try { const n = new Notification(titulo, { body: corpo || "", silent: false }); n.onclick = () => vivo.focar(); } catch {}
+  try { const n = new Notification(window.t(titulo), { body: window.t(corpo || ""), silent: false }); n.onclick = () => vivo.focar(); } catch {}
 }
 
 // ---- shortcuts ---------------------------------------------------------------------------
 function abreAtalhos() {
   const A = [["Enter", "Enviar (com o Claude trabalhando, entra na fila)"], ["Shift + Enter", "Nova linha"], ["/", "Comandos do app e do Claude Code"], ["Ctrl + N", "Nova conversa"], ["Ctrl + Shift + N", "Nova janela"], ["Ctrl + K", "Buscar nas conversas"],
-    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Fechar menus e painéis"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudinho de qualquer lugar"]];
+    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Fechar menus e painéis"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o vnam's Claudie de qualquer lugar"]];
   creditosCaixa.innerHTML = `<div class="cred-topo"><span class="marca"><b>Atalhos</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <section class="atalhos">${A.map(([k, d]) => `<div><kbd>${esc(k)}</kbd><span>${esc(d)}</span></div>`).join("")}</section>`;
   creditosCaixa.querySelector("#fechaCreditos").onclick = fechaCreditos;

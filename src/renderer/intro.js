@@ -130,7 +130,7 @@ function boasVindas(aoAbrir) {
     if (n > 0) {
       ctx.globalAlpha = some;
       ctx.font = `450 ${Math.round(Math.max(13, unidade * 0.36))}px Inter, system-ui, sans-serif`; ctx.fillStyle = "rgba(236,235,231,0.6)";
-      const txt = FRASE.slice(0, n) + (n < FRASE.length && Math.floor(t * 3) % 2 ? "▍" : "");
+      const frase = window.t(FRASE), txt = frase.slice(0, n) + (n < frase.length && Math.floor(t * 3) % 2 ? "▍" : "");
       ctx.fillText(txt, cx, cyNome + corpo * 0.95);
       ctx.globalAlpha = 1;
     }

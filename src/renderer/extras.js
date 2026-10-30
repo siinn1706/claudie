@@ -101,7 +101,7 @@ function pergunta(ev) {
 // near the end, and when the limit is hit, an offer to carry on by itself.
 const JANELA = { five_hour: "janela de 5 horas", seven_day: "semana", seven_day_opus: "semana (Opus)", seven_day_sonnet: "semana (Sonnet)" };
 let limite = null, timerContinua = null;
-const quando = (s) => { const d = new Date(s < 1e12 ? s * 1000 : s); return d.toLocaleString("pt-BR", { weekday: d.toDateString() === new Date().toDateString() ? undefined : "short", hour: "2-digit", minute: "2-digit" }); };
+const quando = (s) => { const d = new Date(s < 1e12 ? s * 1000 : s); return d.toLocaleString(i18n.local(), { weekday: d.toDateString() === new Date().toDateString() ? undefined : "short", hour: "2-digit", minute: "2-digit" }); };
 function mostraLimite(info) {
   limite = info;
   const uso = info.utilization == null ? null : Math.round(info.utilization > 1 ? info.utilization : info.utilization * 100);

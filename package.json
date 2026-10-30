@@ -1,9 +1,9 @@
 {
-  "name": "claudinho",
-  "productName": "Claudinho",
+  "name": "vnams-claudie",
+  "productName": "vnam's Claudie",
   "version": "1.0.2",
   "private": true,
-  "description": "Claudinho: o seu Claude Code, agora com mais vida",
+  "description": "vnam's Claudie: Claude Code com papéis de parede ASCII vivos, em português, inglês e vietnamita (baseado no Claudinho)",
   "type": "module",
   "main": "src/main.js",
   "scripts": {
@@ -25,10 +25,10 @@
     "name": "Luis Roberto",
     "url": "https://luisrobertoportifolio.com"
   },
-  "homepage": "https://meuclaudinho.com.br",
+  "homepage": "https://github.com/siinn1706/vnams-claudie",
   "build": {
-    "appId": "com.claudinho.app",
-    "productName": "Claudinho",
+    "appId": "com.vnam.claudie",
+    "productName": "vnam's Claudie",
     "copyright": "Luis Roberto",
     "directories": {
       "output": "dist"
@@ -57,17 +57,17 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Claudinho",
-      "artifactName": "Claudinho-Setup.exe",
+      "shortcutName": "vnam's Claudie",
+      "artifactName": "vnams-Claudie-Setup.exe",
       "installerIcon": "src/icone.ico",
       "uninstallerIcon": "src/icone.ico",
-      "uninstallDisplayName": "Claudinho"
+      "uninstallDisplayName": "vnam's Claudie"
     },
     "publish": [
       {
         "provider": "github",
-        "owner": "Lu1sR0",
-        "repo": "claudinho",
+        "owner": "siinn1706",
+        "repo": "vnams-claudie",
         "releaseType": "release"
       }
     ]

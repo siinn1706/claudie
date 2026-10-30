@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld("vivo", {
   buscar: (termo, todas) => ipcRenderer.invoke("buscar", termo, todas),
   focar: () => ipcRenderer.invoke("focar"),
   visual: () => ipcRenderer.invoke("visual"),
+  i18n: () => ipcRenderer.sendSync("i18n"),
   visualSalvar: (v) => ipcRenderer.invoke("visual_salvar", v),
   pessoalLista: (tipo) => ipcRenderer.invoke("pessoal_lista", tipo),
   pessoalImportar: (tipo, caminhos) => ipcRenderer.invoke("pessoal_importar", tipo, caminhos),

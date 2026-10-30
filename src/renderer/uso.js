@@ -10,10 +10,10 @@ let usoDados = null, usoPedido = null;
 const quandoRenova = (iso) => {
   if (!iso) return "";
   const d = new Date(iso), hoje = new Date(), amanha = new Date(Date.now() + 864e5);
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const hora = d.toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
   if (d.toDateString() === hoje.toDateString()) return `às ${hora}`;
   if (d.toDateString() === amanha.toDateString()) return `amanhã às ${hora}`;
-  return `${d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "")} às ${hora}`;
+  return window.t("{0} às {1}", d.toLocaleDateString(i18n.local(), { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", ""), hora);
 };
 const cincoHoras = () => usoDados?.janelas?.find((j) => j.id === "five_hour");
 // 0 fresh … 1 spent; at or over 100 he sleeps
@@ -104,7 +104,7 @@ function animaAcademia(cv) {
     const chao = H - 22;
     for (let x = 6; x < W - 6; x += 14) { ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fillRect(x, chao + 4, 12, 6); }
     // stamina tiles, top left
-    ctx.font = "500 11px Inter, sans-serif"; ctx.fillStyle = "rgba(236,235,231,0.55)"; ctx.fillText("Fôlego", 12, 18);
+    ctx.font = "500 11px Inter, sans-serif"; ctx.fillStyle = "rgba(236,235,231,0.55)"; ctx.fillText(window.t("Fôlego"), 12, 18);
     for (let k = 0; k < 10; k++) { ctx.fillStyle = k < Math.round((1 - c) * 10) ? (c >= 0.8 ? "#e2735f" : cor) : "rgba(255,255,255,0.1)"; ctx.fillRect(58 + k * 11, 10, 9, 9); }
     const cw = CLAWD.W * PW, cx = W / 2 - cw / 2;
     if (dorme) {

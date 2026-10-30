@@ -1,17 +1,33 @@
-# Claudinho
+# vnam's Claudie
+
+A fork of [Claudinho](https://github.com/Lu1sR0/claudinho) by [Luis Roberto](https://luisrobertoportifolio.com): a Windows desktop app that talks to your local **Claude Code** through the official Agent SDK and draws the chat over live ASCII wallpapers. This fork adds an **English** and **Vietnamese** interface next to the original Portuguese.
+
+Bản fork của Claudinho, thêm giao diện **tiếng Anh** và **tiếng Việt** bên cạnh tiếng Bồ Đào Nha gốc.
+
+## Language / Ngôn ngữ
+
+Customize → General → Language (Tùy chỉnh → Chung → Ngôn ngữ): Português, English, Tiếng Việt. The default is Tiếng Việt, and switching applies right away. Claude replies in whatever language you write in, and the titles and news it writes for the app follow the interface language.
+
+How it works: the code stays in Portuguese. [`src/renderer/i18n/i18n.js`](src/renderer/i18n/i18n.js) swaps each visible text node and the title/placeholder/aria-label/alt attributes using the dictionaries in [`src/renderer/i18n/parts/`](src/renderer/i18n/parts/), keyed by the Portuguese text, with `{0}` for values that change. Your messages, Claude's replies and code are never touched. The main process uses the same dictionaries for native dialogs and exports ([`src/i18n.js`](src/i18n.js)). To translate a new string, add its Portuguese text as a key in a parts file.
+
+## Run / Chạy
+
+1. Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in.
+2. `npm install`, then `npm start`. Windows 10 or 11.
+
+**Sign-in:** by default the app uses your Claude Code login (your plan). Anthropic's Agent SDK docs say third-party apps should not offer claude.ai login without approval, so read [the note in the SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) and decide for yourself. Customize → General → Account lets you use an **Anthropic API key** instead (billed per use, encrypted by the OS).
+
+Not affiliated with or endorsed by Anthropic. Claude, Claude Code and Clawd are trademarks of Anthropic.
+
+---
+
+*The original Claudinho documentation (in Portuguese) follows.*
 
 O seu Claude Code, agora com mais vida. Um app de desktop que conversa com o **Claude Code** de verdade (pelo SDK oficial de agentes) e desenha a conversa sobre papéis de parede ASCII vivos, com o Clawd do seu lado: 15 temas animados com música e sons, 278 animações da biblioteca ASCII Magic, papéis de parede do Wallpaper Engine, vídeos, imagens e GIFs seus.
 
-Site: [meuclaudinho.com.br](https://meuclaudinho.com.br) · Feito por [Luis Roberto](https://luisrobertoportifolio.com)
+Site do original: [meuclaudinho.com.br](https://meuclaudinho.com.br) · Feito por [Luis Roberto](https://luisrobertoportifolio.com)
 
-## Instalar
-
-1. Instale o [Claude Code](https://code.claude.com/docs/en/setup) e entre com a sua conta (o Claudinho usa o Claude Code que está no seu computador).
-2. Baixe o instalador em [Releases](../../releases/latest) (`Claudinho-Setup.exe`) e abra. Windows 10 ou 11.
-3. Depois de instalado, o Claudinho se atualiza sozinho: baixa a versão nova em segundo plano e avisa na barra lateral (também em Personalizar → Geral → Atualizações).
-4. O instalador não é assinado: se o Windows mostrar "O Windows protegeu o seu computador", clique em **Mais informações → Executar assim mesmo**.
-
-**Como o Claudinho entra no Claude**: por padrão, com o login do próprio Claude Code (o seu plano). Em Personalizar → Geral → Conta dá pra usar uma **chave de API da Anthropic** no lugar (cobrada por uso); a chave fica cifrada pelo sistema.
+**Como entra no Claude**: por padrão, com o login do próprio Claude Code (o seu plano). Em Personalizar → Geral → Conta dá pra usar uma **chave de API da Anthropic** no lugar (cobrada por uso); a chave fica cifrada pelo sistema.
 
 ## Desenvolver
 

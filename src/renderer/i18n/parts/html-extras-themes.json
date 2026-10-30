@@ -1,0 +1,730 @@
+{
+  "Recolher barra (Ctrl+B)": {
+    "en": "Collapse sidebar (Ctrl+B)",
+    "vi": "Thu gọn thanh bên (Ctrl+B)"
+  },
+  "Mostrar barra (Ctrl+B)": {
+    "en": "Show sidebar (Ctrl+B)",
+    "vi": "Hiện thanh bên (Ctrl+B)"
+  },
+  "Nova conversa": {
+    "en": "New chat",
+    "vi": "Cuộc trò chuyện mới"
+  },
+  "Buscar conversas": {
+    "en": "Search chats",
+    "vi": "Tìm cuộc trò chuyện"
+  },
+  "Quais conversas": {
+    "en": "Which chats",
+    "vi": "Hiển thị cuộc trò chuyện nào"
+  },
+  "Esta pasta": {
+    "en": "This folder",
+    "vi": "Thư mục này"
+  },
+  "Só as conversas da pasta do projeto": {
+    "en": "Only chats from the project folder",
+    "vi": "Chỉ các cuộc trò chuyện trong thư mục dự án"
+  },
+  "Todas": {
+    "en": "All",
+    "vi": "Tất cả"
+  },
+  "As conversas de todos os projetos do Claude Code (terminal, app do Claude, outras janelas)": {
+    "en": "Chats from all Claude Code projects (terminal, Claude app, other windows)",
+    "vi": "Các cuộc trò chuyện của mọi dự án Claude Code (terminal, ứng dụng Claude, các cửa sổ khác)"
+  },
+  "Sincronizar agora (também atualiza sozinho)": {
+    "en": "Sync now (it also updates on its own)",
+    "vi": "Đồng bộ ngay (cũng tự cập nhật)"
+  },
+  "Trocar a pasta do projeto": {
+    "en": "Change the project folder",
+    "vi": "Đổi thư mục dự án"
+  },
+  "projeto": {
+    "en": "project",
+    "vi": "dự án"
+  },
+  "Temas": {
+    "en": "Themes",
+    "vi": "Chủ đề"
+  },
+  "Padrão": {
+    "en": "Default",
+    "vi": "Mặc định"
+  },
+  "Personalizar": {
+    "en": "Customize",
+    "vi": "Tùy chỉnh"
+  },
+  "Créditos": {
+    "en": "Credits",
+    "vi": "Ghi công"
+  },
+  "Atalhos (Ctrl+/)": {
+    "en": "Shortcuts (Ctrl+/)",
+    "vi": "Phím tắt (Ctrl+/)"
+  },
+  "Som do tema": {
+    "en": "Theme sound",
+    "vi": "Âm thanh chủ đề"
+  },
+  "Desligado": {
+    "en": "Off",
+    "vi": "Tắt"
+  },
+  "Ligar ou desligar": {
+    "en": "Turn on or off",
+    "vi": "Bật hoặc tắt"
+  },
+  "Tocar ou pausar": {
+    "en": "Play or pause",
+    "vi": "Phát hoặc tạm dừng"
+  },
+  "Próxima": {
+    "en": "Next",
+    "vi": "Tiếp theo"
+  },
+  "Volume": {
+    "en": "Volume",
+    "vi": "Âm lượng"
+  },
+  "Comandos": {
+    "en": "Commands",
+    "vi": "Lệnh"
+  },
+  "Ir para o fim": {
+    "en": "Jump to the end",
+    "vi": "Xuống cuối"
+  },
+  "Biblioteca": {
+    "en": "Library",
+    "vi": "Thư viện"
+  },
+  "Meus": {
+    "en": "Mine",
+    "vi": "Của tôi"
+  },
+  "Buscar animações (em inglês: ocean, cat, rain, galaxy…)": {
+    "en": "Search animations (in English: ocean, cat, rain, galaxy…)",
+    "vi": "Tìm hoạt ảnh (bằng tiếng Anh: ocean, cat, rain, galaxy…)"
+  },
+  "Animações da biblioteca": {
+    "en": "Library animations from",
+    "vi": "Hoạt ảnh trong thư viện từ"
+  },
+  ", licença MIT. Ocean Sunset e Starry Ridge vêm de fotos do Unsplash (César Couto, Vincentiu Solomon).": {
+    "en": ", MIT license. Ocean Sunset and Starry Ridge come from Unsplash photos (César Couto, Vincentiu Solomon).",
+    "vi": ", giấy phép MIT. Ocean Sunset và Starry Ridge lấy từ ảnh Unsplash (César Couto, Vincentiu Solomon)."
+  },
+  "Animações da biblioteca ASCII Magic, licença MIT. Ocean Sunset e Starry Ridge vêm de fotos do Unsplash (César Couto, Vincentiu Solomon).": {
+    "en": "Animations from the ASCII Magic library, MIT license. Ocean Sunset and Starry Ridge come from Unsplash photos (César Couto, Vincentiu Solomon).",
+    "vi": "Hoạt ảnh từ thư viện ASCII Magic, giấy phép MIT. Ocean Sunset và Starry Ridge lấy từ ảnh Unsplash (César Couto, Vincentiu Solomon)."
+  },
+  "Seus fundos: imagens, GIFs e vídeos, ou animações do": {
+    "en": "Your backgrounds: images, GIFs and videos, or animations from",
+    "vi": "Hình nền của bạn: ảnh, GIF và video, hoặc hoạt ảnh từ"
+  },
+  "(exportadas como": {
+    "en": "(exported as",
+    "vi": "(xuất ra dạng"
+  },
+  "). Também dá pra arrastar os arquivos pra cá.": {
+    "en": "). You can also drag files here.",
+    "vi": "). Bạn cũng có thể kéo thả tệp vào đây."
+  },
+  "Imagem, GIF ou vídeo": {
+    "en": "Image, GIF or video",
+    "vi": "Ảnh, GIF hoặc video"
+  },
+  "Mensagem para o Claude": {
+    "en": "Message Claude",
+    "vi": "Nhắn tin cho Claude"
+  },
+  "Anexar arquivos ou imagens": {
+    "en": "Attach files or images",
+    "vi": "Đính kèm tệp hoặc ảnh"
+  },
+  "Perguntar": {
+    "en": "Ask",
+    "vi": "Hỏi trước"
+  },
+  "Aceitar edições": {
+    "en": "Accept edits",
+    "vi": "Chấp nhận chỉnh sửa"
+  },
+  "Modo plano": {
+    "en": "Plan mode",
+    "vi": "Chế độ kế hoạch"
+  },
+  "Automático": {
+    "en": "Auto",
+    "vi": "Tự động"
+  },
+  "Quanto o Claude pensa antes de responder": {
+    "en": "How much Claude thinks before replying",
+    "vi": "Mức độ Claude suy nghĩ trước khi trả lời"
+  },
+  "Esforço padrão": {
+    "en": "Default effort",
+    "vi": "Nỗ lực mặc định"
+  },
+  "Esforço baixo": {
+    "en": "Low effort",
+    "vi": "Nỗ lực thấp"
+  },
+  "Esforço médio": {
+    "en": "Medium effort",
+    "vi": "Nỗ lực vừa"
+  },
+  "Esforço alto": {
+    "en": "High effort",
+    "vi": "Nỗ lực cao"
+  },
+  "Esforço muito alto": {
+    "en": "Very high effort",
+    "vi": "Nỗ lực rất cao"
+  },
+  "Esforço máximo": {
+    "en": "Max effort",
+    "vi": "Nỗ lực tối đa"
+  },
+  "Enviar (Enter)": {
+    "en": "Send (Enter)",
+    "vi": "Gửi (Enter)"
+  },
+  "Solte para anexar": {
+    "en": "Drop to attach",
+    "vi": "Thả để đính kèm"
+  },
+  "Imagens vão direto pro Claude; outros arquivos ele abre pelo caminho.": {
+    "en": "Images go straight to Claude; other files he opens by path.",
+    "vi": "Ảnh được gửi thẳng cho Claude; các tệp khác Claude mở theo đường dẫn."
+  },
+  "(diff longo, cortado)": {
+    "en": "(long diff, truncated)",
+    "vi": "(diff dài, đã cắt bớt)"
+  },
+  "Raciocinando…": {
+    "en": "Reasoning…",
+    "vi": "Đang suy luận…"
+  },
+  "Raciocínio": {
+    "en": "Reasoning",
+    "vi": "Suy luận"
+  },
+  "O Claude quer saber": {
+    "en": "Claude wants to know",
+    "vi": "Claude muốn hỏi"
+  },
+  "Ou escreva outra resposta…": {
+    "en": "Or write another answer…",
+    "vi": "Hoặc nhập câu trả lời khác…"
+  },
+  "Responder": {
+    "en": "Answer",
+    "vi": "Trả lời"
+  },
+  "Pular": {
+    "en": "Skip",
+    "vi": "Bỏ qua"
+  },
+  "Responda todas as perguntas (ou clique em Pular).": {
+    "en": "Answer all the questions (or click Skip).",
+    "vi": "Hãy trả lời tất cả câu hỏi (hoặc bấm Bỏ qua)."
+  },
+  "Pulou a pergunta": {
+    "en": "Skipped the question",
+    "vi": "Đã bỏ qua câu hỏi"
+  },
+  "O Claude tem uma pergunta": {
+    "en": "Claude has a question",
+    "vi": "Claude có một câu hỏi"
+  },
+  "Você chegou no limite do plano.": {
+    "en": "You've hit your plan limit.",
+    "vi": "Bạn đã chạm giới hạn của gói."
+  },
+  "Libera em breve.": {
+    "en": "Resets soon.",
+    "vi": "Sắp được mở lại."
+  },
+  "Libera {0}.": {
+    "en": "Resets {0}.",
+    "vi": "Sẽ mở lại {0}."
+  },
+  "Continuar sozinho quando liberar": {
+    "en": "Continue on its own when it resets",
+    "vi": "Tự tiếp tục khi được mở lại"
+  },
+  "Combinado: continua {0}": {
+    "en": "Done: continues {0}",
+    "vi": "Đã hẹn: tiếp tục {0}"
+  },
+  "Pode continuar de onde parou.": {
+    "en": "You can continue where you left off.",
+    "vi": "Bạn có thể tiếp tục từ chỗ đã dừng."
+  },
+  "Espere o Claude terminar para desfazer.": {
+    "en": "Wait for Claude to finish before undoing.",
+    "vi": "Hãy đợi Claude làm xong rồi hãy hoàn tác."
+  },
+  "Essa mensagem não tem ponto de restauração.": {
+    "en": "This message has no restore point.",
+    "vi": "Tin nhắn này không có điểm khôi phục."
+  },
+  "Nenhum arquivo mudou depois desta mensagem.": {
+    "en": "No file changed after this message.",
+    "vi": "Không có tệp nào thay đổi sau tin nhắn này."
+  },
+  "Não deu: {0}": {
+    "en": "Couldn't: {0}",
+    "vi": "Không được: {0}"
+  },
+  "erro desconhecido": {
+    "en": "unknown error",
+    "vi": "lỗi không xác định"
+  },
+  "Voltar": {
+    "en": "Revert",
+    "vi": "Khôi phục"
+  },
+  "para como estava antes desta mensagem?": {
+    "en": "to how it was before this message?",
+    "vi": "về như trước tin nhắn này?"
+  },
+  "para como estavam antes desta mensagem?": {
+    "en": "to how they were before this message?",
+    "vi": "về như trước tin nhắn này?"
+  },
+  "Desfazer": {
+    "en": "Undo",
+    "vi": "Hoàn tác"
+  },
+  "Cancelar": {
+    "en": "Cancel",
+    "vi": "Hủy"
+  },
+  "Arquivos restaurados: {0}. O Claude não sabe disso; conte a ele se for continuar.": {
+    "en": "Files restored: {0}. Claude doesn't know about this; tell him if you carry on.",
+    "vi": "Đã khôi phục tệp: {0}. Claude không biết điều này; hãy nói với Claude nếu bạn tiếp tục."
+  },
+  "Texto colado · {0} linha": {
+    "en": "Pasted text · {0} line",
+    "vi": "Văn bản đã dán · {0} dòng"
+  },
+  "Texto colado · {0} linhas": {
+    "en": "Pasted text · {0} lines",
+    "vi": "Văn bản đã dán · {0} dòng"
+  },
+  "Fechar (Esc)": {
+    "en": "Close (Esc)",
+    "vi": "Đóng (Esc)"
+  },
+  "Salvar": {
+    "en": "Save",
+    "vi": "Lưu"
+  },
+  "Remover": {
+    "en": "Remove",
+    "vi": "Xóa"
+  },
+  "{0} arquivo": {
+    "en": "{0} file",
+    "vi": "{0} tệp"
+  },
+  "{0} arquivos": {
+    "en": "{0} files",
+    "vi": "{0} tệp"
+  },
+  "janela de 5 horas": {
+    "en": "5-hour window",
+    "vi": "phiên 5 giờ"
+  },
+  "Plano: {0}% da janela de 5 horas, renova {1}.": {
+    "en": "Plan: {0}% of the 5-hour window, renews {1}.",
+    "vi": "Gói: {0}% của phiên 5 giờ trong gói, gia hạn {1}."
+  },
+  "Plano: {0}% da janela de 5 horas.": {
+    "en": "Plan: {0}% of the 5-hour window.",
+    "vi": "Gói: {0}% của phiên 5 giờ trong gói."
+  },
+  "Você já usou {0}% da janela de 5 horas do seu plano.": {
+    "en": "You've already used {0}% of your plan's 5-hour window.",
+    "vi": "Bạn đã dùng {0}% của phiên 5 giờ trong gói."
+  },
+  "semana": {
+    "en": "week",
+    "vi": "tuần"
+  },
+  "Plano: {0}% da semana, renova {1}.": {
+    "en": "Plan: {0}% of the weekly limit, renews {1}.",
+    "vi": "Gói: {0}% của giới hạn tuần trong gói, gia hạn {1}."
+  },
+  "Plano: {0}% da semana.": {
+    "en": "Plan: {0}% of the weekly limit.",
+    "vi": "Gói: {0}% của giới hạn tuần trong gói."
+  },
+  "Você já usou {0}% da semana do seu plano.": {
+    "en": "You've already used {0}% of your plan's weekly limit.",
+    "vi": "Bạn đã dùng {0}% của giới hạn tuần trong gói."
+  },
+  "semana (Opus)": {
+    "en": "week (Opus)",
+    "vi": "tuần (Opus)"
+  },
+  "Plano: {0}% da semana (Opus), renova {1}.": {
+    "en": "Plan: {0}% of the weekly limit (Opus), renews {1}.",
+    "vi": "Gói: {0}% của giới hạn tuần (Opus) trong gói, gia hạn {1}."
+  },
+  "Plano: {0}% da semana (Opus).": {
+    "en": "Plan: {0}% of the weekly limit (Opus).",
+    "vi": "Gói: {0}% của giới hạn tuần (Opus) trong gói."
+  },
+  "Você já usou {0}% da semana (Opus) do seu plano.": {
+    "en": "You've already used {0}% of your plan's weekly limit (Opus).",
+    "vi": "Bạn đã dùng {0}% của giới hạn tuần (Opus) trong gói."
+  },
+  "semana (Sonnet)": {
+    "en": "week (Sonnet)",
+    "vi": "tuần (Sonnet)"
+  },
+  "Plano: {0}% da semana (Sonnet), renova {1}.": {
+    "en": "Plan: {0}% of the weekly limit (Sonnet), renews {1}.",
+    "vi": "Gói: {0}% của giới hạn tuần (Sonnet) trong gói, gia hạn {1}."
+  },
+  "Plano: {0}% da semana (Sonnet).": {
+    "en": "Plan: {0}% of the weekly limit (Sonnet).",
+    "vi": "Gói: {0}% của giới hạn tuần (Sonnet) trong gói."
+  },
+  "Você já usou {0}% da semana (Sonnet) do seu plano.": {
+    "en": "You've already used {0}% of your plan's weekly limit (Sonnet).",
+    "vi": "Bạn đã dùng {0}% của giới hạn tuần (Sonnet) trong gói."
+  },
+  "janela atual": {
+    "en": "current window",
+    "vi": "phiên hiện tại"
+  },
+  "Plano: {0}% da janela atual, renova {1}.": {
+    "en": "Plan: {0}% of the current window, renews {1}.",
+    "vi": "Gói: {0}% của phiên hiện tại trong gói, gia hạn {1}."
+  },
+  "Plano: {0}% da janela atual.": {
+    "en": "Plan: {0}% of the current window.",
+    "vi": "Gói: {0}% của phiên hiện tại trong gói."
+  },
+  "Você já usou {0}% da janela atual do seu plano.": {
+    "en": "You've already used {0}% of your plan's current window.",
+    "vi": "Bạn đã dùng {0}% của phiên hiện tại trong gói."
+  },
+  "janela": {
+    "en": "window",
+    "vi": "phiên"
+  },
+  "Plano: {0}% da janela, renova {1}.": {
+    "en": "Plan: {0}% of the window, renews {1}.",
+    "vi": "Gói: {0}% của phiên trong gói, gia hạn {1}."
+  },
+  "Plano: {0}% da janela.": {
+    "en": "Plan: {0}% of the window.",
+    "vi": "Gói: {0}% của phiên trong gói."
+  },
+  "Você já usou {0}% da janela do seu plano.": {
+    "en": "You've already used {0}% of your plan's window.",
+    "vi": "Bạn đã dùng {0}% của phiên trong gói."
+  },
+  "Fixar aqui": {
+    "en": "Pin here",
+    "vi": "Ghim tại đây"
+  },
+  "Soltar": {
+    "en": "Unpin",
+    "vi": "Bỏ ghim"
+  },
+  "Fechar": {
+    "en": "Close",
+    "vi": "Đóng"
+  },
+  "Alterações da conversa": {
+    "en": "Chat changes",
+    "vi": "Thay đổi trong cuộc trò chuyện"
+  },
+  "Nenhum arquivo foi mudado nesta conversa ainda.": {
+    "en": "No file has been changed in this chat yet.",
+    "vi": "Chưa có tệp nào bị thay đổi trong cuộc trò chuyện này."
+  },
+  "Ver na conversa": {
+    "en": "View in chat",
+    "vi": "Xem trong cuộc trò chuyện"
+  },
+  "Desfazer a partir daqui": {
+    "en": "Undo from here",
+    "vi": "Hoàn tác từ đây"
+  },
+  "Plano do Claude": {
+    "en": "Claude's plan",
+    "vi": "Kế hoạch của Claude"
+  },
+  "Abrir numa janela": {
+    "en": "Open in a window",
+    "vi": "Mở trong cửa sổ"
+  },
+  "Música": {
+    "en": "Music",
+    "vi": "Nhạc"
+  },
+  "Nenhuma música ainda.": {
+    "en": "No music yet.",
+    "vi": "Chưa có bài nhạc nào."
+  },
+  "Adicionar músicas…": {
+    "en": "Add music…",
+    "vi": "Thêm nhạc…"
+  },
+  "Anterior": {
+    "en": "Previous",
+    "vi": "Trước"
+  },
+  "{0} de {1}": {
+    "en": "{0} of {1}",
+    "vi": "{0} trên {1}"
+  },
+  "Abrir o player": {
+    "en": "Open the player",
+    "vi": "Mở trình phát"
+  },
+  "Alterações": {
+    "en": "Changes",
+    "vi": "Thay đổi"
+  },
+  "Nova janela": {
+    "en": "New window",
+    "vi": "Cửa sổ mới"
+  },
+  "Atalhos": {
+    "en": "Shortcuts",
+    "vi": "Phím tắt"
+  },
+  "Esforço": {
+    "en": "Effort",
+    "vi": "Nỗ lực"
+  },
+  "Uso": {
+    "en": "Usage",
+    "vi": "Mức dùng"
+  },
+  "Ir até aqui": {
+    "en": "Go here",
+    "vi": "Đi đến đây"
+  },
+  "Voltar os arquivos para antes daqui": {
+    "en": "Revert files to before this point",
+    "vi": "Khôi phục tệp về trước điểm này"
+  },
+  "Rode no terminal e mostre a saída:": {
+    "en": "Run this in the terminal and show the output:",
+    "vi": "Chạy lệnh này trong terminal và hiển thị kết quả:"
+  },
+  "Sessão de 5 horas": {
+    "en": "5-hour session",
+    "vi": "Phiên 5 giờ"
+  },
+  "Semana": {
+    "en": "Week",
+    "vi": "Tuần"
+  },
+  "Semana · Opus": {
+    "en": "Week · Opus",
+    "vi": "Tuần · Opus"
+  },
+  "Semana · Sonnet": {
+    "en": "Week · Sonnet",
+    "vi": "Tuần · Sonnet"
+  },
+  "Semana · apps conectados": {
+    "en": "Week · connected apps",
+    "vi": "Tuần · ứng dụng đã kết nối"
+  },
+  "Uso do plano": {
+    "en": "Plan usage",
+    "vi": "Mức dùng của gói"
+  },
+  "Uso do plano: {0}% da sessão de 5 horas": {
+    "en": "Plan usage: {0}% of the 5-hour session",
+    "vi": "Mức dùng của gói: {0}% của phiên 5 giờ"
+  },
+  "às {0}": {
+    "en": "at {0}",
+    "vi": "lúc {0}"
+  },
+  "amanhã às {0}": {
+    "en": "tomorrow at {0}",
+    "vi": "ngày mai lúc {0}"
+  },
+  "{0} às {1}": {
+    "en": "{0} at {1}",
+    "vi": "{0} lúc {1}"
+  },
+  "Fôlego": {
+    "en": "Stamina",
+    "vi": "Thể lực"
+  },
+  "Lendo o uso do plano…": {
+    "en": "Reading plan usage…",
+    "vi": "Đang đọc mức dùng của gói…"
+  },
+  "O uso do plano não está disponível para este login.": {
+    "en": "Plan usage isn't available for this login.",
+    "vi": "Mức dùng của gói không khả dụng với tài khoản này."
+  },
+  "Dormindo até a sessão renovar.": {
+    "en": "Asleep until the session renews.",
+    "vi": "Đang ngủ cho đến khi phiên được làm mới."
+  },
+  "No limite. Mais um pouco e ele apaga.": {
+    "en": "At the limit. A little more and he'll pass out.",
+    "vi": "Đã chạm giới hạn. Thêm chút nữa là anh ấy ngất."
+  },
+  "Cansado. Use com calma.": {
+    "en": "Tired. Take it easy.",
+    "vi": "Mệt rồi. Hãy dùng từ từ."
+  },
+  "Suando, mas firme.": {
+    "en": "Sweating, but steady.",
+    "vi": "Đổ mồ hôi nhưng vẫn vững."
+  },
+  "Em forma.": {
+    "en": "In shape.",
+    "vi": "Sung sức."
+  },
+  "Atualiza sozinho a cada minuto. Fixe a janela no alfinete para ela ficar sempre aqui.": {
+    "en": "Updates itself every minute. Pin the window to keep it always here.",
+    "vi": "Tự cập nhật mỗi phút. Ghim cửa sổ để nó luôn ở đây."
+  },
+  "Atualizar": {
+    "en": "Refresh",
+    "vi": "Làm mới"
+  },
+  "{0} min": {
+    "en": "{0} min",
+    "vi": "{0} phút"
+  },
+  "{0}h": {
+    "en": "{0}h",
+    "vi": "{0} giờ"
+  },
+  "{0}h {1}min": {
+    "en": "{0}h {1}min",
+    "vi": "{0} giờ {1} phút"
+  },
+  "{0} dia": {
+    "en": "{0} day",
+    "vi": "{0} ngày"
+  },
+  "{0} dias": {
+    "en": "{0} days",
+    "vi": "{0} ngày"
+  },
+  "renova em {0} min · às {1}": {
+    "en": "renews in {0} min · at {1}",
+    "vi": "gia hạn sau {0} phút · lúc {1}"
+  },
+  "renova em {0} min · amanhã às {1}": {
+    "en": "renews in {0} min · tomorrow at {1}",
+    "vi": "gia hạn sau {0} phút · ngày mai lúc {1}"
+  },
+  "renova em {0} min · {1} às {2}": {
+    "en": "renews in {0} min · {1} at {2}",
+    "vi": "gia hạn sau {0} phút · {1} lúc {2}"
+  },
+  "renova em {0} min": {
+    "en": "renews in {0} min",
+    "vi": "gia hạn sau {0} phút"
+  },
+  "renova em {0}h · às {1}": {
+    "en": "renews in {0}h · at {1}",
+    "vi": "gia hạn sau {0} giờ · lúc {1}"
+  },
+  "renova em {0}h · amanhã às {1}": {
+    "en": "renews in {0}h · tomorrow at {1}",
+    "vi": "gia hạn sau {0} giờ · ngày mai lúc {1}"
+  },
+  "renova em {0}h · {1} às {2}": {
+    "en": "renews in {0}h · {1} at {2}",
+    "vi": "gia hạn sau {0} giờ · {1} lúc {2}"
+  },
+  "renova em {0}h": {
+    "en": "renews in {0}h",
+    "vi": "gia hạn sau {0} giờ"
+  },
+  "renova em {0}h {1}min · às {2}": {
+    "en": "renews in {0}h {1}min · at {2}",
+    "vi": "gia hạn sau {0} giờ {1} phút · lúc {2}"
+  },
+  "renova em {0}h {1}min · amanhã às {2}": {
+    "en": "renews in {0}h {1}min · tomorrow at {2}",
+    "vi": "gia hạn sau {0} giờ {1} phút · ngày mai lúc {2}"
+  },
+  "renova em {0}h {1}min · {2} às {3}": {
+    "en": "renews in {0}h {1}min · {2} at {3}",
+    "vi": "gia hạn sau {0} giờ {1} phút · {2} lúc {3}"
+  },
+  "renova em {0}h {1}min": {
+    "en": "renews in {0}h {1}min",
+    "vi": "gia hạn sau {0} giờ {1} phút"
+  },
+  "renova em {0} dia · às {1}": {
+    "en": "renews in {0} day · at {1}",
+    "vi": "gia hạn sau {0} ngày · lúc {1}"
+  },
+  "renova em {0} dia · amanhã às {1}": {
+    "en": "renews in {0} day · tomorrow at {1}",
+    "vi": "gia hạn sau {0} ngày · ngày mai lúc {1}"
+  },
+  "renova em {0} dia · {1} às {2}": {
+    "en": "renews in {0} day · {1} at {2}",
+    "vi": "gia hạn sau {0} ngày · {1} lúc {2}"
+  },
+  "renova em {0} dia": {
+    "en": "renews in {0} day",
+    "vi": "gia hạn sau {0} ngày"
+  },
+  "renova em {0} dias · às {1}": {
+    "en": "renews in {0} days · at {1}",
+    "vi": "gia hạn sau {0} ngày · lúc {1}"
+  },
+  "renova em {0} dias · amanhã às {1}": {
+    "en": "renews in {0} days · tomorrow at {1}",
+    "vi": "gia hạn sau {0} ngày · ngày mai lúc {1}"
+  },
+  "renova em {0} dias · {1} às {2}": {
+    "en": "renews in {0} days · {1} at {2}",
+    "vi": "gia hạn sau {0} ngày · {1} lúc {2}"
+  },
+  "renova em {0} dias": {
+    "en": "renews in {0} days",
+    "vi": "gia hạn sau {0} ngày"
+  },
+  "Lareira": {
+    "en": "Fireplace",
+    "vi": "Lò sưởi"
+  },
+  "Chuva Lo-fi": {
+    "en": "Lo-fi Rain",
+    "vi": "Mưa Lo-fi"
+  },
+  "Galáxia Distante": {
+    "en": "Distant Galaxy",
+    "vi": "Thiên hà xa xôi"
+  },
+  "Jardim Sakura": {
+    "en": "Sakura Garden",
+    "vi": "Vườn hoa anh đào"
+  },
+  "Chuva de Código": {
+    "en": "Code Rain",
+    "vi": "Mưa mã"
+  }
+}

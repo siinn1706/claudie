@@ -1,4 +1,4 @@
-// "Claudinho OS": small glass windows that float over the wallpaper (the
+// "vnam's Claudie OS": small glass windows that float over the wallpaper (the
 // review of every change in the conversation, the plan, the music player),
 // a radial menu on right-click, a terminal mode in the composer, and undo
 // reachable from the activity rail.

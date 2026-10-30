@@ -1,0 +1,730 @@
+{
+  "oi!": {
+    "en": "hi!",
+    "vi": "chào nha!"
+  },
+  "ei, faz cócegas": {
+    "en": "hey, that tickles",
+    "vi": "ê, nhột đó nha"
+  },
+  "tô trabalhando aqui, viu?": {
+    "en": "I'm working here, you know?",
+    "vi": "tui đang làm việc đó nha?"
+  },
+  "clica de novo que eu pulo": {
+    "en": "click again and I'll jump",
+    "vi": "bấm nữa là tui nhảy cho xem"
+  },
+  "bora codar?": {
+    "en": "shall we code?",
+    "vi": "code thôi nào?"
+  },
+  "eu sou o Clawd, prazer": {
+    "en": "I'm Clawd, nice to meet you",
+    "vi": "tui là Clawd, rất vui được gặp"
+  },
+  "já salvou o arquivo?": {
+    "en": "did you save the file yet?",
+    "vi": "đã lưu file chưa đó?"
+  },
+  "commitou hoje?": {
+    "en": "did you commit today?",
+    "vi": "hôm nay commit chưa?"
+  },
+  "isso aí é bug ou feature?": {
+    "en": "is that a bug or a feature?",
+    "vi": "cái đó là bug hay là feature vậy?"
+  },
+  "o Claude tá de olho, e eu também": {
+    "en": "Claude's watching, and so am I",
+    "vi": "Claude đang để mắt, tui cũng vậy"
+  },
+  "pixel por pixel a gente chega lá": {
+    "en": "pixel by pixel, we'll get there",
+    "vi": "từng pixel một, rồi sẽ tới thôi"
+  },
+  "café ou chá?": {
+    "en": "coffee or tea?",
+    "vi": "cà phê hay trà?"
+  },
+  "pode me arrastar, eu deixo": {
+    "en": "you can drag me, I allow it",
+    "vi": "cứ kéo tui đi, tui cho phép"
+  },
+  "psiu: Ctrl + K busca nas conversas": {
+    "en": "psst: Ctrl + K searches your conversations",
+    "vi": "xì: Ctrl + K để tìm trong các cuộc trò chuyện"
+  },
+  "eu durmo quando o plano acaba, sabia?": {
+    "en": "I sleep when the plan runs out, you know?",
+    "vi": "tui ngủ khi hết gói đó, biết không?"
+  },
+  "minhas pernas são 4 pixels, respeita": {
+    "en": "my legs are 4 pixels, show some respect",
+    "vi": "chân tui dài 4 pixel, nể chút đi"
+  },
+  "já tomou água hoje?": {
+    "en": "have you had water today?",
+    "vi": "hôm nay uống nước chưa?"
+  },
+  "um dia eu ganho braços de verdade": {
+    "en": "one day I'll get real arms",
+    "vi": "một ngày nào đó tui sẽ có tay thật"
+  },
+  "laranja é minha cor favorita": {
+    "en": "orange is my favorite color",
+    "vi": "màu cam là màu tui thích nhất"
+  },
+  "tá ficando bonito esse projeto": {
+    "en": "this project is looking good",
+    "vi": "dự án này đang đẹp lên rồi nè"
+  },
+  "funciona na minha máquina": {
+    "en": "works on my machine",
+    "vi": "chạy được trên máy tui mà"
+  },
+  "rodou de primeira? desconfia": {
+    "en": "ran on the first try? be suspicious",
+    "vi": "chạy ngay lần đầu? coi chừng đó"
+  },
+  "ponto e vírgula salva vidas": {
+    "en": "semicolons save lives",
+    "vi": "dấu chấm phẩy cứu mạng đó"
+  },
+  "eu adoro quando o teste passa": {
+    "en": "I love it when the test passes",
+    "vi": "tui mê lúc test pass lắm"
+  },
+  "git push e reza": {
+    "en": "git push and pray",
+    "vi": "git push rồi cầu nguyện"
+  },
+  "quer que eu chame o Claude?": {
+    "en": "want me to call Claude?",
+    "vi": "muốn tui gọi Claude không?"
+  },
+  "tô aqui do lado, qualquer coisa": {
+    "en": "I'm right here if you need anything",
+    "vi": "tui ở ngay bên cạnh, cần gì cứ nói"
+  },
+  "contexto enchendo? manda um /compact": {
+    "en": "context filling up? send a /compact",
+    "vi": "ngữ cảnh đầy rồi? gửi /compact đi"
+  },
+  "eu vi esse console.log aí": {
+    "en": "I saw that console.log there",
+    "vi": "tui thấy cái console.log đó rồi nha"
+  },
+  "sabia que eu aceno pro mouse?": {
+    "en": "did you know I wave at the mouse?",
+    "vi": "biết không, tui vẫy tay chào con chuột đó?"
+  },
+  "olha o fundo mexendo": {
+    "en": "look, the background is moving",
+    "vi": "nhìn nền đang chuyển động kìa"
+  },
+  "esse tema combina com você": {
+    "en": "this theme suits you",
+    "vi": "giao diện này hợp với bạn ghê"
+  },
+  "hoje é dia de refatorar?": {
+    "en": "is today a refactoring day?",
+    "vi": "hôm nay có phải ngày refactor không?"
+  },
+  "eu não mordo, só piso": {
+    "en": "I don't bite, I only step",
+    "vi": "tui không cắn, chỉ giẫm thôi"
+  },
+  "boop": {
+    "en": "boop",
+    "vi": "boop"
+  },
+  "tá, tá, eu pulo": {
+    "en": "okay, okay, I'll jump",
+    "vi": "rồi rồi, tui nhảy nè"
+  },
+  "hehe": {
+    "en": "hehe",
+    "vi": "hihi"
+  },
+  "uau, que clique": {
+    "en": "wow, what a click",
+    "vi": "ồ, cú bấm đẹp quá"
+  },
+  "você clica bonito": {
+    "en": "you click beautifully",
+    "vi": "bạn bấm đẹp ghê"
+  },
+  "bugs têm medo de mim": {
+    "en": "bugs are afraid of me",
+    "vi": "bug sợ tui lắm"
+  },
+  "o Claude escreve, eu torço": {
+    "en": "Claude writes, I cheer",
+    "vi": "Claude viết, tui cổ vũ"
+  },
+  "segura a emoção": {
+    "en": "hold back the excitement",
+    "vi": "giữ bình tĩnh nào"
+  },
+  "e se a gente fizesse um tema novo?": {
+    "en": "what if we made a new theme?",
+    "vi": "hay mình làm giao diện mới nhé?"
+  },
+  "Ctrl + Z não funciona em mim": {
+    "en": "Ctrl + Z doesn't work on me",
+    "vi": "Ctrl + Z không có tác dụng với tui đâu"
+  },
+  "esse código tá cheiroso": {
+    "en": "this code smells nice",
+    "vi": "đoạn code này thơm quá"
+  },
+  "tô de plantão": {
+    "en": "I'm on call",
+    "vi": "tui đang trực đây"
+  },
+  "lembra de descansar a vista": {
+    "en": "remember to rest your eyes",
+    "vi": "nhớ nghỉ mắt nha"
+  },
+  "20 minutos de tela, 20 segundos olhando longe": {
+    "en": "20 minutes of screen, 20 seconds looking far away",
+    "vi": "20 phút nhìn màn hình, 20 giây nhìn xa"
+  },
+  "eu sou feito de quadradinhos": {
+    "en": "I'm made of little squares",
+    "vi": "tui được làm từ những ô vuông nhỏ"
+  },
+  "meu sonho é virar sticker": {
+    "en": "my dream is to become a sticker",
+    "vi": "ước mơ của tui là thành sticker"
+  },
+  "você é meu humano favorito": {
+    "en": "you're my favorite human",
+    "vi": "bạn là người tui thích nhất"
+  },
+  "a gente forma uma dupla e tanto": {
+    "en": "we make quite a duo",
+    "vi": "mình là một cặp đôi tuyệt vời"
+  },
+  "isso é um easter egg? talvez": {
+    "en": "is this an easter egg? maybe",
+    "vi": "đây có phải easter egg không? có thể"
+  },
+  "já reparou que eu pisco?": {
+    "en": "have you noticed I blink?",
+    "vi": "có để ý là tui chớp mắt không?"
+  },
+  "ai, meu pixel": {
+    "en": "ouch, my pixel",
+    "vi": "ui, pixel của tui"
+  },
+  "sim, eu sei dançar (não sei)": {
+    "en": "yes, I can dance (I can't)",
+    "vi": "ừ, tui biết nhảy (hổng biết)"
+  },
+  "deploy na sexta? coragem": {
+    "en": "deploy on a Friday? brave",
+    "vi": "deploy vào thứ Sáu? gan thật"
+  },
+  "último pulo… mentira": {
+    "en": "last jump… just kidding",
+    "vi": "cú nhảy cuối… xạo đó"
+  },
+  "me joga lá pro alto!": {
+    "en": "throw me way up high!",
+    "vi": "tung tui lên cao đi!"
+  },
+  "o README agradece um carinho": {
+    "en": "the README would appreciate some love",
+    "vi": "README đang cần được yêu thương chút"
+  },
+  "um teste a mais nunca matou ninguém": {
+    "en": "one more test never killed anybody",
+    "vi": "thêm một test cũng chưa ai chết cả"
+  },
+  "nome de variável bom é meio caminho andado": {
+    "en": "a good variable name is half the battle",
+    "vi": "đặt tên biến hay là xong nửa đường"
+  },
+  "sabia que dá pra pedir tema pro Claude?": {
+    "en": "did you know you can ask Claude for a theme?",
+    "vi": "biết không, bạn có thể nhờ Claude làm giao diện đó?"
+  },
+  "eu também ouço a música do tema": {
+    "en": "I hear the theme's music too",
+    "vi": "tui cũng nghe được nhạc của giao diện đó"
+  },
+  "quando o Claude pensa, o fundo pensa junto": {
+    "en": "when Claude thinks, the background thinks along",
+    "vi": "khi Claude suy nghĩ, nền cũng suy nghĩ theo"
+  },
+  "posso ficar aqui olhando você codar?": {
+    "en": "can I stay here watching you code?",
+    "vi": "tui ngồi đây xem bạn code được không?"
+  },
+  "essa pasta tem cara de projeto grande": {
+    "en": "this folder looks like a big project",
+    "vi": "thư mục này trông như dự án lớn đó"
+  },
+  "tô torcendo pro build passar": {
+    "en": "I'm rooting for the build to pass",
+    "vi": "tui đang cầu cho build pass"
+  },
+  "se travar, respira e lê o erro": {
+    "en": "if you get stuck, breathe and read the error",
+    "vi": "nếu bị kẹt, hít thở rồi đọc lỗi nha"
+  },
+  "meu nome vem de Claude + claw. eu acho.": {
+    "en": "my name comes from Claude + claw. I think.",
+    "vi": "tên tui từ Claude + claw. tui nghĩ vậy."
+  },
+  "um dia vou ter chapéu de festa": {
+    "en": "one day I'll have a party hat",
+    "vi": "một ngày nào đó tui sẽ có nón tiệc"
+  },
+  "pergunta pro Claude, ele sabe tudo… quase": {
+    "en": "ask Claude, he knows everything… almost",
+    "vi": "hỏi Claude đi, ảnh biết hết… gần như vậy"
+  },
+  "eu guardo segredo de commit": {
+    "en": "I keep commit secrets",
+    "vi": "tui giữ bí mật commit cho bạn"
+  },
+  "ei! me põe no chão": {
+    "en": "hey! put me down",
+    "vi": "ê! thả tui xuống"
+  },
+  "uaaa": {
+    "en": "whoaaa",
+    "vi": "uaaa"
+  },
+  "tô voando!": {
+    "en": "I'm flying!",
+    "vi": "tui đang bay nè!"
+  },
+  "cuidado comigo": {
+    "en": "careful with me",
+    "vi": "nhẹ tay với tui nha"
+  },
+  "mais alto!": {
+    "en": "higher!",
+    "vi": "cao nữa!"
+  },
+  "isso é seguro?": {
+    "en": "is this safe?",
+    "vi": "vầy có an toàn không?"
+  },
+  "wheee": {
+    "en": "wheee",
+    "vi": "wheee"
+  },
+  "segura firme!": {
+    "en": "hold on tight!",
+    "vi": "giữ chắc nha!"
+  },
+  "ufa…": {
+    "en": "phew…",
+    "vi": "phù…"
+  },
+  "tô bem, tô bem": {
+    "en": "I'm fine, I'm fine",
+    "vi": "tui ổn, tui ổn"
+  },
+  "aterrissagem perfeita": {
+    "en": "perfect landing",
+    "vi": "hạ cánh hoàn hảo"
+  },
+  "ai": {
+    "en": "ouch",
+    "vi": "ái"
+  },
+  "de novo!": {
+    "en": "again!",
+    "vi": "lại nữa đi!"
+  },
+  "foi de propósito": {
+    "en": "I did that on purpose",
+    "vi": "tui cố ý đó"
+  },
+  "10 pra essa queda": {
+    "en": "10 out of 10 for that fall",
+    "vi": "10 điểm cho cú ngã này"
+  },
+  "bom dia! café primeiro": {
+    "en": "good morning! coffee first",
+    "vi": "chào buổi sáng! cà phê trước đã"
+  },
+  "manhã produtiva, hein": {
+    "en": "productive morning, huh",
+    "vi": "buổi sáng hiệu quả nhỉ"
+  },
+  "já almoçou?": {
+    "en": "had lunch yet?",
+    "vi": "ăn trưa chưa?"
+  },
+  "hora do almoço, eu vigio aqui": {
+    "en": "lunch time, I'll keep watch here",
+    "vi": "giờ ăn trưa, tui canh ở đây cho"
+  },
+  "trabalhando até tarde?": {
+    "en": "working late?",
+    "vi": "làm việc khuya vậy?"
+  },
+  "boa noite! só mais um commit?": {
+    "en": "good evening! just one more commit?",
+    "vi": "chào buổi tối! thêm một commit nữa thôi nhé?"
+  },
+  "madrugada codando? respeito": {
+    "en": "coding in the middle of the night? respect",
+    "vi": "code giữa đêm khuya? nể luôn"
+  },
+  "vai dormir… depois desse bug": {
+    "en": "go to sleep… after this bug",
+    "vi": "đi ngủ đi… sau khi xử lý bug này"
+  },
+  "tarde produtiva?": {
+    "en": "productive afternoon?",
+    "vi": "buổi chiều hiệu quả chứ?"
+  },
+  "bora que hoje rende": {
+    "en": "let's go, today's a good day",
+    "vi": "làm thôi, hôm nay năng suất lắm"
+  },
+  "pensando…": {
+    "en": "thinking…",
+    "vi": "đang nghĩ…"
+  },
+  "escrevendo…": {
+    "en": "writing…",
+    "vi": "đang viết…"
+  },
+  "preciso de você": {
+    "en": "I need you",
+    "vi": "tui cần bạn"
+  },
+  "algo deu errado": {
+    "en": "something went wrong",
+    "vi": "có gì đó không ổn"
+  },
+  "pronto": {
+    "en": "done",
+    "vi": "xong rồi"
+  },
+  "lendo…": {
+    "en": "reading…",
+    "vi": "đang đọc…"
+  },
+  "procurando…": {
+    "en": "searching…",
+    "vi": "đang tìm…"
+  },
+  "buscando…": {
+    "en": "looking up…",
+    "vi": "đang tra…"
+  },
+  "editando…": {
+    "en": "editing…",
+    "vi": "đang sửa…"
+  },
+  "escrevendo arquivo…": {
+    "en": "writing file…",
+    "vi": "đang ghi file…"
+  },
+  "rodando comando…": {
+    "en": "running command…",
+    "vi": "đang chạy lệnh…"
+  },
+  "lendo a web…": {
+    "en": "reading the web…",
+    "vi": "đang đọc web…"
+  },
+  "pesquisando…": {
+    "en": "researching…",
+    "vi": "đang tìm hiểu…"
+  },
+  "chamando ajuda…": {
+    "en": "calling for help…",
+    "vi": "đang gọi trợ giúp…"
+  },
+  "planejando…": {
+    "en": "planning…",
+    "vi": "đang lên kế hoạch…"
+  },
+  "mexendo no visual…": {
+    "en": "tweaking the look…",
+    "vi": "đang chỉnh giao diện…"
+  },
+  "trabalhando…": {
+    "en": "working…",
+    "vi": "đang làm việc…"
+  },
+  "calma, calma!": {
+    "en": "easy, easy!",
+    "vi": "từ từ, từ từ nào!"
+  },
+  "vou contar pro Claude…": {
+    "en": "I'm telling Claude…",
+    "vi": "tui sẽ mách Claude…"
+  },
+  "ok, você venceu. olha meu giro!": {
+    "en": "okay, you win. watch my spin!",
+    "vi": "được rồi, bạn thắng. xem tui xoay nè!"
+  },
+  "oi": {
+    "en": "hi",
+    "vi": "chào"
+  },
+  "saiu versão nova de mim!": {
+    "en": "a new version of me is out!",
+    "vi": "có phiên bản mới của tui rồi!"
+  },
+  "Clawd: clique, ou arraste": {
+    "en": "Clawd: click, or drag",
+    "vi": "Clawd: bấm hoặc kéo thử"
+  },
+  "A Anthropic foi fundada em 2021 por Dario e Daniela Amodei, com um grupo que saiu da OpenAI.": {
+    "en": "Anthropic was founded in 2021 by Dario and Daniela Amodei, along with a group that left OpenAI.",
+    "vi": "Anthropic được thành lập năm 2021 bởi Dario và Daniela Amodei cùng một nhóm rời khỏi OpenAI."
+  },
+  "A Anthropic é uma public benefit corporation: tem a missão de interesse público no próprio estatuto.": {
+    "en": "Anthropic is a public benefit corporation: its public-interest mission is written into its charter.",
+    "vi": "Anthropic là một public benefit corporation: sứ mệnh vì lợi ích cộng đồng được ghi ngay trong điều lệ."
+  },
+  "Haiku, Sonnet e Opus vão do menor ao maior: um haicai, um soneto e uma grande obra.": {
+    "en": "Haiku, Sonnet and Opus go from smallest to largest: a haiku, a sonnet and a grand work.",
+    "vi": "Haiku, Sonnet và Opus đi từ nhỏ đến lớn: một bài haiku, một bài sonnet và một tác phẩm đồ sộ."
+  },
+  "O Claude Code apareceu em fevereiro de 2025, como prévia, junto com o Claude 3.7 Sonnet.": {
+    "en": "Claude Code appeared in February 2025 as a preview, alongside Claude 3.7 Sonnet.",
+    "vi": "Claude Code xuất hiện vào tháng 2 năm 2025 dưới dạng bản xem trước, cùng với Claude 3.7 Sonnet."
+  },
+  "O MCP, o protocolo que liga o Claude a ferramentas e dados, foi criado pela Anthropic e aberto em novembro de 2024.": {
+    "en": "MCP, the protocol that connects Claude to tools and data, was created by Anthropic and open-sourced in November 2024.",
+    "vi": "MCP, giao thức nối Claude với công cụ và dữ liệu, do Anthropic tạo ra và mở nguồn vào tháng 11 năm 2024."
+  },
+  "A Anthropic treina o Claude com a técnica de IA Constitucional: um conjunto de princípios guia as respostas.": {
+    "en": "Anthropic trains Claude with Constitutional AI: a set of principles guides its answers.",
+    "vi": "Anthropic huấn luyện Claude bằng kỹ thuật Constitutional AI: một bộ nguyên tắc định hướng các câu trả lời."
+  },
+  "Os Artifacts chegaram em junho de 2024, junto com o Claude 3.5 Sonnet.": {
+    "en": "Artifacts arrived in June 2024, alongside Claude 3.5 Sonnet.",
+    "vi": "Artifacts ra mắt vào tháng 6 năm 2024, cùng với Claude 3.5 Sonnet."
+  },
+  "O uso do computador pelo Claude (computer use) estreou em outubro de 2024.": {
+    "en": "Claude's computer use debuted in October 2024.",
+    "vi": "Tính năng Claude điều khiển máy tính (computer use) ra mắt vào tháng 10 năm 2024."
+  },
+  "O SDK que este app usa se chamava Claude Code SDK; virou Claude Agent SDK em 2025.": {
+    "en": "The SDK this app uses was called Claude Code SDK; it became Claude Agent SDK in 2025.",
+    "vi": "SDK mà ứng dụng này dùng từng có tên Claude Code SDK; năm 2025 nó đổi thành Claude Agent SDK."
+  },
+  "Os símbolos que giram enquanto o Claude pensa são · ✢ ✳ ✶ ✻ ✽.": {
+    "en": "The symbols that spin while Claude thinks are · ✢ ✳ ✶ ✻ ✽.",
+    "vi": "Các ký hiệu xoay khi Claude đang suy nghĩ là · ✢ ✳ ✶ ✻ ✽."
+  },
+  "Um arquivo CLAUDE.md na pasta do projeto vira memória: o Claude lê sempre que começa a trabalhar ali.": {
+    "en": "A CLAUDE.md file in the project folder becomes memory: Claude reads it whenever it starts working there.",
+    "vi": "File CLAUDE.md trong thư mục dự án trở thành bộ nhớ: Claude đọc nó mỗi khi bắt đầu làm việc ở đó."
+  },
+  "Skills são pastas com instruções que o Claude carrega só quando precisa delas.": {
+    "en": "Skills are folders of instructions that Claude loads only when it needs them.",
+    "vi": "Skills là các thư mục chứa hướng dẫn mà Claude chỉ nạp khi cần."
+  },
+  "Dica: comece a mensagem com ! para eu rodar um comando no terminal.": {
+    "en": "Tip: start your message with ! and I'll run a command in the terminal.",
+    "vi": "Mẹo: bắt đầu tin nhắn bằng ! để tui chạy lệnh trong terminal."
+  },
+  "Dica: Alt + ↑ e ↓ pulam entre as suas mensagens.": {
+    "en": "Tip: Alt + ↑ and ↓ jump between your messages.",
+    "vi": "Mẹo: Alt + ↑ và ↓ để nhảy giữa các tin nhắn của bạn."
+  },
+  "Dica: passe o mouse numa mensagem sua e use a seta para desfazer as mudanças nos arquivos dali pra frente.": {
+    "en": "Tip: hover over one of your messages and use the arrow to undo the file changes from that point on.",
+    "vi": "Mẹo: rê chuột vào tin nhắn của bạn và bấm mũi tên để hoàn tác các thay đổi file từ đó trở đi."
+  },
+  "Dica: ramifique uma conversa a partir de qualquer resposta, a original fica intacta.": {
+    "en": "Tip: branch a conversation from any reply; the original stays intact.",
+    "vi": "Mẹo: tách nhánh cuộc trò chuyện từ bất kỳ câu trả lời nào, bản gốc vẫn giữ nguyên."
+  },
+  "Dica: Ctrl + J abre os detalhes, com o contexto e os conectores.": {
+    "en": "Tip: Ctrl + J opens the details, with the context and connectors.",
+    "vi": "Mẹo: Ctrl + J mở phần chi tiết, gồm ngữ cảnh và các trình kết nối."
+  },
+  "Dica: clique direito no papel de parede abre o menu rápido.": {
+    "en": "Tip: right-click the wallpaper to open the quick menu.",
+    "vi": "Mẹo: bấm chuột phải vào hình nền để mở menu nhanh."
+  },
+  "Dica: dá pra arrastar uma conversa para um grupo na barra lateral.": {
+    "en": "Tip: you can drag a conversation into a group in the sidebar.",
+    "vi": "Mẹo: bạn có thể kéo một cuộc trò chuyện vào nhóm ở thanh bên."
+  },
+  "Dica: /compact resume a conversa quando o contexto começa a encher.": {
+    "en": "Tip: /compact summarizes the conversation when the context starts filling up.",
+    "vi": "Mẹo: /compact tóm tắt cuộc trò chuyện khi ngữ cảnh bắt đầu đầy."
+  },
+  "Dica: Ctrl + Shift + Espaço me chama de qualquer lugar.": {
+    "en": "Tip: Ctrl + Shift + Space summons me from anywhere.",
+    "vi": "Mẹo: Ctrl + Shift + Space gọi tui từ bất cứ đâu."
+  },
+  "Novidade: {0}": {
+    "en": "News: {0}",
+    "vi": "Tin mới: {0}"
+  },
+  "A gente já teve {0} conversas sobre {1}.": {
+    "en": "We've had {0} conversations about {1}.",
+    "vi": "Mình đã có {0} cuộc trò chuyện về {1}."
+  },
+  "Primeira vez mexendo em {0}? Me pede pra explicar a estrutura.": {
+    "en": "First time working on {0}? Ask me to explain the structure.",
+    "vi": "Lần đầu làm việc với {0}? Nhờ tui giải thích cấu trúc nhé."
+  },
+  "Mexemos em {0} arquivo nesta conversa. Estão todos no botão de alterações lá em cima.": {
+    "en": "We changed {0} file in this conversation. It's all under the changes button up top.",
+    "vi": "Mình đã sửa {0} file trong cuộc trò chuyện này. Tất cả nằm ở nút thay đổi phía trên."
+  },
+  "Mexemos em {0} arquivos nesta conversa. Estão todos no botão de alterações lá em cima.": {
+    "en": "We changed {0} files in this conversation. They're all under the changes button up top.",
+    "vi": "Mình đã sửa {0} file trong cuộc trò chuyện này. Tất cả nằm ở nút thay đổi phía trên."
+  },
+  "O contexto já está em {0}%. Um /compact agora deixa tudo mais leve.": {
+    "en": "The context is already at {0}%. A /compact now makes everything lighter.",
+    "vi": "Ngữ cảnh đã đầy {0}%. Chạy /compact lúc này sẽ nhẹ hơn nhiều."
+  },
+  "Já usamos {0}% da sessão de 5 horas. Vou com calma.": {
+    "en": "We've used {0}% of the 5-hour session. I'll take it easy.",
+    "vi": "Mình đã dùng {0}% phiên 5 giờ. Tui sẽ đi chậm lại."
+  },
+  "Já é madrugada. Bora salvar e descansar daqui a pouco?": {
+    "en": "It's already the small hours. Shall we save and rest soon?",
+    "vi": "Khuya rồi. Lát nữa lưu lại rồi nghỉ nhé?"
+  },
+  "Hora do almoço. Eu fico de olho aqui.": {
+    "en": "Lunch time. I'll keep an eye on things here.",
+    "vi": "Giờ ăn trưa rồi. Tui canh ở đây cho."
+  },
+  "o Claude Code, mas agora com mais vida": {
+    "en": "Claude Code, but now with more life",
+    "vi": "Claude Code, nhưng giờ sống động hơn"
+  },
+  "Atividade da conversa": {
+    "en": "Conversation activity",
+    "vi": "Hoạt động cuộc trò chuyện"
+  },
+  "Nesta resposta": {
+    "en": "In this reply",
+    "vi": "Trong câu trả lời này"
+  },
+  "Ler a resposta inteira": {
+    "en": "Read the full reply",
+    "vi": "Đọc toàn bộ câu trả lời"
+  },
+  "{0} min": {
+    "en": "{0} min",
+    "vi": "{0} phút"
+  },
+  "Recolher": {
+    "en": "Collapse",
+    "vi": "Thu gọn"
+  },
+  "Detalhes da conversa": {
+    "en": "Conversation details",
+    "vi": "Chi tiết cuộc trò chuyện"
+  },
+  "Detalhes (Ctrl+J)": {
+    "en": "Details (Ctrl+J)",
+    "vi": "Chi tiết (Ctrl+J)"
+  },
+  "Detalhes": {
+    "en": "Details",
+    "vi": "Chi tiết"
+  },
+  "Atualizar": {
+    "en": "Refresh",
+    "vi": "Làm mới"
+  },
+  "Fechar": {
+    "en": "Close",
+    "vi": "Đóng"
+  },
+  "Ambiente": {
+    "en": "Environment",
+    "vi": "Môi trường"
+  },
+  "Este computador": {
+    "en": "This computer",
+    "vi": "Máy tính này"
+  },
+  "Contexto": {
+    "en": "Context",
+    "vi": "Ngữ cảnh"
+  },
+  "{0}% usado": {
+    "en": "{0}% used",
+    "vi": "Đã dùng {0}%"
+  },
+  "Compacta sozinho perto do limite": {
+    "en": "Compacts on its own near the limit",
+    "vi": "Tự động nén khi gần đến giới hạn"
+  },
+  "Compactar sessão": {
+    "en": "Compact session",
+    "vi": "Nén phiên"
+  },
+  "Não deu para ler o contexto agora.": {
+    "en": "Couldn't read the context right now.",
+    "vi": "Hiện chưa đọc được ngữ cảnh."
+  },
+  "Lendo…": {
+    "en": "Reading…",
+    "vi": "Đang đọc…"
+  },
+  "Abra ou comece uma conversa.": {
+    "en": "Open or start a conversation.",
+    "vi": "Hãy mở hoặc bắt đầu một cuộc trò chuyện."
+  },
+  "Conectores": {
+    "en": "Connectors",
+    "vi": "Trình kết nối"
+  },
+  "{0} de {1}": {
+    "en": "{0} of {1}",
+    "vi": "{0} trên {1}"
+  },
+  "conectado": {
+    "en": "connected",
+    "vi": "đã kết nối"
+  },
+  "falhou": {
+    "en": "failed",
+    "vi": "thất bại"
+  },
+  "precisa de login": {
+    "en": "needs sign-in",
+    "vi": "cần đăng nhập"
+  },
+  "conectando": {
+    "en": "connecting",
+    "vi": "đang kết nối"
+  },
+  "desligado": {
+    "en": "off",
+    "vi": "đã tắt"
+  },
+  "Nenhum conector configurado.": {
+    "en": "No connectors configured.",
+    "vi": "Chưa cấu hình trình kết nối nào."
+  },
+  "Saídas": {
+    "en": "Outputs",
+    "vi": "Kết quả"
+  },
+  "Nenhum arquivo mudado nesta conversa.": {
+    "en": "No files changed in this conversation.",
+    "vi": "Chưa có file nào thay đổi trong cuộc trò chuyện này."
+  },
+  "Mostrar na pasta": {
+    "en": "Show in folder",
+    "vi": "Hiện trong thư mục"
+  }
+}

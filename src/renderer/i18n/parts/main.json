@@ -1,0 +1,63 @@
+{
+  "Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o vnam's Claudie de novo.": {
+    "en": "I couldn't find Claude Code on this computer. Install it at code.claude.com/docs/en/setup and open vnam's Claudie again.",
+    "vi": "Không tìm thấy Claude Code trên máy này. Hãy cài tại code.claude.com/docs/en/setup rồi mở lại vnam's Claudie."
+  },
+  "Lareira": { "en": "Fireplace", "vi": "Lò sưởi" },
+  "Chuva Lo-fi": { "en": "Lo-fi Rain", "vi": "Mưa Lo-fi" },
+  "Galáxia Distante": { "en": "Distant Galaxy", "vi": "Thiên hà xa xăm" },
+  "Jardim Sakura": { "en": "Sakura Garden", "vi": "Vườn hoa anh đào" },
+  "Chuva de Código": { "en": "Code Rain", "vi": "Mưa mã" },
+  "Esse arquivo do ASCII Motion tem camadas. No ASCII Motion, use Export → JSON e importe o arquivo .json.": {
+    "en": "This ASCII Motion file has layers. In ASCII Motion, use Export → JSON and import the .json file.",
+    "vi": "Tệp ASCII Motion này có nhiều lớp. Trong ASCII Motion, hãy dùng Export → JSON rồi nhập tệp .json."
+  },
+  "Nenhum quadro no arquivo.": { "en": "No frames in the file.", "vi": "Không có khung hình nào trong tệp." },
+  "Arquivo grande demais (máx. 40 MB).": { "en": "File too large (max. 40 MB).", "vi": "Tệp quá lớn (tối đa 40 MB)." },
+  "Imagem, GIF ou vídeo": { "en": "Image, GIF or video", "vi": "Ảnh, GIF hoặc video" },
+  "Som": { "en": "Sound", "vi": "Âm thanh" },
+  "Música": { "en": "Music", "vi": "Nhạc" },
+  "Fonte": { "en": "Font", "vi": "Phông chữ" },
+  "Ícone": { "en": "Icon", "vi": "Biểu tượng" },
+  "Formato .{0} não serve para {1}.": {
+    "en": "The .{0} format doesn't work for {1}.",
+    "vi": "Định dạng .{0} không dùng được cho {1}."
+  },
+  "Esse papel de parede não está mais na biblioteca do Wallpaper Engine.": {
+    "en": "This wallpaper is no longer in the Wallpaper Engine library.",
+    "vi": "Hình nền này không còn trong thư viện Wallpaper Engine."
+  },
+  "Cancelado.": { "en": "Cancelled.", "vi": "Đã hủy." },
+  "A pessoa negou.": { "en": "The user denied it.", "vi": "Người dùng đã từ chối." },
+  "A pessoa preferiu não responder.": { "en": "The user chose not to answer.", "vi": "Người dùng chọn không trả lời." },
+  "Erro da API: {0}": { "en": "API error: {0}", "vi": "Lỗi API: {0}" },
+  "Essa conversa está rodando em outra janela. Espere ela terminar.": {
+    "en": "This conversation is running in another window. Wait for it to finish.",
+    "vi": "Cuộc trò chuyện này đang chạy ở cửa sổ khác. Hãy đợi nó xong."
+  },
+  "Anexar arquivos": { "en": "Attach files", "vi": "Đính kèm tệp" },
+  "Importar animação do ASCII Motion": { "en": "Import animation from ASCII Motion", "vi": "Nhập hoạt ảnh từ ASCII Motion" },
+  "Exportar conversa": { "en": "Export conversation", "vi": "Xuất cuộc trò chuyện" },
+  "Pasta do projeto": { "en": "Project folder", "vi": "Thư mục dự án" },
+  "Escolher {0}": { "en": "Choose {0}", "vi": "Chọn {0}" },
+  "Sem conversa.": { "en": "No conversation.", "vi": "Không có cuộc trò chuyện." },
+  "Sem pasta": { "en": "No folder", "vi": "Không có thư mục" },
+  "Rascunhos": { "en": "Drafts", "vi": "Bản nháp" },
+  "Sem título": { "en": "Untitled", "vi": "Chưa đặt tên" },
+  "Ramo": { "en": "Branch", "vi": "Nhánh" },
+  "conversa": { "en": "conversation", "vi": "cuộc trò chuyện" },
+  "Conversa": { "en": "Conversation", "vi": "Cuộc trò chuyện" },
+  "**Você:**": { "en": "**You:**", "vi": "**Bạn:**" },
+  "_(1 imagem)_": { "en": "_(1 image)_", "vi": "_(1 ảnh)_" },
+  "_({0} imagens)_": { "en": "_({0} images)_", "vi": "_({0} ảnh)_" },
+  "> Ferramenta: {0}": { "en": "> Tool: {0}", "vi": "> Công cụ: {0}" },
+  "Tipo desconhecido.": { "en": "Unknown type.", "vi": "Loại không xác định." },
+  "O sistema não oferece armazenamento seguro para a chave.": {
+    "en": "The system doesn't offer secure storage for the key.",
+    "vi": "Hệ thống không hỗ trợ lưu trữ an toàn cho khóa."
+  },
+  "vnam's Claudie: o Claude Code com papéis de parede vivos": {
+    "en": "vnam's Claudie: Claude Code with living wallpapers",
+    "vi": "vnam's Claudie: Claude Code với hình nền sống động"
+  }
+}
