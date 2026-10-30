@@ -17,7 +17,7 @@ const k = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + "M" : n >=
 // Category colours: messages blue, built-in tools orange, connector tools
 // teal, the rest grey (free space darker).
 const corCategoria = (nome, tipo) => /mensag|messages/i.test(nome) ? "#4a8fe0" : /mcp tool/i.test(nome) && tipo !== "deferred" ? "#2bb39a" : /system tools/i.test(nome) && tipo !== "deferred" ? "#e8803a"
-  : tipo === "free" ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.32)";
+  : `rgba(${document.body.classList.contains("light") ? "15,39,48" : "255,255,255"},${tipo === "free" ? 0.12 : 0.32})`;
 
 function secao(id, titulo, extra, corpo) {
   const aberta = abertas.has(id);

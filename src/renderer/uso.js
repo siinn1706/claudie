@@ -101,11 +101,11 @@ function animaAcademia(cv) {
     const cor = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#d77757";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
     // floor: a strip of mat tiles
-    const chao = H - 22;
-    for (let x = 6; x < W - 6; x += 14) { ctx.fillStyle = "rgba(255,255,255,0.06)"; ctx.fillRect(x, chao + 4, 12, 6); }
+    const chao = H - 22, tinta = document.body.classList.contains("light") ? "15,39,48" : "255,255,255";
+    for (let x = 6; x < W - 6; x += 14) { ctx.fillStyle = `rgba(${tinta},0.06)`; ctx.fillRect(x, chao + 4, 12, 6); }
     // stamina tiles, top left
-    ctx.font = "500 11px Inter, sans-serif"; ctx.fillStyle = "rgba(236,235,231,0.55)"; ctx.fillText(window.t("Fôlego"), 12, 18);
-    for (let k = 0; k < 10; k++) { ctx.fillStyle = k < Math.round((1 - c) * 10) ? (c >= 0.8 ? "#e2735f" : cor) : "rgba(255,255,255,0.1)"; ctx.fillRect(58 + k * 11, 10, 9, 9); }
+    ctx.font = "500 11px Inter, sans-serif"; ctx.fillStyle = `rgba(${tinta},0.55)`; ctx.fillText(window.t("Fôlego"), 12, 18);
+    for (let k = 0; k < 10; k++) { ctx.fillStyle = k < Math.round((1 - c) * 10) ? (c >= 0.8 ? "#e2735f" : cor) : `rgba(${tinta},0.1)`; ctx.fillRect(58 + k * 11, 10, 9, 9); }
     const cw = CLAWD.W * PW, cx = W / 2 - cw / 2;
     if (dorme) {
       // the barbell dropped on the floor, Clawd slumped against it, asleep

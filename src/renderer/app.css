@@ -1270,3 +1270,27 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .tf-btn { position: relative; }
 .tf-btn .badge { position: absolute; top: 2px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--accent); color: #fff; font: 600 9.5px/14px var(--fonte); text-align: center; display: none; }
 .tf-btn.tem .badge { display: block; }
+
+/* Light themes: the popovers, sheets and overlays drawn in fixed dark colours above take the
+   light menu surface instead, with ink-tinted lines and tracks (white ones vanish on it). */
+body.themed.light { --tinta-1: rgba(15, 39, 48, 0.05); --tinta-2: rgba(15, 39, 48, 0.1); --tinta-3: rgba(15, 39, 48, 0.16); }
+body.themed.light .escolha-pop, body.themed.light .creditos-caixa, body.themed.light .personal-caixa, body.themed.light .soltar div, body.themed.light .som-pop, body.themed.light .tc .none { background: var(--menu); color: var(--ui); border-color: var(--menu-borda); box-shadow: 0 18px 44px rgba(10, 40, 50, 0.18); }
+body.themed.light .personal-caixa { --ui: #0f2730; --ui-2: #2d4a54; --ui-dim: #4e6870; --line: var(--tinta-2); --line-2: var(--tinta-3); --pill: var(--tinta-2); --hover: var(--tinta-1); --active: var(--tinta-2); }
+body.themed.light .pop-titulo, body.themed.light .menu-rotulo, body.themed.light .esf-marcas span, body.themed.light .esf-cab small, body.themed.light .esf-troca, body.themed.light .esf-med em, body.themed.light .esf-col em, body.themed.light .opcao small, body.themed.light .opcao .op-icone, body.themed.light .creditos h3 small, body.themed.light .creditos summary small, body.themed.light .creditos p.fraco, body.themed.light .creditos details p { color: var(--ui-dim); }
+body.themed.light .esf-marcas span:hover, body.themed.light .esf-desc, body.themed.light .escolha-pop.esf .esf-desc, body.themed.light .esf-col.acesa em, body.themed.light .esf-auto, body.themed.light .creditos p, body.themed.light .atalhos div, body.themed.light .soltar span { color: var(--ui-2); }
+body.themed.light .escolha-pop.previa .esf-desc { color: var(--ui-dim); }
+body.themed.light .esf-marcas span.on, body.themed.light .esf-cab b, body.themed.light .esf-auto:hover, body.themed.light .esf-auto.sel, body.themed.light .atalhos kbd, body.themed.light .creditos summary { color: var(--ui); }
+body.themed.light .esf-col.sel em { color: var(--accent); }
+body.themed.light .opcao:hover, body.themed.light .creditos summary:hover, body.themed.light .esf-auto:not(.sel):hover, body.themed.light .som-player:hover, body.themed.light .pz-seg { background: var(--menu-hover); }
+body.themed.light .pz-seg button.on { background: var(--menu); }
+body.themed.light .creditos section, body.themed.light .esf-troca, body.themed.light .som-musica { border-top-color: var(--menu-borda); }
+body.themed.light .esf-auto:not(.sel), body.themed.light .atalhos kbd, body.themed.light .pz-paletas i { border-color: var(--menu-borda); }
+body.themed.light .ctx-barra, body.themed.light .uso-tiles i, body.themed.light .esf-col i, body.themed.light .esf-med i { background: var(--tinta-2); }
+body.themed.light .esf-col:not(.acesa):hover i { background: var(--tinta-3); }
+body.themed.light .esf-col.acesa i, body.themed.light .uso-tiles i.on { background: var(--accent); }
+body.themed.light .uso-linha.alto .uso-tiles i.on { background: color-mix(in srgb, var(--err) 75%, var(--accent)); }
+body.themed.light .esf-med i.on { background: var(--ui-2); }
+body.themed.light .escolha-pop.previa .esf-col.acesa i { background: color-mix(in srgb, var(--accent) 60%, var(--tinta-3)); }
+body.themed.light .esf-barra { background: linear-gradient(to right, var(--accent) var(--p), var(--tinta-3) var(--p)); }
+body.themed.light .pz-linha input[type=text], body.themed.light .pz-linha select, body.themed.light .pz-busca, body.themed.light .pz-amostra, body.themed.light .pz-som select, body.themed.light .pz-icone-prev, body.themed.light .pz-chave input { background: var(--tinta-1); }
+body.themed.light .colado-texto { background: var(--tinta-1); color: var(--ui); border-color: var(--menu-borda); }

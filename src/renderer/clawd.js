@@ -365,7 +365,7 @@ let novidades = [], buscouNovidades = false;
 const hora = () => new Date().getHours();
 // Lines about what is on screen right now.
 function sobreOProjeto() {
-  const l = [], pasta = ($("pasta").title || "").split(/[\/]/).filter(Boolean).pop();
+  const l = [], pasta = ($("pasta").title || "").split(/[\\/]/).filter(Boolean).pop();
   const doProjeto = (typeof sessoes !== "undefined" ? sessoes : []).filter((s) => s.cwd === $("pasta").title);
   if (pasta) l.push(doProjeto.length > 1 ? `A gente já teve ${doProjeto.length} conversas sobre ${pasta}.` : `Primeira vez mexendo em ${pasta}? Me pede pra explicar a estrutura.`);
   const arquivos = typeof alteracoes === "function" ? alteracoes().size : 0;
