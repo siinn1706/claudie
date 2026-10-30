@@ -44,6 +44,8 @@ contextBridge.exposeInMainWorld("vivo", {
   desfazer: (uuid, simular) => ipcRenderer.invoke("desfazer", { uuid, simular }),
   janelaNova: (sessao) => ipcRenderer.invoke("janela_nova", sessao),
   painel: () => ipcRenderer.invoke("painel"),
+  mcpAcao: (acao, nome, escopo) => ipcRenderer.invoke("mcp_acao", { acao, nome, escopo }),
+  mcpAdicionar: (dados) => ipcRenderer.invoke("mcp_adicionar", dados),
   uso: () => ipcRenderer.invoke("uso"),
   novidades: () => ipcRenderer.invoke("novidades"),
   abrirArquivo: (caminho, naPasta) => ipcRenderer.invoke("abrir_arquivo", caminho, naPasta),

@@ -900,6 +900,18 @@ body.info-aberta .info { opacity: 1; pointer-events: auto; }
 .con i.connected { background: var(--ok); } .con i.failed { background: var(--err); } .con i.needs-auth, .con i.pending { background: #e7b549; }
 .con span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ui-2); }
 .con em { font-style: normal; font-size: 11.5px; color: var(--ui-dim); }
+.con-bloco { padding: 3px 0 6px; border-bottom: 1px solid var(--line); } .con-bloco:last-of-type { border-bottom: 0; }
+.con-bloco .con { padding: 2px 0; } .con i.disabled { background: var(--ui-dim); opacity: 0.5; }
+.con-meta { margin-left: 15px; font-size: 11px; color: var(--ui-dim); }
+.con-erro, .con-ok { margin: 3px 0 0 15px; font-size: 11.5px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; color: var(--err); } .con-ok { color: var(--ok); }
+.con-acoes { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0 0 15px; }
+.mcp-bt { border: 1px solid var(--line-2); background: var(--pill); border-radius: 7px; padding: 2px 8px; font-size: 11.5px; cursor: var(--cur-mao, pointer); } .mcp-bt:hover { filter: brightness(1.15); }
+.mcp-bt:disabled { opacity: 0.45; cursor: var(--cur-seta, default); } .mcp-bt.perigo { border-color: var(--err); color: var(--err); }
+.mcp-novo { margin-top: 8px; padding: 5px 10px; font-size: 12px; }
+.mcp-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.mcp-form input, .mcp-form select, .mcp-form textarea { width: 100%; box-sizing: border-box; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--line-2); background: color-mix(in srgb, var(--ui) 7%, transparent); color: var(--ui); outline: 0; font-size: 12.5px; resize: vertical; }
+.mcp-form input:focus, .mcp-form select:focus, .mcp-form textarea:focus { border-color: color-mix(in srgb, var(--accent) 50%, var(--line-2)); }
+.mcp-form-bt { display: flex; justify-content: flex-end; gap: 8px; } .mcp-form-bt .btn { padding: 5px 12px; font-size: 12px; } .mcp-form-bt .btn:disabled { opacity: 0.45; }
 .saida { display: flex; align-items: center; gap: 4px; }
 .saida .clicavel { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 5px 0; font-size: 13px; text-align: left; }
 .saida .clicavel svg { width: 15px; height: 15px; color: var(--ui-dim); flex: none; }

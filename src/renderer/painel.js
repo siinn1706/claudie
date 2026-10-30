@@ -32,6 +32,66 @@ async function atualizaInfo() {
   desenhaInfo();
   if (deNovo) { deNovo = false; atualizaInfo(); }
 }
+// Connector management: turn off/on, reconnect, remove and add. The work runs in
+// the main process (the SDK for the running query, the Claude Code CLI for the
+// config files); the form draft lives here so a refresh does not wipe it.
+let mcpForm = null, mcpMsg = null, mcpOcupado = "", mcpConfirma = "";
+const MCP_ESTADO = { connected: "conectado", failed: "falhou", "needs-auth": "precisa de login", pending: "conectando", disabled: "desligado" };
+const MCP_ESCOPO = { user: "todos os projetos", project: "compartilhado no projeto", local: "só neste projeto", claudeai: "claude.ai", managed: "da organização", plugin: "plugin", dynamic: "temporário" };
+function mcpLinha(x) {
+  const claudeai = x.escopo === "claudeai" || x.nome.startsWith("claude.ai "), ocupado = mcpOcupado === x.nome;
+  const meta = [x.embutido ? "" : MCP_ESCOPO[x.escopo] || x.escopo, x.ferramentas == null ? "" : x.ferramentas === 1 ? "1 ferramenta" : window.t("{0} ferramentas", x.ferramentas)].filter(Boolean).join(" · ");
+  const bt = (a, txt, cls = "") => `<button class="mcp-bt ${cls}" data-mcp="${a}" data-nome="${esc(x.nome)}" data-escopo="${esc(x.escopo)}"${ocupado ? " disabled" : ""}>${txt}</button>`;
+  let acoes = "";
+  if (claudeai) acoes = `<button class="mcp-bt" data-mcp-link="https://claude.ai/settings/connectors">Gerenciar no claude.ai</button>`;
+  else if (!x.embutido) {
+    acoes = bt(x.estado === "disabled" ? "ligar" : "desligar", x.estado === "disabled" ? "Ligar" : "Desligar");
+    if (x.estado !== "disabled") acoes += bt("reconectar", "Reconectar");
+    if (["user", "project", "local"].includes(x.escopo)) acoes += mcpConfirma === x.nome ? bt("remover", "Confirmar remoção", "perigo") : bt("remover", "Remover");
+  }
+  return `<div class="con-bloco"><div class="con" title="${esc(x.erro)}"><i class="${x.estado}"></i><span>${esc(x.nome)}</span><em>${ocupado ? "…" : MCP_ESTADO[x.estado] || x.estado}</em></div>`
+    + (meta ? `<div class="con-meta">${esc(meta)}</div>` : "") + (x.erro && x.estado === "failed" ? `<div class="con-erro">${esc(x.erro)}</div>` : "")
+    + (acoes ? `<div class="con-acoes">${acoes}</div>` : "") + `</div>`;
+}
+function mcpRodape() {
+  const f = mcpForm, campo = (n, ph, tipo = "text") => `<input type="${tipo}" data-f="${n}" placeholder="${ph}" value="${esc(f[n] || "")}" spellcheck="false" autocomplete="off">`, area = (n, ph) => `<textarea data-f="${n}" rows="2" placeholder="${ph}" spellcheck="false">${esc(f[n] || "")}</textarea>`;
+  const msg = mcpMsg ? `<div class="${mcpMsg.erro ? "con-erro" : "con-ok"}">${esc(mcpMsg.erro || mcpMsg.ok)}</div>` : "";
+  if (!f) return `${msg}<button class="btn mcp-novo" data-mcp-form="abre">Adicionar conector</button>`;
+  const http = f.transporte !== "stdio";
+  return `${msg}<div class="mcp-form">
+    ${campo("nome", "Nome (ex.: github)")}
+    <select data-f="transporte"><option value="stdio"${f.transporte === "stdio" ? " selected" : ""}>Comando local (stdio)</option><option value="http"${f.transporte === "http" ? " selected" : ""}>Servidor remoto (http)</option><option value="sse"${f.transporte === "sse" ? " selected" : ""}>Servidor remoto (sse)</option></select>
+    ${http ? campo("url", "https://…") : campo("comando", "Comando e argumentos (ex.: npx -y pacote)")}
+    <select data-f="escopo">${["local", "user", "project"].map((e) => `<option value="${e}"${f.escopo === e ? " selected" : ""}>${MCP_ESCOPO[e]}</option>`).join("")}</select>
+    ${http ? area("cabecalhos", "Cabeçalhos (Nome: valor, um por linha)") : area("env", "Variáveis (NOME=valor, uma por linha)")}
+    <div class="mcp-form-bt"><button class="btn" data-mcp-form="fecha">Cancelar</button><button class="btn forte" data-mcp-form="envia"${mcpOcupado === "novo" ? " disabled" : ""}>Adicionar</button></div></div>`;
+}
+async function mcpExecuta(acao, nome, escopo) {
+  if (acao === "remover" && mcpConfirma !== nome) { mcpConfirma = nome; desenhaInfo(); return; }
+  mcpConfirma = ""; mcpOcupado = nome; mcpMsg = null; desenhaInfo();
+  const r = await vivo.mcpAcao(acao, nome, escopo).catch((e) => ({ erro: String(e?.message || e) }));
+  mcpOcupado = ""; mcpMsg = r.erro ? { erro: r.erro } : acao === "remover" && dados?.rodando ? { ok: "Removido. A resposta em andamento só muda na próxima mensagem." } : null;
+  desenhaInfo(); atualizaInfo();
+}
+async function mcpEnvia() {
+  mcpOcupado = "novo"; mcpMsg = null; desenhaInfo();
+  const r = await vivo.mcpAdicionar(mcpForm).catch((e) => ({ erro: String(e?.message || e) }));
+  mcpOcupado = "";
+  if (r.erro) mcpMsg = { erro: r.erro };
+  else { mcpForm = null; mcpMsg = { ok: dados?.rodando ? "Conector adicionado. A resposta em andamento só o usa na próxima mensagem." : "Conector adicionado." }; }
+  desenhaInfo(); atualizaInfo();
+}
+function mcpLiga() {
+  info.querySelectorAll("[data-mcp]").forEach((b) => (b.onclick = () => mcpExecuta(b.dataset.mcp, b.dataset.nome, b.dataset.escopo)));
+  info.querySelectorAll("[data-mcp-link]").forEach((b) => (b.onclick = () => vivo.link(b.dataset.mcpLink)));
+  info.querySelectorAll("[data-mcp-form]").forEach((b) => (b.onclick = () => {
+    const a = b.dataset.mcpForm;
+    if (a === "abre") { mcpForm = { transporte: "stdio", escopo: "local" }; mcpMsg = null; desenhaInfo(); info.querySelector('[data-f="nome"]')?.focus(); }
+    else if (a === "fecha") { mcpForm = null; mcpMsg = null; desenhaInfo(); }
+    else mcpEnvia();
+  }));
+  info.querySelectorAll("[data-f]").forEach((c) => c.addEventListener(c.tagName === "SELECT" ? "change" : "input", () => { mcpForm[c.dataset.f] = c.value; if (c.dataset.f === "transporte") desenhaInfo(); }));
+}
 function desenhaInfo() {
   const a = dados?.ambiente || {}, c = dados?.contexto, con = dados?.conectores || [];
   const nomePasta = (a.pasta || "").split(/[\\/]/).filter(Boolean).pop() || "";
@@ -51,14 +111,13 @@ function desenhaInfo() {
       <div class="ctx-base"><span>Compacta sozinho perto do limite</span><button class="btn" data-a="compacta"${rodando || !sessaoAtual ? " disabled" : ""}>Compactar sessão</button></div>`);
   } else h += secao("contexto", "Contexto", "", `<p class="info-vazio">${dados?.erro ? "Não deu para ler o contexto agora." : carregando ? "Lendo…" : "Abra ou comece uma conversa."}</p>`);
   const ok = con.filter((x) => x.estado === "connected").length;
-  h += secao("conectores", "Conectores", con.length ? `${ok} de ${con.length}` : "", con.length
-    ? con.map((x) => `<div class="con" title="${esc(x.erro)}"><i class="${x.estado}"></i><span>${esc(x.nome)}</span><em>${{ connected: "conectado", failed: "falhou", "needs-auth": "precisa de login", pending: "conectando", disabled: "desligado" }[x.estado] || x.estado}</em></div>`).join("")
-    : `<p class="info-vazio">Nenhum conector configurado.</p>`);
+  h += secao("conectores", "Conectores", con.length ? `${ok} de ${con.length}` : "", `${con.length ? con.map(mcpLinha).join("") : `<p class="info-vazio">Nenhum conector configurado.</p>`}${mcpRodape()}`);
   const arquivos = typeof alteracoes === "function" ? [...alteracoes().keys()] : [];
   h += secao("saidas", "Saídas", arquivos.length ? String(arquivos.length) : "", arquivos.length
     ? arquivos.map((f) => `<div class="saida"><button class="clicavel" data-abre="${esc(f)}" title="${esc(f)}">${svg('<path d="m9 8-4 4 4 4M15 8l4 4-4 4"/>')}<span>${esc(f.split(/[\\/]/).pop())}</span></button><button class="icone" data-mostra="${esc(f)}" title="Mostrar na pasta">${ICONE.pasta}</button></div>`).join("")
     : `<p class="info-vazio">Nenhum arquivo mudado nesta conversa.</p>`);
   info.innerHTML = h;
+  mcpLiga();
   info.querySelectorAll(".info-cab").forEach((b) => (b.onclick = () => { const s = b.parentElement, id = s.dataset.sec; s.classList.toggle("aberta"); s.classList.contains("aberta") ? abertas.add(id) : abertas.delete(id); guarda("infoAbertas", [...abertas]); }));
   info.querySelector('[data-a="atualiza"]').onclick = atualizaInfo;
   info.querySelector('[data-a="fecha"]').onclick = () => alternaInfo(false);

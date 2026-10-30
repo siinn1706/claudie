@@ -531,6 +531,7 @@ async function turno(j, texto, anexos) {
   turnos.add(t);
   j.atual = t;
   ev({ tipo: "inicio", uuid: typeof prompt === "string" ? null : uuid });
+  if (desligadosMcp(t.cwd).length) q.mcpServerStatus().then((st) => aplicaDesligados(q, t.cwd, st)).catch(() => {});
   avisaTurnos();
     for await (const msg of q) {
       if (msg.session_id && msg.session_id !== t.sessionId) {
@@ -864,6 +865,75 @@ function comCache(chave, ttl, fn) {
 }
 // A turn changes the context and the usage, so what was read for its conversation is stale.
 const esquece = (id) => { for (const k of respostas.keys()) if (k.endsWith(`|${id}`)) respostas.delete(k); };
+// Connector management. Which servers the person turned off is kept per folder
+// (Query.toggleMcpServer only lasts for that query); add and remove go through
+// the Claude Code CLI itself so the config files stay Claude Code's own.
+const chaveMcp = (cwd) => path.resolve(cwd).toLowerCase();
+const desligadosMcp = (cwd) => config.mcpDesligados?.[chaveMcp(cwd)] || [];
+function guardaDesligado(cwd, nome, desligado) {
+  const lista = new Set(desligadosMcp(cwd));
+  desligado ? lista.add(nome) : lista.delete(nome);
+  config.mcpDesligados = { ...config.mcpDesligados, [chaveMcp(cwd)]: [...lista] };
+  salvarConfig();
+}
+async function aplicaDesligados(q, cwd, st) {
+  const alvo = desligadosMcp(cwd).filter((n) => st.some((c) => c.name === n && c.status !== "disabled"));
+  for (const n of alvo) { try { await q.toggleMcpServer(n, false); } catch {} }
+  return alvo.length > 0;
+}
+const esquecePainel = () => { for (const k of respostas.keys()) if (k.startsWith("painel|")) respostas.delete(k); };
+function claudeCli(args, cwd) {
+  const exe = acharClaude();
+  if (!exe) return Promise.resolve({ erro: "Não encontrei o Claude Code neste computador." });
+  const js = /\.m?js$/i.test(exe);
+  return new Promise((ok) => execFile(js ? process.execPath : exe, js ? [exe, ...args] : args, { cwd, encoding: "utf8", windowsHide: true, timeout: 45000, maxBuffer: 1 << 20, env: js ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" } : process.env },
+    (erro, saida, err) => ok(erro ? { erro: String(err || saida || erro.message).trim().slice(0, 1500) } : { saida: String(saida).trim().slice(0, 1500) })));
+}
+// command line of a stdio server: split on spaces, keeping "quoted parts" together
+const quebraComando = (txt) => [...txt.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
+const ESCOPOS_MCP = ["user", "project", "local"];
+ipcMain.handle("mcp_acao", async (e, { acao, nome, escopo }) => {
+  const j = J(e);
+  if (typeof nome !== "string" || !nome || nome.startsWith("claude.ai ") || nome === "claudie") return { erro: "Esse conector não pode ser mudado aqui." };
+  try {
+    if (acao === "remover") {
+      if (!ESCOPOS_MCP.includes(escopo)) return { erro: "Esse conector não vem de um arquivo de configuração." };
+      const r = await claudeCli(["mcp", "remove", nome, "-s", escopo], j.cwd);
+      if (!r.erro) { guardaDesligado(j.cwd, nome, false); esquecePainel(); }
+      return r;
+    }
+    if (acao === "ligar" || acao === "desligar") {
+      const ligar = acao === "ligar";
+      guardaDesligado(j.cwd, nome, !ligar); esquecePainel();
+      await comConsulta(j, (q) => q.toggleMcpServer(nome, ligar));
+      return {};
+    }
+    if (acao === "reconectar") { await comConsulta(j, (q) => q.reconnectMcpServer(nome)); esquecePainel(); return {}; }
+  } catch (err) { esquecePainel(); return { erro: String(err?.message || err) }; }
+  return { erro: "Ação desconhecida." };
+});
+ipcMain.handle("mcp_adicionar", async (e, d) => {
+  const j = J(e), nome = String(d?.nome || "").trim(), escopo = d?.escopo;
+  if (!/^[\w.-]{1,64}$/.test(nome)) return { erro: "Use só letras, números, ponto, hífen e sublinhado no nome." };
+  if (!ESCOPOS_MCP.includes(escopo)) return { erro: "Escolha o escopo." };
+  const linhas = (x) => String(x || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const env = linhas(d.env), cab = linhas(d.cabecalhos);
+  if (env.some((l) => !/^[A-Za-z_]\w*=/.test(l))) return { erro: "Variáveis no formato NOME=valor, uma por linha." };
+  let args;
+  if (d.transporte === "stdio") {
+    const cmd = quebraComando(String(d.comando || ""));
+    if (!cmd.length) return { erro: "Informe o comando do servidor." };
+    args = ["mcp", "add", nome, "-s", escopo, ...env.flatMap((l) => ["-e", l]), "--", ...cmd];
+  } else if (d.transporte === "http" || d.transporte === "sse") {
+    const url = String(d.url || "").trim();
+    if (!/^https?:\/\/\S+$/.test(url)) return { erro: "Informe um endereço http(s) válido." };
+    if (cab.some((l) => !/^[\w-]+:\s*\S/.test(l))) return { erro: "Cabeçalhos no formato Nome: valor, um por linha." };
+    args = ["mcp", "add", nome, url, "-t", d.transporte, "-s", escopo, ...cab.flatMap((l) => ["-H", l])];
+  } else return { erro: "Escolha o tipo de conector." };
+  const r = await claudeCli(args, j.cwd);
+  if (!r.erro) esquecePainel();
+  return r;
+});
 ipcMain.handle("painel", async (e) => {
   const j = J(e);
   const ambiente = { computador: os.hostname(), pasta: j.cwd, ramo: ramoGit(j.cwd), modelo: cfgJ(j).model || "" };
@@ -873,6 +943,8 @@ ipcMain.handle("painel", async (e) => {
       const ctx = await q.getContextUsage({ detail: "summary" });
       let st = await q.mcpServerStatus();
       for (let i = 0; i < 12 && st.some((c) => c.status === "pending"); i++) { await new Promise((r) => setTimeout(r, 500)); st = await q.mcpServerStatus(); }
+      // servers the person turned off stay off in new queries
+      if (await aplicaDesligados(q, j.cwd, st)) st = await q.mcpServerStatus();
       return [ctx, st];
     });
     // a running turn is asked live; only an idle conversation is cached
@@ -880,7 +952,8 @@ ipcMain.handle("painel", async (e) => {
     return {
       ambiente: { ...ambiente, modelo: contexto?.model || ambiente.modelo },
       contexto: contexto && { total: contexto.totalTokens, max: contexto.maxTokens, pct: contexto.percentage, categorias: (contexto.categories || []).map((c) => ({ nome: c.name, tokens: c.tokens, cor: c.color, tipo: c.kind || (c.isDeferred ? "deferred" : "used") })), memoria: (contexto.memoryFiles || []).map((m) => ({ caminho: m.path, tokens: m.tokens })) },
-      conectores: (conectores || []).map((c) => ({ nome: c.name, estado: c.status, erro: c.error || "" })),
+      conectores: (conectores || []).map((c) => ({ nome: c.name, estado: c.status, erro: c.error || "", escopo: c.scope || c.source || "", ferramentas: c.tools?.length ?? null, tipo: c.config?.type || "", embutido: c.source === "sdk" || c.name === "claudie" })),
+      rodando: !!(j.atual || turnoDe(j.sessionId)),
     };
   } catch (err) { return { ambiente, erro: String(err?.message || err) }; }
 });
