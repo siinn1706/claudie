@@ -1,7 +1,7 @@
 {
   "name": "claudie",
   "productName": "Claudie",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "Claudie: Claude Code com papéis de parede ASCII vivos, em português, inglês e vietnamita (baseado no Claudinho)",
   "type": "module",
