@@ -1,4 +1,4 @@
-# vnam's Claudie
+# Claudie
 
 A fork of [Claudinho](https://github.com/Lu1sR0/claudinho) by [Luis Roberto](https://luisrobertoportifolio.com): a Windows desktop app that talks to your local **Claude Code** through the official Agent SDK and draws the chat over live ASCII wallpapers. This fork adds an **English** and **Vietnamese** interface next to the original Portuguese.
 

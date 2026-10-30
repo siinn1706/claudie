@@ -61,7 +61,7 @@
   "Não deu pra enviar agora.": { "en": "Couldn't send right now.", "vi": "Hiện không thể gửi." },
   "[nome]": { "en": "[name]", "vi": "[tên]" },
   "[busca]": { "en": "[search]", "vi": "[từ khóa]" },
-  "Escolher um tema do vnam's Claudie": { "en": "Pick a vnam's Claudie theme", "vi": "Chọn một chủ đề của vnam's Claudie" },
+  "Escolher um tema do Claudie": { "en": "Pick a Claudie theme", "vi": "Chọn một chủ đề của Claudie" },
   "Procurar um fundo na biblioteca ASCII Magic": { "en": "Find a wallpaper in the ASCII Magic library", "vi": "Tìm hình nền trong thư viện ASCII Magic" },
   "Importar uma animação feita no ASCII Motion": { "en": "Import an animation made in ASCII Motion", "vi": "Nhập một hoạt ảnh làm bằng ASCII Motion" },
   "Fundos, cores, fontes, sons, música, ícone e nome": { "en": "Wallpapers, colors, fonts, sounds, music, icon and name", "vi": "Hình nền, màu sắc, phông chữ, âm thanh, nhạc, biểu tượng và tên" },
@@ -168,7 +168,7 @@
   "Prévia": { "en": "Preview", "vi": "Xem trước" },
   "Prévia de {0} · {1}s · clique em Aplicar para manter": { "en": "Preview of {0} · {1}s · click Apply to keep it", "vi": "Xem trước {0} · {1}s · nhấn Áp dụng để giữ lại" },
   "Esse fundo não existe mais.": { "en": "That wallpaper no longer exists.", "vi": "Hình nền đó không còn tồn tại." },
-  "Tema do vnam's Claudie · ASCII ao vivo": { "en": "vnam's Claudie theme · live ASCII", "vi": "Chủ đề của vnam's Claudie · ASCII trực tiếp" },
+  "Tema do Claudie · ASCII ao vivo": { "en": "Claudie theme · live ASCII", "vi": "Chủ đề của Claudie · ASCII trực tiếp" },
   "Biblioteca · {0}": { "en": "Library · {0}", "vi": "Thư viện · {0}" },
   "Sua animação · {0} quadros": { "en": "Your animation · {0} frames", "vi": "Hoạt ảnh của bạn · {0} khung hình" },
   "Seu fundo · Wallpaper Engine": { "en": "Your wallpaper · Wallpaper Engine", "vi": "Hình nền của bạn · Wallpaper Engine" },
@@ -217,8 +217,8 @@
   "Inspirado no conceito": { "en": "Inspired by the concept", "vi": "Lấy cảm hứng từ ý tưởng" },
   ", de Marko Vineli,": { "en": ", by Marko Vineli,", "vi": ", của Marko Vineli," },
   "visto no X": { "en": "seen on X", "vi": "xem trên X" },
-  ". O vnam's Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.": { "en": ". vnam's Claudie is based on Claudinho by Luis Roberto, and talks to Claude Code through Anthropic's official Agent SDK.", "vi": ". vnam's Claudie dựa trên Claudinho của Luis Roberto, và trò chuyện với Claude Code qua Agent SDK chính thức của Anthropic." },
-  "O vnam's Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.": { "en": "vnam's Claudie is based on Claudinho by Luis Roberto, and talks to Claude Code through Anthropic's official Agent SDK.", "vi": "vnam's Claudie dựa trên Claudinho của Luis Roberto, và trò chuyện với Claude Code qua Agent SDK chính thức của Anthropic." },
+  ". O Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.": { "en": ". Claudie is based on Claudinho by Luis Roberto, and talks to Claude Code through Anthropic's official Agent SDK.", "vi": ". Claudie dựa trên Claudinho của Luis Roberto, và trò chuyện với Claude Code qua Agent SDK chính thức của Anthropic." },
+  "O Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.": { "en": "Claudie is based on Claudinho by Luis Roberto, and talks to Claude Code through Anthropic's official Agent SDK.", "vi": "Claudie dựa trên Claudinho của Luis Roberto, và trò chuyện với Claude Code qua Agent SDK chính thức của Anthropic." },
   "Temas animados": { "en": "Animated themes", "vi": "Chủ đề hoạt hình" },
   "Desenhados para o Claudinho (o app original): motor de mosaico ASCII, interações e música gerada no próprio app. A Honu Lagoon e os temas de água seguem a linguagem visual do vídeo de Marko Vineli. A Galáxia Distante é arte original, sem marcas de terceiros.": { "en": "Designed for Claudinho (the original app): ASCII tile engine, interactions and music generated inside the app. Honu Lagoon and the water themes follow the visual language of Marko Vineli's video. Distant Galaxy is original art, with no third-party marks.", "vi": "Được thiết kế cho Claudinho (ứng dụng gốc): bộ máy ô ASCII, các tương tác và nhạc được tạo ngay trong ứng dụng. Honu Lagoon và các chủ đề nước theo ngôn ngữ hình ảnh trong video của Marko Vineli. Galáxia Distante là tác phẩm gốc, không có thương hiệu của bên thứ ba." },
   "Biblioteca ASCII Magic": { "en": "ASCII Magic library", "vi": "Thư viện ASCII Magic" },
@@ -255,5 +255,5 @@
   "Colar imagem como anexo": { "en": "Paste image as attachment", "vi": "Dán hình ảnh làm tệp đính kèm" },
   "Fechar menus e painéis": { "en": "Close menus and panels", "vi": "Đóng menu và bảng" },
   "Esta lista": { "en": "This list", "vi": "Danh sách này" },
-  "Mostrar o vnam's Claudie de qualquer lugar": { "en": "Show vnam's Claudie from anywhere", "vi": "Hiện vnam's Claudie từ bất kỳ đâu" }
+  "Mostrar o Claudie de qualquer lugar": { "en": "Show Claudie from anywhere", "vi": "Hiện Claudie từ bất kỳ đâu" }
 }

@@ -46,7 +46,7 @@ function chaveApi() {
 // every query goes through here: the person's Claude Code and the chosen sign-in
 function query(args) {
   const exe = acharClaude();
-  if (!exe && !temClaudeEmbutido()) throw new Error("Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o vnam's Claudie de novo.");
+  if (!exe && !temClaudeEmbutido()) throw new Error("Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o Claudie de novo.");
   const extra = {};
   if (exe) extra.pathToClaudeCodeExecutable = exe;
   const chave = config.entrar === "chave" ? chaveApi() : "";
@@ -112,12 +112,12 @@ const texto = (t) => ({ content: [{ type: "text", text: t }] });
 const peca = (slug) => MAGIA.pecas.get(String(slug).trim().toLowerCase());
 const semPeca = (slug) => ({ ...texto(`Não existe a peça "${slug}". Use buscar_fundo para achar o nome certo.`), isError: true });
 const servidorTemasPara = (j) => createSdkMcpServer({
-  name: "claudinho",
+  name: "claudie",
   version: "0.2.0",
-  instructions: "Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os 16 temas do vnam's Claudie (interativos, com música) e a biblioteca ASCII Magic, com " +
-    `${MAGIA.pecas.size} animações. Quando a pessoa pedir um tema ou um visual, prefira um tema do vnam's Claudie se algum combinar; senão use buscar_fundo (em inglês: os nomes e tags da biblioteca são em inglês) e depois sugerir_fundo ou aplicar_fundo. ` +
+  instructions: "Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os 16 temas do Claudie (interativos, com música) e a biblioteca ASCII Magic, com " +
+    `${MAGIA.pecas.size} animações. Quando a pessoa pedir um tema ou um visual, prefira um tema do Claudie se algum combinar; senão use buscar_fundo (em inglês: os nomes e tags da biblioteca são em inglês) e depois sugerir_fundo ou aplicar_fundo. ` +
     "Responda sempre no idioma em que a pessoa escreve. " +
-    "Use as ferramentas de sugerir para mostrar um cartão (a pessoa decide aplicar), e as de aplicar só se ela pedir para aplicar direto. Temas da vnam's Claudie: " +
+    "Use as ferramentas de sugerir para mostrar um cartão (a pessoa decide aplicar), e as de aplicar só se ela pedir para aplicar direto. Temas da Claudie: " +
     Object.entries(TEMAS).map(([id, nome]) => `${id} (${nome})`).join(", ") + ". Categorias da biblioteca: " + Object.entries(MAGIA.cats).map(([id, nome]) => `${id} (${nome})`).join(", ") + ".",
   tools: [
     tool("sugerir_tema", "Mostra na conversa um cartão do tema, com prévia animada e os botões Aplicar e Prévia.", { tema: z.enum(Object.keys(TEMAS)) },
@@ -136,7 +136,7 @@ const servidorTemasPara = (j) => createSdkMcpServer({
       async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); enviarEvento(j, { tipo: "aplicar_arte", chave: `magia:${p.slug}` }); return texto(`${p.nome} aplicada no fundo.`); }, { alwaysLoad: true }),
   ],
 });
-const FERRAMENTAS_TEMA = ["sugerir_tema", "aplicar_tema", "buscar_fundo", "sugerir_fundo", "aplicar_fundo"].map((n) => `mcp__claudinho__${n}`);
+const FERRAMENTAS_TEMA = ["sugerir_tema", "aplicar_tema", "buscar_fundo", "sugerir_fundo", "aplicar_fundo"].map((n) => `mcp__claudie__${n}`);
 
 // Attachments: images go to Claude as image blocks (read here when they come
 // as a path), every file with a path is also listed so Claude can open it.
@@ -323,7 +323,7 @@ function listaWallpaperEngine() {
 // Shims so a web wallpaper starts the way it does inside Wallpaper Engine: its
 // audio and media hooks exist (and stay quiet), and its settings arrive with
 // the defaults from project.json once the page has loaded.
-const shimWeb = (props) => `// vnam's Claudie: o que o Wallpaper Engine daria a este papel de parede.
+const shimWeb = (props) => `// Claudie: o que o Wallpaper Engine daria a este papel de parede.
 (function () {
   var nada = function () {};
   ["wallpaperRegisterAudioListener", "wallpaperRegisterMediaStatusListener", "wallpaperRegisterMediaPropertiesListener", "wallpaperRegisterMediaThumbnailListener", "wallpaperRegisterMediaPlaybackListener", "wallpaperRegisterMediaTimelineListener"].forEach(function (k) { window[k] = nada; });
@@ -340,8 +340,8 @@ function listaWeb() {
   let dirs; try { dirs = fs.readdirSync(pastaWeb(), { withFileTypes: true }).filter((d) => d.isDirectory()); } catch { return []; }
   return dirs.flatMap((d) => {
     try {
-      const m = JSON.parse(fs.readFileSync(path.join(pastaWeb(), d.name, "claudinho.json"), "utf8"));
-      return [{ id: d.name, nome: m.nome, ext: "web", url: `claudinho-we://${d.name}/${m.file.split(/[\\/]/).map(encodeURIComponent).join("/")}`, preview: m.preview ? pathToFileURL(path.join(pastaWeb(), d.name, m.preview)).href : null }];
+      const m = JSON.parse(fs.readFileSync(path.join(pastaWeb(), d.name, "claudie.json"), "utf8"));
+      return [{ id: d.name, nome: m.nome, ext: "web", url: `claudie-we://${d.name}/${m.file.split(/[\\/]/).map(encodeURIComponent).join("/")}`, preview: m.preview ? pathToFileURL(path.join(pastaWeb(), d.name, m.preview)).href : null }];
     } catch { return []; }
   });
 }
@@ -352,10 +352,10 @@ function importaWallpaperEngine(pasta) {
   const id = `${crypto.randomBytes(3).toString("hex")}-${nome.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "web"}`;
   const dest = path.join(pastaWeb(), id);
   fs.cpSync(pasta, dest, { recursive: true });
-  fs.writeFileSync(path.join(dest, "claudinho-we.js"), shimWeb(p.general?.properties));
-  const html = path.join(dest, p.file), h = fs.readFileSync(html, "utf8"), tag = '<script src="claudinho-we.js"></script>';
+  fs.writeFileSync(path.join(dest, "claudie-we.js"), shimWeb(p.general?.properties));
+  const html = path.join(dest, p.file), h = fs.readFileSync(html, "utf8"), tag = '<script src="claudie-we.js"></script>';
   fs.writeFileSync(html, /<head[^>]*>/i.test(h) ? h.replace(/<head[^>]*>/i, (m) => m + tag) : tag + h);
-  fs.writeFileSync(path.join(dest, "claudinho.json"), JSON.stringify({ nome, file: p.file, preview: p.preview || null }));
+  fs.writeFileSync(path.join(dest, "claudie.json"), JSON.stringify({ nome, file: p.file, preview: p.preview || null }));
   return listaWeb().find((i) => i.id === id);
 }
 // The window icon: the person's own, or the mosaic mark.
@@ -385,7 +385,7 @@ async function turno(j, texto, anexos) {
       includePartialMessages: true,
       abortController: ac,
       systemPrompt: { type: "preset", preset: "claude_code" },
-      mcpServers: { claudinho: servidorTemasPara(j) },
+      mcpServers: { claudie: servidorTemasPara(j) },
       allowedTools: FERRAMENTAS_TEMA,
       canUseTool: (toolName, input, { signal, suggestions, decisionReason }) => new Promise((resolve) => {
         const id = crypto.randomUUID();
@@ -480,7 +480,7 @@ function criarJanela(sessao) {
   const win = new BrowserWindow({
     width: sessao ? 1180 : 1440, height: sessao ? 820 : 920, minWidth: 940, minHeight: 620,
     backgroundColor: "#262624",
-    title: config.visual?.nome || "vnam's Claudie",
+    title: config.visual?.nome || "Claudie",
     titleBarStyle: "hidden",
     titleBarOverlay: { color: "#00000000", symbolColor: "#e9e6e1", height: 44 },
     webPreferences: { preload: path.join(here, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: !!process.env.VIVO_GRAVAR },
@@ -608,7 +608,7 @@ async function comConsulta(j, fn) {
   const ac = new AbortController();
   let solta;
   const espera = new Promise((r) => (solta = r));
-  const q = query({ prompt: (async function* () { await espera; })(), options: { cwd: j.cwd, resume: j.sessionId || undefined, model: config.model || undefined, abortController: ac, systemPrompt: { type: "preset", preset: "claude_code" }, mcpServers: { claudinho: servidorTemasPara(j) } } });
+  const q = query({ prompt: (async function* () { await espera; })(), options: { cwd: j.cwd, resume: j.sessionId || undefined, model: config.model || undefined, abortController: ac, systemPrompt: { type: "preset", preset: "claude_code" }, mcpServers: { claudie: servidorTemasPara(j) } } });
   try { return await fn(q); } finally { solta(); ac.abort(); q.return?.().catch(() => {}); }
 }
 ipcMain.handle("painel", async (e) => {
@@ -839,7 +839,7 @@ ipcMain.handle("pessoal_importar", async (e, tipo, caminhos) => {
 ipcMain.handle("pessoal_apagar", (_e, tipo, id) => {
   try {
     const web = path.join(pastaWeb(), path.basename(String(id)));
-    if (tipo === "fundos" && fs.existsSync(path.join(web, "claudinho.json"))) fs.rmSync(web, { recursive: true, force: true });
+    if (tipo === "fundos" && fs.existsSync(path.join(web, "claudie.json"))) fs.rmSync(web, { recursive: true, force: true });
     else if (TIPOS[tipo]) fs.unlinkSync(arquivoPessoal(tipo, id));
     return true;
   } catch { return false; }
@@ -894,14 +894,14 @@ function atalhoGlobal() {
 
 // One identity for the window and its shortcuts, so a pinned shortcut and the
 // open window share one taskbar button and one icon.
-const APP_ID = "com.vnam.claudie";
+const APP_ID = "com.claudie.app";
 app.setAppUserModelId(APP_ID);
 // the canvases, videos and web wallpapers go straight to the GPU
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 app.commandLine.appendSwitch("enable-zero-copy");
 // Test runs (VIVO_PASTA / VIVO_JS) use a profile of their own, so they never
 // touch the person's settings and can run with the app open.
-if (process.env.VIVO_PASTA || process.env.VIVO_JS) app.setPath("userData", path.join(app.getPath("appData"), process.env.VIVO_PERFIL || "vnam's Claudie-teste"));
+if (process.env.VIVO_PASTA || process.env.VIVO_JS) app.setPath("userData", path.join(app.getPath("appData"), process.env.VIVO_PERFIL || "Claudie-teste"));
 if (!process.env.VIVO_ATALHOS && !app.requestSingleInstanceLock()) app.quit();
 app.on("second-instance", () => {
   const w = principal?.win; if (!w) return;
@@ -911,17 +911,17 @@ app.on("second-instance", () => {
 // lets you pin it to the taskbar) and the project folder.
 // Run once with VIVO_ATALHOS=1.
 function criaAtalhos() {
-  const alvo = { target: process.execPath, args: `"${app.getAppPath()}"`, cwd: app.getAppPath(), icon: path.join(here, "icone.ico"), iconIndex: 0, appUserModelId: APP_ID, description: "vnam's Claudie: o Claude Code com papéis de parede vivos" };
-  const lugares = [path.join(app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "vnams Claudie.lnk"), path.join(app.getAppPath(), "vnams Claudie.lnk")];
+  const alvo = { target: process.execPath, args: `"${app.getAppPath()}"`, cwd: app.getAppPath(), icon: path.join(here, "icone.ico"), iconIndex: 0, appUserModelId: APP_ID, description: "Claudie: o Claude Code com papéis de parede vivos" };
+  const lugares = [path.join(app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "Claudie.lnk"), path.join(app.getAppPath(), "Claudie.lnk")];
   for (const l of lugares) console.log("[atalho]", shell.writeShortcutLink(l, fs.existsSync(l) ? "replace" : "create", alvo) ? "ok" : "falhou", l);
 }
 
-// Web wallpapers are served from claudinho-we://<id>/…: in a sandboxed frame a
+// Web wallpapers are served from claudie-we://<id>/…: in a sandboxed frame a
 // file:// page can't load its own scripts and images, a page on its own scheme
 // can, and still can't reach anything outside its folder.
-protocol.registerSchemesAsPrivileged([{ scheme: "claudinho-we", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
+protocol.registerSchemesAsPrivileged([{ scheme: "claudie-we", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
 function servePapelWeb() {
-  protocol.handle("claudinho-we", async (req) => {
+  protocol.handle("claudie-we", async (req) => {
     const u = new URL(req.url), raiz = path.join(pastaWeb(), path.basename(u.hostname));
     const arquivo = path.normalize(path.join(raiz, decodeURIComponent(u.pathname)));
     if (!arquivo.startsWith(raiz + path.sep)) return new Response("", { status: 403 });

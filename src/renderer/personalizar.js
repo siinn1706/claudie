@@ -116,7 +116,7 @@ async function aplicaVisual() {
   raiz.setProperty("--mono", `${mono || '"Geist Mono"'}, "Geist Mono", Consolas, monospace`);
   raiz.setProperty("--tam", fo.tamanho + "px"); raiz.setProperty("--largura", fo.largura + "px");
   // name and icon in the sidebar
-  const nome = (VIS.nome || "").trim() || "vnam's Claudie";
+  const nome = (VIS.nome || "").trim() || "Claudie";
   document.title = nome; document.querySelector(".side-topo .marca > span").textContent = nome;
   const marca = document.querySelector(".side-topo .marca");
   marca.querySelector("img.marca-img")?.remove(); marca.querySelector(".marca-svg").style.display = "";
@@ -217,20 +217,20 @@ async function desenhaAba() {
   caixaP.querySelectorAll(".pz-nav button").forEach((b) => b.classList.toggle("on", b.dataset.aba === (abaP === "we" ? "fundo" : abaP)));
   let h = "";
   if (abaP === "geral") {
-    h = `<h3>Geral</h3><p class="pz-desc">Como o vnam's Claudie se comporta.</p>
+    h = `<h3>Geral</h3><p class="pz-desc">Como o Claudie se comporta.</p>
       ${segmentos("geral.idioma", "Idioma", [["pt", "Português"], ["en", "English"], ["vi", "Tiếng Việt"]])}
       ${segmentos("geral.enviar", "Enviar mensagem com", [["enter", "Enter"], ["ctrl", "Ctrl + Enter"]])}
       ${segmentos("geral.desempenho", "Desempenho", [["auto", "Automático"], ["maximo", "Máximo"], ["leve", "Leve"]])}
       ${chaveT("geral.raciocinio", "Mostrar o raciocínio do Claude", "O que ele pensa antes de responder, num bloco recolhível")}
       ${chaveT("geral.titulo", "Título automático", "Um título curto para cada conversa nova (gasta bem pouco do seu plano)")}
       ${chaveT("geral.clawd", "Clawd no app", "O mascote acompanha o que o Claude está fazendo")}
-      ${chaveT("geral.cursor", "Cursor do vnam's Claudie", "Uma setinha em pixel na cor de destaque, com a faísca do Claude sobre o que dá pra clicar")}
+      ${chaveT("geral.cursor", "Cursor do Claudie", "Uma setinha em pixel na cor de destaque, com a faísca do Claude sobre o que dá pra clicar")}
       ${chaveT("geral.clawdFala", "Clawd puxa conversa", "Comentários sobre o projeto, curiosidades e dicas, de tempos em tempos")}
       ${chaveT("geral.novidades", "Novidades do Claude e da Anthropic", "Uma busca rápida na web por dia (gasta bem pouco do plano)")}
       ${chaveT("geral.reage", "Papel de parede reage ao Claude", "Ondas e ritmo mudam enquanto ele pensa, trabalha ou espera você")}
       ${chaveT("geral.notificacoes", "Notificações do Windows", "Quando ele termina ou precisa de você com a janela em segundo plano")}
       <h3 class="pz-sub">Atualizações</h3>
-      <div class="pz-linha"><span>vnam's Claudie <b class="pz-versao"></b><small class="pz-atualiza-txt"></small></span><button class="btn" data-atualiza hidden></button></div>
+      <div class="pz-linha"><span>Claudie <b class="pz-versao"></b><small class="pz-atualiza-txt"></small></span><button class="btn" data-atualiza hidden></button></div>
       <h3 class="pz-sub">Conta</h3>
       <div class="pz-linha"><span>Entrar com<small>O login do Claude Code usa o seu plano do Claude. A chave de API cobra por uso na sua conta da Anthropic.</small></span>
         <div class="pz-seg" data-conta><button data-v="login">Login do Claude Code</button><button data-v="chave">Chave de API</button></div></div>
@@ -252,7 +252,7 @@ async function desenhaAba() {
     if (abaP !== "we") return;
     const cenas = we.cenas ? `<p class="pz-desc fraco">${we.cenas} papéis de parede de cena ficaram de fora: eles são desenhados pelo motor do próprio Wallpaper Engine e só rodam dentro dele.</p>` : "";
     h = `<div class="pz-volta"><button class="btn" data-acao="voltaFundo">${svg('<path d="M14.7 6.3 9 12l5.7 5.7 1.4-1.4-4.3-4.3 4.3-4.3z"/>')} Fundo</button></div>
-      <h3>Do Wallpaper Engine</h3><p class="pz-desc">Os papéis de parede de vídeo e de página da sua biblioteca. Ao escolher, ele é copiado para o vnam's Claudie e continua funcionando mesmo se você cancelar a inscrição.</p>
+      <h3>Do Wallpaper Engine</h3><p class="pz-desc">Os papéis de parede de vídeo e de página da sua biblioteca. Ao escolher, ele é copiado para o Claudie e continua funcionando mesmo se você cancelar a inscrição.</p>
       ${!we.achou ? '<p class="pz-vazio">Não achei o Wallpaper Engine neste computador. Ele precisa estar instalado pelo Steam.</p>'
         : `<input class="pz-busca" type="search" placeholder="Buscar entre ${we.itens.length}" />
       <div class="pz-grade we-grade">${we.itens.map((i) => `<button class="pz-mini we" data-we="${esc(i.pasta)}" data-nome="${esc(i.nome.toLowerCase())}" title="${esc(i.nome)}">${i.preview ? `<img src="${esc(i.preview)}" alt="" loading="lazy" decoding="async" />` : ""}<span>${esc(i.nome)}</span><em>${i.tipo === "web" ? "Página" : "Vídeo"}${ja.has(i.nome.slice(0, 60)) ? " · já adicionado" : ""}</em></button>`).join("") || '<p class="pz-vazio">Nenhum papel de parede de vídeo ou de página na biblioteca.</p>'}</div>${cenas}`}`;
@@ -296,8 +296,8 @@ async function desenhaAba() {
       <div class="pz-icone"><div class="pz-icone-prev"><img src="${atualIcone ? esc(atualIcone.url) : "../icone.png"}" alt="" /></div>
         <div class="pz-acoes"><button class="btn forte" data-acao="addIcone">Escolher ícone…</button>${VIS.icone ? '<button class="btn" data-acao="iconePadrao">Usar o padrão</button>' : ""}</div></div>
       ${chaveT("iconeNaBarra", "Mostrar o ícone na barra lateral")}
-      <label class="pz-linha"><span>Nome do app</span><input type="text" data-k="nome" maxlength="28" placeholder="vnam's Claudie" /></label>
-      <p class="pz-desc fraco">O atalho "Abrir vnams Claudie.bat" mantém o ícone do Windows; o ícone novo aparece na barra de tarefas com o app aberto.</p>`;
+      <label class="pz-linha"><span>Nome do app</span><input type="text" data-k="nome" maxlength="28" placeholder="Claudie" /></label>
+      <p class="pz-desc fraco">O atalho "Abrir Claudie.bat" mantém o ícone do Windows; o ícone novo aparece na barra de tarefas com o app aberto.</p>`;
   }
   corpoP.innerHTML = h;
   ligaControles(corpoP);
@@ -335,7 +335,7 @@ async function ligaConta(r) {
     seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === c.entrar));
     caixa.hidden = c.entrar !== "chave";
     campo.placeholder = c.temChave ? "Chave salva. Cole outra para trocar" : "Cole a chave da API (sk-ant-…)";
-    info.innerHTML = (c.claude ? `Claude Code encontrado em <code>${esc(c.claude)}</code>.` : "Claude Code não encontrado. Instale em code.claude.com e abra o vnam's Claudie de novo.")
+    info.innerHTML = (c.claude ? `Claude Code encontrado em <code>${esc(c.claude)}</code>.` : "Claude Code não encontrado. Instale em code.claude.com e abra o Claudie de novo.")
       + (c.entrar === "chave" && !c.temChave ? " Falta salvar uma chave." : "");
   };
   seg.querySelectorAll("button").forEach((b) => (b.onclick = async () => { c = { ...c, ...(await vivo.contaSalvar({ entrar: b.dataset.v })) }; mostra(); }));

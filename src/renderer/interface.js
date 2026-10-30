@@ -10,7 +10,7 @@ const trilho = document.createElement("div");
 trilho.className = "trilho"; trilho.setAttribute("aria-label", "Atividade da conversa");
 $("titulo").after(trilho);
 const tipoFerr = (nome) => /^(Read|Glob|Grep|NotebookRead|LS)$/.test(nome) ? "ler" : /^(Write|Edit|MultiEdit|NotebookEdit)$/.test(nome) ? "editar" : /^(Bash|PowerShell)$/.test(nome) ? "rodar"
-  : /^Web/.test(nome) ? "web" : nome.startsWith("mcp__claudinho__") ? "tema" : /^(Task|Agent)$/.test(nome) ? "agente" : "outro";
+  : /^Web/.test(nome) ? "web" : nome.startsWith("mcp__claudie__") ? "tema" : /^(Task|Agent)$/.test(nome) ? "agente" : "outro";
 let timerTrilho = null;
 function desenhaTrilho() {
   const cards = [...col.querySelectorAll(".ferr")].slice(-60);

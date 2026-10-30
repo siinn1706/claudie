@@ -15,18 +15,18 @@ if (!window.vivo) {
       emite({ tipo: "pergunta", id: "q1", perguntas: [{ header: "Estilo", question: "Qual estilo você prefere para a página?", multiSelect: false, options: [{ label: "Minimalista", description: "Pouca cor, muito espaço" }, { label: "Colorido", description: "Gradientes e ilustrações" }] }] });
       return;
     } else if (/gato|cat|oceano|fundo|biblioteca/i.test(texto)) {
-      emite({ tipo: "ferramenta", id: "b1", nome: "mcp__claudinho__buscar_fundo", entrada: { busca: "ocean night" } });
+      emite({ tipo: "ferramenta", id: "b1", nome: "mcp__claudie__buscar_fundo", entrada: { busca: "ocean night" } });
       await espera(300);
       emite({ tipo: "ferramenta_fim", id: "b1", erro: false, saida: "moonlit-sea — Moonlit Sea (landscapes): A full moon over a calm night sea." });
       emite({ tipo: "texto_inicio" });
       for (const p of "Achei uma na biblioteca que combina: um mar noturno com lua cheia.".split(/(?<= )/)) { emite({ tipo: "texto", delta: p }); await espera(25); }
-      emite({ tipo: "ferramenta", id: "b2", nome: "mcp__claudinho__sugerir_fundo", entrada: { peca: "moonlit-sea" } });
+      emite({ tipo: "ferramenta", id: "b2", nome: "mcp__claudie__sugerir_fundo", entrada: { peca: "moonlit-sea" } });
       emite({ tipo: "cartao_arte", chave: "magia:moonlit-sea" });
       emite({ tipo: "ferramenta_fim", id: "b2", erro: false, saida: "Cartão mostrado." });
     } else if (/tema|lagoa|honu|lareira|sakura/i.test(texto)) {
       emite({ tipo: "texto_inicio" });
       for (const p of "Aqui está um tema pra este chat. Ele troca o fundo e deixa os painéis de vidro fosco.".split(/(?<= )/)) { emite({ tipo: "texto", delta: p }); await espera(25); }
-      emite({ tipo: "ferramenta", id: "t1", nome: "mcp__claudinho__sugerir_tema", entrada: { tema: "lagoon" } });
+      emite({ tipo: "ferramenta", id: "t1", nome: "mcp__claudie__sugerir_tema", entrada: { tema: "lagoon" } });
       emite({ tipo: "cartao_tema", tema: "lagoon" });
       emite({ tipo: "ferramenta_fim", id: "t1", erro: false, saida: "Cartão do tema Honu Lagoon mostrado." });
     } else {
@@ -85,7 +85,7 @@ if (!window.vivo) {
     buscar: async (t) => (/carrinho/i.test(t) ? [] : [{ id: "c", trecho: `…o tema ${t} ficou ótimo no chat…` }]),
     focar: async () => {},
     janelaNova: async () => {},
-    painel: async () => ({ ambiente: { computador: "MEU-PC", pasta: "C:\Users\voce\projetos\exemplo", ramo: "main", modelo: "claude-opus-5-5" }, contexto: { total: 98000, max: 1000000, pct: 9.8, categorias: [{ nome: "Messages", tokens: 52000, tipo: "used" }, { nome: "System tools", tokens: 25500, tipo: "used" }, { nome: "MCP tools", tokens: 9000, tipo: "used" }, { nome: "System prompt", tokens: 9800, tipo: "used" }, { nome: "Skills", tokens: 1700, tipo: "used" }, { nome: "Free space", tokens: 869000, tipo: "free" }, { nome: "MCP tools (deferred)", tokens: 330000, tipo: "deferred" }] }, conectores: [{ nome: "claudinho", estado: "connected" }, { nome: "outframe-assets", estado: "connected" }, { nome: "vercel", estado: "needs-auth" }] }),
+    painel: async () => ({ ambiente: { computador: "MEU-PC", pasta: "C:\Users\voce\projetos\exemplo", ramo: "main", modelo: "claude-opus-5-5" }, contexto: { total: 98000, max: 1000000, pct: 9.8, categorias: [{ nome: "Messages", tokens: 52000, tipo: "used" }, { nome: "System tools", tokens: 25500, tipo: "used" }, { nome: "MCP tools", tokens: 9000, tipo: "used" }, { nome: "System prompt", tokens: 9800, tipo: "used" }, { nome: "Skills", tokens: 1700, tipo: "used" }, { nome: "Free space", tokens: 869000, tipo: "free" }, { nome: "MCP tools (deferred)", tokens: 330000, tipo: "deferred" }] }, conectores: [{ nome: "claudie", estado: "connected" }, { nome: "outframe-assets", estado: "connected" }, { nome: "vercel", estado: "needs-auth" }] }),
     abrirArquivo: async () => true,
     uso: async () => ({ plano: "max", disponivel: true, janelas: [{ id: "five_hour", uso: +(localStorage.getItem("simUso") || 64), renova: new Date(Date.now() + 5400e3).toISOString() }, { id: "seven_day", uso: 17, renova: new Date(Date.now() + 5 * 864e5).toISOString() }], sessao: null }),
     visual: async () => JSON.parse(localStorage.getItem("simVisual") || "{}"),

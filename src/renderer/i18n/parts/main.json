@@ -1,7 +1,7 @@
 {
-  "Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o vnam's Claudie de novo.": {
-    "en": "I couldn't find Claude Code on this computer. Install it at code.claude.com/docs/en/setup and open vnam's Claudie again.",
-    "vi": "Không tìm thấy Claude Code trên máy này. Hãy cài tại code.claude.com/docs/en/setup rồi mở lại vnam's Claudie."
+  "Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o Claudie de novo.": {
+    "en": "I couldn't find Claude Code on this computer. Install it at code.claude.com/docs/en/setup and open Claudie again.",
+    "vi": "Không tìm thấy Claude Code trên máy này. Hãy cài tại code.claude.com/docs/en/setup rồi mở lại Claudie."
   },
   "Lareira": { "en": "Fireplace", "vi": "Lò sưởi" },
   "Chuva Lo-fi": { "en": "Lo-fi Rain", "vi": "Mưa Lo-fi" },
@@ -56,8 +56,8 @@
     "en": "The system doesn't offer secure storage for the key.",
     "vi": "Hệ thống không hỗ trợ lưu trữ an toàn cho khóa."
   },
-  "vnam's Claudie: o Claude Code com papéis de parede vivos": {
-    "en": "vnam's Claudie: Claude Code with living wallpapers",
-    "vi": "vnam's Claudie: Claude Code với hình nền sống động"
+  "Claudie: o Claude Code com papéis de parede vivos": {
+    "en": "Claudie: Claude Code with living wallpapers",
+    "vi": "Claudie: Claude Code với hình nền sống động"
   }
 }

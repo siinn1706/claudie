@@ -32,7 +32,7 @@ const ICONE = {
 };
 const horaAgora = () => new Date().toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
 const iconeDa = (nome) => (nome === "Bash" ? ICONE.terminal : /^(Read|NotebookRead)$/.test(nome) ? ICONE.arquivo : /^(Write|Edit|MultiEdit|NotebookEdit)$/.test(nome) ? ICONE.editar
-  : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudinho__") ? ICONE.tema : ICONE.ferramenta);
+  : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudie__") ? ICONE.tema : ICONE.ferramenta);
 
 // Markdown: raw HTML in Claude's text is shown as text, never run.
 marked.use({ gfm: true, breaks: true, renderer: { html: ({ text }) => esc(text) } });
@@ -148,13 +148,13 @@ function resumo(nome, e = {}) {
   if (nome === "Glob" || nome === "Grep") return e.pattern;
   if (nome === "WebFetch") return e.url;
   if (nome === "WebSearch") return e.query;
-  if (nome === "mcp__claudinho__buscar_fundo") return [e.busca, e.categoria].filter(Boolean).join(" · ");
+  if (nome === "mcp__claudie__buscar_fundo") return [e.busca, e.categoria].filter(Boolean).join(" · ");
   if (/fundo$/.test(nome)) return PECAS.get(e.peca)?.nome || e.peca;
-  if (nome.startsWith("mcp__claudinho__")) return nomeTema(e.tema);
+  if (nome.startsWith("mcp__claudie__")) return nomeTema(e.tema);
   return Object.values(e).find((x) => typeof x === "string") || "";
 }
-const ROTULO = { Bash: "Comando", Read: "Leu", Write: "Criou", Edit: "Editou", MultiEdit: "Editou", Glob: "Procurou arquivos", Grep: "Buscou", WebFetch: "Abriu página", WebSearch: "Pesquisou", ToolSearch: "Buscou ferramenta", TodoWrite: "Lista de tarefas", Task: "Subagente", mcp__claudinho__sugerir_tema: "Sugeriu tema", mcp__claudinho__aplicar_tema: "Aplicou tema",
-  mcp__claudinho__buscar_fundo: "Buscou fundos", mcp__claudinho__sugerir_fundo: "Sugeriu fundo", mcp__claudinho__aplicar_fundo: "Aplicou fundo" };
+const ROTULO = { Bash: "Comando", Read: "Leu", Write: "Criou", Edit: "Editou", MultiEdit: "Editou", Glob: "Procurou arquivos", Grep: "Buscou", WebFetch: "Abriu página", WebSearch: "Pesquisou", ToolSearch: "Buscou ferramenta", TodoWrite: "Lista de tarefas", Task: "Subagente", mcp__claudie__sugerir_tema: "Sugeriu tema", mcp__claudie__aplicar_tema: "Aplicou tema",
+  mcp__claudie__buscar_fundo: "Buscou fundos", mcp__claudie__sugerir_fundo: "Sugeriu fundo", mcp__claudie__aplicar_fundo: "Aplicou fundo" };
 const rotulo = (n) => ROTULO[n] || n.replace(/^mcp__([^_]+)__/, "$1 · ");
 // What a permission card asks for, in the infinitive.
 const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente" };
@@ -248,10 +248,10 @@ async function envia(textoForcado) {
   const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null ? anexos : [];
   if (!t && !junto.length) return;
   const limpa = () => { entrada.value = ""; ajustaAltura(); fechaComandos(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
-  if (t === "/tema") { abrePicker("claudinho"); limpa(); return; }
+  if (t === "/tema") { abrePicker("claudie"); limpa(); return; }
   if (t.startsWith("/tema ")) {
     const pedido = t.slice(6).trim().toLowerCase(), i = THEMES.findIndex((x) => x.id === pedido || x.name.toLowerCase() === pedido);
-    if (["padrao", "padrão", "off"].includes(pedido)) aplica(-1); else if (i >= 0) aplica(i); else abrePicker("claudinho");
+    if (["padrao", "padrão", "off"].includes(pedido)) aplica(-1); else if (i >= 0) aplica(i); else abrePicker("claudie");
     limpa(); return;
   }
   if (t === "/fundo" || t.startsWith("/fundo ")) { abrePicker("biblioteca", t.slice(6).trim()); limpa(); return; }
@@ -295,7 +295,7 @@ entrada.addEventListener("input", () => { ajustaAltura(); atualizaEnviar(); cmdS
 // Enter runs.
 const comandosEl = $("comandos");
 const LOCAIS = [
-  { nome: "tema", dica: "[nome]", descricao: "Escolher um tema do vnam's Claudie" },
+  { nome: "tema", dica: "[nome]", descricao: "Escolher um tema do Claudie" },
   { nome: "fundo", dica: "[busca]", descricao: "Procurar um fundo na biblioteca ASCII Magic" },
   { nome: "importar", descricao: "Importar uma animação feita no ASCII Motion" },
   { nome: "personalizar", descricao: "Fundos, cores, fontes, sons, música, ícone e nome" },
@@ -903,7 +903,7 @@ const fundosPessoais = async (novo) => (!cacheFundos || novo ? (cacheFundos = aw
 function mostraMidia(info) {
   const camada = $("midia"), el = document.createElement(info.web ? "iframe" : info.video ? "video" : "img");
   // a web wallpaper is someone else's page: it runs on its own origin
-  // (claudinho-we://<id>), never the app's, so it keeps its own storage but
+  // (claudie-we://<id>), never the app's, so it keeps its own storage but
   // can't reach the app, the other wallpapers or the Claude bridge. A page a
   // little wider than the window would show its own scrollbars: never.
   if (info.web) { el.setAttribute("sandbox", "allow-scripts allow-same-origin"); el.setAttribute("scrolling", "no"); el.tabIndex = -1; el.setAttribute("aria-hidden", "true"); el.style.setProperty("--escala", window.desempenho?.web ?? 0.8); }
@@ -984,7 +984,7 @@ function cartaoBase(el, chave, nome, sub, tela) {
   pv.onclick = () => previaChave(chave);
   info.append(ap, pv); c.append(info); el.append(c); marcaAplicada(); desce();
 }
-function cartao(el, i) { cartaoBase(el, THEMES[i].id, THEMES[i].name, "Tema do vnam's Claudie · ASCII ao vivo", mini(i, 216, 136)); }
+function cartao(el, i) { cartaoBase(el, THEMES[i].id, THEMES[i].name, "Tema do Claudie · ASCII ao vivo", mini(i, 216, 136)); }
 async function cartaoArte(el, chave) {
   const info = await infoArte(chave);
   if (!info) { el.remove(); return; }
@@ -1007,7 +1007,7 @@ async function cartaoArte(el, chave) {
 }
 
 // ---- picker: Temas, Biblioteca, Meus ------------------------------------------
-let abaAtual = "claudinho";
+let abaAtual = "claudie";
 function abreAba(aba) {
   abaAtual = aba;
   picker.querySelectorAll(".aba").forEach((b) => b.classList.toggle("on", b.dataset.aba === aba));
@@ -1208,10 +1208,10 @@ async function abreCreditos() {
   for (const p of PECAS.values()) (porCat[p.cat] ||= []).push(p.nome);
   const categorias = (window.MAGIA?.cats || []).map(([id]) => `<details><summary>${esc(CAT_PT[id] || id)} <small>${(porCat[id] || []).length}</small></summary><p>${(porCat[id] || []).sort().map(esc).join(" · ")}</p></details>`).join("");
   creditosCaixa.innerHTML = `
-    <div class="cred-topo"><span class="marca">${$("side").querySelector(".marca-svg").outerHTML}<b>vnam's Claudie</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
+    <div class="cred-topo"><span class="marca">${$("side").querySelector(".marca-svg").outerHTML}<b>Claudie</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <p class="cred-autor">Feito por ${link("https://luisrobertoportifolio.com", "Luis Roberto")}</p>
     <section><h3>A ideia</h3>
-      <p>Inspirado no conceito <i>“theme for Claude Code but every wallpaper is alive”</i>, de Marko Vineli, ${link("https://x.com/handsher_NGU/status/2115618341675319417", "visto no X")}. O vnam&#39;s Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.</p></section>
+      <p>Inspirado no conceito <i>“theme for Claude Code but every wallpaper is alive”</i>, de Marko Vineli, ${link("https://x.com/handsher_NGU/status/2115618341675319417", "visto no X")}. O Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.</p></section>
     <section><h3>Temas animados <small>${THEMES.length}</small></h3>
       <p>${THEMES.map((t) => esc(t.name)).join(" · ")}</p>
       <p class="fraco">Desenhados para o Claudinho (o app original): motor de mosaico ASCII, interações e música gerada no próprio app. A Honu Lagoon e os temas de água seguem a linguagem visual do vídeo de Marko Vineli. A Galáxia Distante é arte original, sem marcas de terceiros.</p></section>
@@ -1298,7 +1298,7 @@ function avisaSistema(titulo, corpo) {
 // ---- shortcuts ---------------------------------------------------------------------------
 function abreAtalhos() {
   const A = [["Enter", "Enviar (com o Claude trabalhando, entra na fila)"], ["Shift + Enter", "Nova linha"], ["/", "Comandos do app e do Claude Code"], ["Ctrl + N", "Nova conversa"], ["Ctrl + Shift + N", "Nova janela"], ["Ctrl + K", "Buscar nas conversas"],
-    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Fechar menus e painéis"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o vnam's Claudie de qualquer lugar"]];
+    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Fechar menus e painéis"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"]];
   creditosCaixa.innerHTML = `<div class="cred-topo"><span class="marca"><b>Atalhos</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <section class="atalhos">${A.map(([k, d]) => `<div><kbd>${esc(k)}</kbd><span>${esc(d)}</span></div>`).join("")}</section>`;
   creditosCaixa.querySelector("#fechaCreditos").onclick = fechaCreditos;

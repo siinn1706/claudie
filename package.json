@@ -1,9 +1,9 @@
 {
-  "name": "vnams-claudie",
-  "productName": "vnam's Claudie",
+  "name": "claudie",
+  "productName": "Claudie",
   "version": "1.0.2",
   "private": true,
-  "description": "vnam's Claudie: Claude Code com papéis de parede ASCII vivos, em português, inglês e vietnamita (baseado no Claudinho)",
+  "description": "Claudie: Claude Code com papéis de parede ASCII vivos, em português, inglês e vietnamita (baseado no Claudinho)",
   "type": "module",
   "main": "src/main.js",
   "scripts": {
@@ -27,8 +27,8 @@
   },
   "homepage": "https://github.com/siinn1706/vnams-claudie",
   "build": {
-    "appId": "com.vnam.claudie",
-    "productName": "vnam's Claudie",
+    "appId": "com.claudie.app",
+    "productName": "Claudie",
     "copyright": "Luis Roberto",
     "directories": {
       "output": "dist"
@@ -57,11 +57,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "vnam's Claudie",
-      "artifactName": "vnams-Claudie-Setup.exe",
+      "shortcutName": "Claudie",
+      "artifactName": "Claudie-Setup.exe",
       "installerIcon": "src/icone.ico",
       "uninstallerIcon": "src/icone.ico",
-      "uninstallDisplayName": "vnam's Claudie"
+      "uninstallDisplayName": "Claudie"
     },
     "publish": [
       {
