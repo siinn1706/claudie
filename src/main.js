@@ -10,7 +10,7 @@ import atualizador from "electron-updater";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
@@ -971,6 +971,68 @@ function iniciaAtualizacoes() {
 }
 ipcMain.handle("atualizacao", () => atualizacao);
 ipcMain.handle("atualizacao_procurar", () => { if (!["procurando", "baixando", "pronta"].includes(atualizacao.estado)) procuraAtualizacao(); return atualizacao; });
+
+// Remote Control: Claude Code's own server (`claude remote-control`) in the
+// window's folder, so claude.ai/code and the Claude app can start and drive
+// sessions on this computer. Unlike the turns, it keeps running while it is on;
+// the sessions it makes land in the conversation list like any other.
+let remoto = { estado: "desligado", cwd: "", url: "", texto: "" }, remotoProc = null;
+function avisaRemoto(mudanca) {
+  remoto = { ...remoto, ...mudanca };
+  for (const o of janelas.values()) enviarEvento(o, { tipo: "remoto", ...remoto });
+}
+function ligaRemoto(cwd) {
+  const exe = acharClaude();
+  if (!exe) return avisaRemoto({ estado: "erro", texto: "O Remote Control precisa do Claude Code instalado neste computador." });
+  const args = ["remote-control", "--name", `Claudie · ${path.basename(cwd)}`], js = /\.js$/i.test(exe);
+  const p = spawn(js ? process.execPath : exe, js ? [exe, ...args] : args, {
+    cwd, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: js ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" } : process.env,
+  });
+  remotoProc = p;
+  avisaRemoto({ estado: "conectando", cwd, url: "", texto: "" });
+  let resto = "";
+  // The server redraws a small status screen: "Connected" (or "Ready"), the
+  // pre-created session as a terminal hyperlink, and the environment's link.
+  const le = (b) => {
+    if (remotoProc !== p) return; // output still in flight from a server that was stopped
+    const linhas = (resto + b.toString()).split(/\r?\n|\r/);
+    resto = linhas.pop();
+    for (const cru of linhas) {
+      const sessao = cru.match(/\x1b\]8;;(https:\/\/claude\.ai\/code\/session_[^\x07\x1b]+)/)?.[1];
+      const l = cru.replace(/\x1b\][^\x07]*\x07/g, "").replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").trim();
+      if (!l) continue;
+      const url = sessao || (!remoto.url.includes("/session_") && l.match(/https:\/\/claude\.ai\/code\S*/)?.[0]);
+      if (url && url !== remoto.url) avisaRemoto({ url });
+      if (/\b(Connected|Ready)\b/.test(l) && remoto.estado !== "pronto") avisaRemoto({ estado: "pronto" });
+      if (/not trusted/i.test(l)) avisaRemoto({ texto: "Esta pasta ainda não é confiável para o Claude Code. Abra o claude nela uma vez no terminal e aceite." });
+      else if (/^Error:/i.test(l)) avisaRemoto({ texto: l.replace(/^Error:\s*/i, "") });
+    }
+  };
+  p.stdout.on("data", le); p.stderr.on("data", le);
+  p.on("error", (e) => { if (remotoProc === p) { remotoProc = null; avisaRemoto({ estado: "erro", url: "", texto: String(e?.message || e) }); } });
+  p.on("exit", () => {
+    if (remotoProc !== p) return;
+    remotoProc = null;
+    avisaRemoto(remoto.texto ? { estado: "erro", url: "" } : { estado: "desligado", url: "" });
+  });
+}
+function desligaRemoto() {
+  const p = remotoProc;
+  remotoProc = null;
+  // the server starts a worker per session, so the whole tree goes
+  if (p?.pid && p.exitCode === null) {
+    if (process.platform === "win32") { try { execFileSync("taskkill", ["/pid", String(p.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" }); } catch {} }
+    else p.kill("SIGTERM");
+  }
+  if (remoto.estado !== "desligado") avisaRemoto({ estado: "desligado", url: "", texto: "" });
+}
+ipcMain.handle("remoto", () => remoto);
+ipcMain.handle("remoto_ligar", (e, ligar) => {
+  if (!ligar) desligaRemoto();
+  else if (!remotoProc) ligaRemoto(J(e).cwd);
+  return remoto;
+});
+app.on("before-quit", desligaRemoto);
 
 app.whenReady().then(() => {
   if (process.env.VIVO_ATALHOS) { criaAtalhos(); app.quit(); return; }

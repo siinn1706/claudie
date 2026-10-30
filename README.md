@@ -48,6 +48,7 @@ npm run dist       # gera o instalador em dist/
 - **Anexos**: clipe no campo de mensagem, arrastar arquivos para a janela ou colar imagens (Ctrl+V). Imagens vão para o Claude; os outros arquivos ele abre pelo caminho.
 - **Comandos**: digite `/` para ver os comandos do app e os do Claude Code (skills, `/compact`, `/review`…). Setas escolhem, Tab completa, Enter executa.
 - **Cache do prompt**: o relógio ao lado do medidor de contexto conta quanto falta para o cache expirar (5 min ou 1 h, conforme o que a API gravou). Mandar a próxima mensagem antes disso reaproveita o contexto; depois, ele é lido de novo inteiro.
+- **Remote Control**: o botão do celular no topo liga o `claude remote-control` na pasta atual e mostra o link para continuar pelo claude.ai/code ou pelo app do Claude. Precisa do login de assinatura do Claude e de uma pasta em que o Claude Code já confia; desligar (ou fechar o Claudie) encerra o servidor.
 - **Esforço**: a barrinha ao lado do modelo define quanto o Claude pensa (padrão a máximo). Permissões e modelo abrem um menu que explica cada opção.
 - **Conversas**: fixar no topo, duplicar, exportar em Markdown, renomear e apagar (menu ⋯). A busca (Ctrl+K) procura também dentro das mensagens.
 - **Respostas**: copiar, ler em voz alta e **ramificar daqui** (nova conversa a partir daquela resposta; a original fica intacta). Hora em cada mensagem.

@@ -205,6 +205,7 @@ vivo.aoEvento((ev) => {
     case "marca": { const el = segmento || [...col.querySelectorAll(".msg.claude:not([data-uuid])")].pop(); if (el) el.dataset.uuid = ev.uuid; break; }
     case "uso": mostraUso(ev); break;
     case "cache": mostraCache(ev); break;
+    case "remoto": mostraRemoto(ev); break;
     case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida); break;
     case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", `Quer ${pedido(ev.ferramenta)}.`); break;
     case "permissao_fim": document.querySelector(`.perm[data-id="${ev.id}"], .pergunta[data-id="${ev.id}"]`)?.remove(); break;
@@ -823,7 +824,7 @@ addEventListener("keydown", (e) => {
   if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); pulaPrompt(e.key === "ArrowUp" ? -1 : 1); }
   if (e.ctrlKey && e.key === "/") { e.preventDefault(); creditos.classList.contains("on") ? fechaCreditos() : abreAtalhos(); }
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); recolhe(false); $("busca").focus(); $("busca").select(); }
-  if (e.key === "Escape") { fechaPicker(); fechaMenu(); fechaComandos(); fechaEscolhas(); fechaCreditos(); fechaPersonal(); somPop.classList.remove("on"); }
+  if (e.key === "Escape") { fechaPicker(); fechaMenu(); fechaComandos(); fechaEscolhas(); fechaCreditos(); fechaPersonal(); somPop.classList.remove("on"); remotoPop.classList.remove("on"); }
 });
 
 // ---- wallpaper and themes ---------------------------------------------------
@@ -1143,6 +1144,33 @@ $("somBtn").onclick = (e) => { e.stopPropagation(); somPop.classList.toggle("on"
 $("somChave").onclick = () => { Som.ligar(!Som.ligado); mostraSom(); try { localStorage.setItem("som", Som.ligado ? "1" : "0"); } catch {} };
 somVol.oninput = () => { Som.volume(+somVol.value); mostraSom(); try { localStorage.setItem("somVol", somVol.value); } catch {} };
 addEventListener("pointerdown", (e) => { if (!e.target.closest(".som")) somPop.classList.remove("on"); });
+
+// ---- Remote Control ------------------------------------------------------------------
+// A switch for Claude Code's Remote Control server in this folder, with the
+// link that opens it on claude.ai/code or in the Claude app.
+const remotoPop = $("remotoPop");
+let remotoUrl = "";
+function mostraRemoto({ estado = "desligado", cwd = "", url = "", texto = "" } = {}) {
+  const pasta = cwd.split(/[\\/]/).filter(Boolean).pop() || "";
+  remotoUrl = url;
+  $("remoto").dataset.estado = estado;
+  $("remotoChave").setAttribute("aria-checked", estado === "pronto" || estado === "conectando" ? "true" : "false");
+  $("remotoDesc").textContent = estado === "pronto" ? `Conectado · ${pasta}` : estado === "conectando" ? "Conectando…" : estado === "erro" ? "Não conectou" : "Desligado";
+  $("remotoInfo").textContent = estado === "erro" && texto ? texto
+    : estado === "pronto" ? "Abra o link no navegador ou no app do Claude. As sessões criadas por lá aparecem aqui na lista de conversas."
+    : "Continue pelo claude.ai/code ou pelo app do Claude no celular, nesta pasta. O Claude roda neste computador: deixe o Claudie aberto.";
+  $("remotoAcoes").hidden = !url;
+  $("remotoBtn").title = estado === "pronto" ? `Remote Control: conectado (${pasta})` : "Remote Control";
+}
+$("remotoBtn").onclick = (e) => { e.stopPropagation(); somPop.classList.remove("on"); remotoPop.classList.toggle("on"); };
+$("remotoChave").onclick = async () => {
+  const ligado = ["pronto", "conectando"].includes($("remoto").dataset.estado);
+  mostraRemoto(await vivo.remotoLigar(!ligado));
+};
+$("remotoAbrir").onclick = () => remotoUrl && vivo.link(remotoUrl);
+$("remotoCopiar").onclick = async () => { try { await navigator.clipboard.writeText(remotoUrl); $("remotoCopiar").textContent = "Copiado"; setTimeout(() => ($("remotoCopiar").textContent = "Copiar link"), 1500); } catch {} };
+addEventListener("pointerdown", (e) => { if (!e.target.closest("#remoto")) remotoPop.classList.remove("on"); });
+vivo.remoto().then(mostraRemoto);
 try {
   const v = localStorage.getItem("somVol"); if (v) { somVol.value = v; Som.volume(+v); }
   if (localStorage.getItem("som") === "1") {

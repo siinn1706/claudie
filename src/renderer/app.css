@@ -85,6 +85,17 @@ body.som-on #somBtn { color: var(--accent-2); }
   opacity: 0; transform: translateY(-6px) scale(0.98); transform-origin: top right; pointer-events: none; transition: opacity 0.18s, transform 0.22s var(--ease); }
 body.light .som-pop { background: #fbfaf8; color: #1d2b30; border-color: rgba(0, 0, 0, 0.08); box-shadow: 0 18px 44px rgba(10, 40, 50, 0.22); }
 .som-pop.on { opacity: 1; transform: none; pointer-events: auto; }
+.som.remoto { margin-left: 0; }
+.remoto .remoto-ponto { fill: var(--ui-dim); stroke: none; opacity: 0; transition: opacity 0.2s; }
+.remoto[data-estado="conectando"] .remoto-ponto { opacity: 1; fill: var(--accent); animation: remoto-pisca 1.2s ease-in-out infinite; }
+.remoto[data-estado="pronto"] .remoto-ponto { opacity: 1; fill: var(--ok); }
+.remoto[data-estado="erro"] .remoto-ponto { opacity: 1; fill: var(--err); }
+.remoto[data-estado="pronto"] #remotoChave, .remoto[data-estado="conectando"] #remotoChave { background: var(--accent); }
+.remoto[data-estado="pronto"] #remotoChave i, .remoto[data-estado="conectando"] #remotoChave i { transform: translateX(16px); }
+.remoto-info { margin: 10px 0 0; font-size: 12px; line-height: 1.45; opacity: 0.7; overflow-wrap: anywhere; }
+.remoto[data-estado="erro"] .remoto-info { color: var(--err); opacity: 1; }
+.remoto-acoes { display: flex; gap: 8px; margin-top: 12px; } .remoto-acoes .btn { flex: 1; padding: 7px 8px; white-space: nowrap; font-size: 12.5px; } .remoto-acoes[hidden] { display: none; }
+@keyframes remoto-pisca { 50% { opacity: 0.35; } }
 .som-linha { display: flex; align-items: center; gap: 12px; }
 .som-txt { flex: 1; display: grid; line-height: 1.3; } .som-txt b { font-weight: 600; font-size: 13.5px; } .som-txt small { font-size: 12px; opacity: 0.6; }
 .chave { width: 38px; height: 22px; border-radius: 22px; border: 0; background: rgba(127, 127, 127, 0.35); position: relative; cursor: var(--cur-mao, pointer); transition: background 0.2s; flex: none; }
