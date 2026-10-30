@@ -143,6 +143,6 @@ function animaAcademia(cv) {
 
 setInterval(() => { if (janelinhas.has("uso") && janelinhas.get("uso").el.classList.contains("on")) atualizaUso(); }, 60000);
 setInterval(atualizaUso, 5 * 60000);
-vivo.aoEvento((ev) => { if (ev.tipo === "parado") setTimeout(atualizaUso, 1500); if (ev.tipo === "limite" && ev.info?.status === "rejected") { usoDados ??= { disponivel: true, janelas: [] }; atualizaUso(); } });
+aoEvento((ev) => { if (ev.tipo === "parado") setTimeout(atualizaUso, 1500); if (ev.tipo === "limite" && ev.info?.status === "rejected") { usoDados ??= { disponivel: true, janelas: [] }; atualizaUso(); } });
 setTimeout(atualizaUso, 2500);
 ACOES_RADIAL.splice(5, 0, ["Uso", svg('<rect x="3" y="7" width="4" height="10" rx="1"/><rect x="10" y="7" width="4" height="10" rx="1"/><rect x="17" y="7" width="4" height="10" rx="1"/>'), () => abreUso()]);

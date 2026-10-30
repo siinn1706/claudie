@@ -74,7 +74,7 @@ function alternaInfo(v = !document.body.classList.contains("info-aberta")) {
 }
 botaoInfo.onclick = () => alternaInfo();
 addEventListener("keydown", (e) => { if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "j") { e.preventDefault(); alternaInfo(); } });
-vivo.aoEvento((ev) => { if (ev.tipo === "parado" || ev.tipo === "sessao") setTimeout(atualizaInfo, 400); });
+aoEvento((ev) => { if (ev.tipo === "parado" || ev.tipo === "sessao") setTimeout(atualizaInfo, 400); });
 // opening another conversation or folder refreshes it too
 for (const id of ["nova", "pasta"]) $(id).addEventListener("click", () => setTimeout(atualizaInfo, 600));
 lista.addEventListener("click", () => setTimeout(atualizaInfo, 800));

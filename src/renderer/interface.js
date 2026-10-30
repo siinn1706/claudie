@@ -39,7 +39,7 @@ function decifra(el, ms = 380) {
   };
   passo();
 }
-vivo.aoEvento((ev) => {
+aoEvento((ev) => {
   if (ev.tipo !== "ferramenta") return;
   const b = [...col.querySelectorAll(".ferr summary b")].pop();
   if (b) b.dataset.nome = ev.nome;

@@ -195,7 +195,7 @@ setInterval(() => {
   if (agoraMs - ultimaOndaClaude > passo) { ultimaOndaClaude = agoraMs; ondaClaude(false); }
 }, 250);
 
-vivo.aoEvento((ev) => {
+aoEvento((ev) => {
   switch (ev.tipo) {
     case "inicio": {
       mudaEstado("pensando");

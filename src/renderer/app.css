@@ -58,6 +58,10 @@ body.recolhido .app { grid-template-columns: 0 1fr; }
 .item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item:hover { background: var(--hover); color: var(--ui); padding-left: 13px; }
 .item.on { background: var(--active); color: var(--ui); font-weight: 500; }
+/* A conversation with Claude still working in it, or waiting for an answer. */
+.item.rodando::after, .item.aguarda::after { content: ""; flex: none; width: 9px; height: 9px; margin-left: 6px; border-radius: 50%; box-sizing: border-box; }
+.item.rodando::after { border: 1.5px solid var(--accent); border-top-color: transparent; animation: gira 0.9s linear infinite; }
+.item.aguarda::after { border: 0; background: #f5a524; box-shadow: 0 0 8px rgba(245, 165, 36, 0.6); animation: none; }
 .item .mais { opacity: 0; width: 24px; height: 24px; }
 .item:hover .mais, .item .mais:focus { opacity: 1; }
 .item input { flex: 1; min-width: 0; background: var(--code); border: 1px solid var(--line-2); border-radius: 6px; padding: 2px 6px; outline: 0; }
@@ -424,12 +428,14 @@ body.themed .acoes { width: fit-content; border-radius: 9px; background: var(--v
 .plano-topo small { font: 11px var(--mono); color: var(--ui-dim); }
 .plano ol { list-style: none; margin: 0; padding: 0 12px 10px; max-height: 150px; overflow-y: auto; font-size: 12.5px; }
 .plano.fechado ol { display: none; }
-.plano li { position: relative; padding: 2px 0 2px 20px; color: var(--ui-2); }
-.plano li::before { content: ""; position: absolute; left: 3px; top: 8px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--ui-dim); }
+.plano li { display: flex; align-items: flex-start; gap: 9px; padding: 3px 0; color: var(--ui-2); line-height: 1.4; }
+.plano li svg { flex: none; width: 15px; height: 15px; margin-top: 1px; fill: none; stroke: var(--ui-dim); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .plano li.in_progress { color: var(--ui); font-weight: 500; }
-.plano li.in_progress::before { border-color: var(--accent); border-top-color: transparent; animation: gira 0.9s linear infinite; }
-.plano li.completed { color: var(--ui-dim); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ui-dim) 60%, transparent); }
-.plano li.completed::before { background: var(--ok); border-color: var(--ok); }
+.plano li.in_progress svg { stroke: var(--accent); animation: gira 0.9s linear infinite; }
+.plano li.in_progress .trilho { stroke: color-mix(in srgb, var(--accent) 25%, transparent); }
+.plano li.completed { color: var(--ui-dim); }
+.plano li.completed .cheio { fill: var(--ok); stroke: var(--ok); }
+.plano li.completed .visto { stroke: var(--bg, #262624); stroke-width: 1.8; }
 
 /* Context meter */
 .medidor { margin-left: auto; margin-right: 8px; display: flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--ui-dim); cursor: var(--cur-seta, default); }
@@ -1095,3 +1101,18 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .pz-versao { font-weight: 500; color: var(--ui-dim); margin-left: 4px; }
 .btn:disabled { opacity: 0.55; cursor: var(--cur-seta, default); }
 
+
+/* Ultracode, under the effort levels. */
+.esf-ultra { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-2); }
+.esf-ultra > div { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.esf-ultra b { font-size: 12.5px; font-weight: 600; }
+.esf-ultra small { font-size: 11.5px; color: var(--ui-dim); line-height: 1.35; }
+.esf-ultra .chave[aria-checked="true"] { background: var(--accent); }
+.esf-ultra .chave[aria-checked="true"] i { transform: translateX(16px); }
+.esf-uc { font-style: normal; color: var(--accent); margin-left: 4px; font-size: 12px; }
+
+/* The picture preview. */
+.lightbox { position: fixed; inset: 0; z-index: 48; display: grid; place-items: center; padding: 32px; background: rgba(8, 8, 7, 0.82); opacity: 0; pointer-events: none; transition: opacity 0.18s; cursor: zoom-out; }
+.lightbox.on { opacity: 1; pointer-events: auto; }
+.lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
+.anexo.img, .msg-anexos img { cursor: zoom-in; }

@@ -63,7 +63,7 @@ if (!window.vivo) {
       { id: "b", titulo: "Corrigir bug do carrinho", quando: Date.now() - 86400e3 },
       { id: "c", titulo: "Temas animados do chat", quando: Date.now() - 2 * 86400e3 },
     ],
-    abrirSessao: async () => [{ papel: "eu", texto: "oi, me ajuda com o carrinho?" }, { papel: "claude", texto: "Claro! Qual é o problema?" }],
+    abrirSessao: async () => ({ hist: [{ papel: "eu", texto: "oi, me ajuda com o carrinho?" }, { papel: "claude", texto: "Claro! Qual é o problema?" }] }),
     pasta: async () => null,
     config: async () => ({}),
     barra: async () => {},

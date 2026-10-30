@@ -57,6 +57,30 @@ function copia(texto, botao) {
 
 let rodando = false, segmento = null, bufferTexto = "", renderAgendado = false, pensando = null;
 const ferramentas = new Map();
+// Events of a turn carry its id (tid). The window draws only the turn of the
+// conversation it shows ("novo" until a turn just sent says its id); events of
+// turns left running elsewhere only mark the list. While a conversation opens
+// they wait (abrindo), then those already in its transcript are dropped (n).
+let turnoVisto = null, turnoN = 0, abrindo = null, emCurso = new Set(), aguardando = new Set();
+const ouvintes = [];
+const aoEvento = (f) => ouvintes.push(f);
+const repassa = (ev) => ouvintes.forEach((f) => f(ev));
+function despacha(ev) {
+  if (ev.tid) {
+    if (abrindo) { abrindo.push(ev); return; }
+    if (turnoVisto === "novo" && ev.tipo === "inicio") turnoVisto = ev.tid;
+    if (ev.tid !== turnoVisto) return emSegundoPlano(ev);
+    if (ev.n <= turnoN) return;
+  }
+  repassa(ev);
+}
+vivo.aoEvento(despacha);
+const tituloDe = (id) => sessoes.find((s) => s.id === id)?.titulo || "";
+function emSegundoPlano(ev) {
+  if (ev.tipo === "sessao") carregaSessoes();
+  else if (ev.tipo === "permissao" || ev.tipo === "pergunta") { window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", tituloDe(ev.sid)); }
+  else if (ev.tipo === "parado") { carregaSessoes(); window.somEvento?.("terminou"); avisaSistema("O Claude terminou", tituloDe(ev.id)); }
+}
 
 // ---- conversation -----------------------------------------------------------
 const pertoDoFim = () => scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 280;
@@ -74,7 +98,7 @@ function meu(texto, anexos = [], imagens = 0, hora = horaAgora()) {
   if (anexos.length || imagens) {
     const a = document.createElement("div"); a.className = "msg-anexos";
     for (const x of anexos) {
-      if (x.url) { const img = document.createElement("img"); img.src = x.url; img.alt = x.nome; img.title = x.nome; a.append(img); }
+      if (x.url) { const img = document.createElement("img"); img.src = x.url; img.alt = x.nome; img.title = "Ver imagem"; img.onclick = () => abreImagem(x.url, x.nome); a.append(img); }
       else a.append(chipArquivo(x.nome));
     }
     if (imagens) a.append(chipArquivo(imagens === 1 ? "1 imagem" : `${imagens} imagens`));
@@ -153,14 +177,15 @@ function resumo(nome, e = {}) {
   if (nome.startsWith("mcp__claudie__")) return nomeTema(e.tema);
   return Object.values(e).find((x) => typeof x === "string") || "";
 }
-const ROTULO = { Bash: "Comando", Read: "Leu", Write: "Criou", Edit: "Editou", MultiEdit: "Editou", Glob: "Procurou arquivos", Grep: "Buscou", WebFetch: "Abriu página", WebSearch: "Pesquisou", ToolSearch: "Buscou ferramenta", TodoWrite: "Lista de tarefas", Task: "Subagente", mcp__claudie__sugerir_tema: "Sugeriu tema", mcp__claudie__aplicar_tema: "Aplicou tema",
+const ROTULO = { Bash: "Comando", Read: "Leu", Write: "Criou", Edit: "Editou", MultiEdit: "Editou", Glob: "Procurou arquivos", Grep: "Buscou", WebFetch: "Abriu página", WebSearch: "Pesquisou", ToolSearch: "Buscou ferramenta", TodoWrite: "Lista de tarefas", Task: "Subagente", Workflow: "Fluxo de agentes", mcp__claudie__sugerir_tema: "Sugeriu tema", mcp__claudie__aplicar_tema: "Aplicou tema",
   mcp__claudie__buscar_fundo: "Buscou fundos", mcp__claudie__sugerir_fundo: "Sugeriu fundo", mcp__claudie__aplicar_fundo: "Aplicou fundo" };
 const rotulo = (n) => ROTULO[n] || n.replace(/^mcp__([^_]+)__/, "$1 · ");
 // What a permission card asks for, in the infinitive.
-const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente" };
+const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente", Workflow: "iniciar um fluxo de vários agentes" };
 const pedido = (n) => PEDIDO[n] || `usar ${rotulo(n)}`;
 
 function ferramenta(id, nome, e, fim = null) {
+  if (PLANO.has(nome)) return;
   fechaSegmento(); tiraPensando();
   const d = document.createElement("details");
   d.className = "ferr";
@@ -195,22 +220,23 @@ function permissao(ev) {
   el.append(linha); forcaDesce();
 }
 
-vivo.aoEvento((ev) => {
+aoEvento((ev) => {
   switch (ev.tipo) {
     case "inicio": fechaSegmento(); mostraPensando(); break;
+    case "turnos": emCurso = new Set(ev.rodando); aguardando = new Set(ev.aguardando); marcaSessao(); break;
     case "pensando": if (!segmento) mostraPensando(ev.tokens); break;
     case "texto_inicio": fechaSegmento(); break;
     case "texto": texto(ev.delta); break;
-    case "ferramenta": ferramenta(ev.id, ev.nome, ev.entrada); if (ev.nome === "TodoWrite") mostraPlano(ev.entrada?.todos); break;
+    case "ferramenta": ferramenta(ev.id, ev.nome, ev.entrada); if (planoUsa(ev.id, ev.nome, ev.entrada)) desenhaPlano(); break;
     case "marca": { const el = segmento || [...col.querySelectorAll(".msg.claude:not([data-uuid])")].pop(); if (el) el.dataset.uuid = ev.uuid; break; }
     case "uso": mostraUso(ev); break;
     case "cache": mostraCache(ev); break;
     case "remoto": mostraRemoto(ev); break;
-    case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida); break;
+    case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida); if (planoResultado(ev.id, ev.tarefa)) desenhaPlano(); break;
     case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", `Quer ${pedido(ev.ferramenta)}.`); break;
     case "permissao_fim": document.querySelector(`.perm[data-id="${ev.id}"], .pergunta[data-id="${ev.id}"]`)?.remove(); break;
     case "apagada": if (sessaoAtual === ev.id) { novaConversa(); nota("Esta conversa foi apagada em outra janela."); } break;
-    case "config": $("modo").value = ev.modo || "default"; $("modelo").value = ev.model || ""; $("esforco").value = ev.esforco || ""; atualizaEscolhas(); break;
+    case "config": $("modo").value = ev.modo || "default"; $("modelo").value = ev.model || ""; $("esforco").value = ev.esforco || ""; ultracode = !!ev.ultracode; atualizaEscolhas(); break;
     case "visual": if (typeof VIS !== "undefined") { VIS = ev.visual || {}; aplicaVisual(); } break;
     case "cartao_tema": { fechaSegmento(); tiraPensando(); const i = idx(ev.tema); if (i >= 0) cartao(bloco("msg claude"), i); break; }
     case "aplicar_tema": { const i = idx(ev.tema); if (i >= 0) aplica(i); break; }
@@ -222,7 +248,7 @@ vivo.aoEvento((ev) => {
     case "erro": tiraPensando(); aviso(ev.texto, true); window.somEvento?.("erro"); break;
     case "atualizacao": mostraAtualizacao(ev); break;
     case "parado":
-      tiraPensando(); fechaSegmento(); setRodando(false); carregaSessoes();
+      tiraPensando(); fechaSegmento(); setRodando(false); turnoVisto = null; carregaSessoes();
       if (fila.length) setTimeout(proximaDaFila, 350);
       else { avisaSistema("O Claude terminou", $("titulo").textContent); window.somEvento?.("terminou"); }
       break;
@@ -271,9 +297,9 @@ async function envia(textoForcado) {
   meu(t, junto); window.somEvento?.("enviar");
   const bolha = col.lastElementChild, eram = junto === anexos ? [...anexos] : null;
   if (eram) { anexos = []; desenhaAnexos(); }
-  setRodando(true);
+  setRodando(true); turnoVisto = "novo"; turnoN = 0;
   if (!(await vivo.enviar(final, enviados))) {
-    setRodando(false); bolha?.remove();
+    setRodando(false); turnoVisto = null; bolha?.remove();
     if (textoForcado == null) { entrada.value = t; ajustaAltura(); if (eram) { anexos = eram; desenhaAnexos(); } }
     atualizaEnviar(); nota("Não deu pra enviar agora.", true);
   }
@@ -346,7 +372,7 @@ function desenhaAnexos() {
   anexos.forEach((a, i) => {
     const d = document.createElement("div");
     d.className = "anexo" + (a.url ? " img" : ""); d.title = a.caminho || a.nome;
-    if (a.url) { const img = document.createElement("img"); img.src = a.url; img.alt = a.nome; d.append(img); }
+    if (a.url) { const img = document.createElement("img"); img.src = a.url; img.alt = a.nome; d.append(img); d.title = "Ver imagem"; d.onclick = (e) => { if (!e.target.closest(".tira")) abreImagem(a.url, a.nome); }; }
     else { d.innerHTML = a.tipo === "texto" ? ICONE.editar : ICONE.arquivo; const n = document.createElement("span"); n.textContent = a.nome; d.append(n); }
     if (a.tipo === "texto") { d.classList.add("colado"); d.title = "Clique para ver e editar"; d.onclick = (e) => { if (!e.target.closest(".tira")) editaColado(a); }; }
     const x = document.createElement("button"); x.className = "tira"; x.title = "Remover"; x.innerHTML = ICONE.erro;
@@ -355,6 +381,12 @@ function desenhaAnexos() {
   });
   anexosEl.classList.toggle("on", anexos.length > 0); atualizaEnviar();
 }
+// The picture preview: full size over the window; a click or Esc closes it.
+const lightbox = $("lightbox"), lightboxImg = $("lightboxImg");
+function abreImagem(url, nome) { fechaEscolhas(); lightboxImg.src = url; lightboxImg.alt = nome || ""; lightbox.classList.add("on"); }
+function fechaImagem() { if (!lightbox.classList.contains("on")) return false; lightbox.classList.remove("on"); lightboxImg.removeAttribute("src"); return true; }
+lightbox.onclick = fechaImagem;
+addEventListener("keydown", (e) => { if (e.key === "Escape" && fechaImagem()) e.stopImmediatePropagation(); }, true);
 function anexaCaminho(caminho) {
   if (!caminho || anexos.some((a) => a.caminho === caminho)) return;
   const nome = caminho.split(/[\\/]/).pop();
@@ -460,7 +492,12 @@ function telaInicial() {
 // ---- sessions and settings --------------------------------------------------
 let sessaoAtual = null, sessoes = [];
 const lista = $("lista");
-function marcaSessao() { lista.querySelectorAll(".item").forEach((d) => d.classList.toggle("on", d.dataset.id === sessaoAtual)); }
+function marcaSessao() {
+  lista.querySelectorAll(".item").forEach((d) => {
+    const id = d.dataset.id;
+    d.classList.toggle("on", id === sessaoAtual); d.classList.toggle("rodando", emCurso.has(id)); d.classList.toggle("aguarda", aguardando.has(id));
+  });
+}
 function grupoDe(ms) {
   const d = new Date(ms), h = new Date(); h.setHours(0, 0, 0, 0);
   const dias = (h - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5;
@@ -587,7 +624,7 @@ function mostraEscopo() {
 document.querySelectorAll(".escopo [data-todas]").forEach((b) => (b.onclick = () => { todasPastas = b.dataset.todas === "1"; guarda("todasPastas", todasPastas); mostraEscopo(); achados = new Map(); carregaSessoes(); }));
 $("sincronizar").onclick = () => { carregaSessoes(); nota("Conversas sincronizadas com o Claude Code."); };
 let timerSync = null;
-vivo.aoEvento((ev) => { if (ev.tipo === "sessoes_mudaram") { clearTimeout(timerSync); timerSync = setTimeout(carregaSessoes, 300); } });
+aoEvento((ev) => { if (ev.tipo === "sessoes_mudaram") { clearTimeout(timerSync); timerSync = setTimeout(carregaSessoes, 300); } });
 addEventListener("focus", () => carregaSessoes());
 mostraEscopo();
 $("busca").addEventListener("input", () => {
@@ -651,28 +688,45 @@ function renomeia(s) {
   inp.onclick = (e) => e.stopPropagation();
 }
 
+// A turn still running stays running: leaving its conversation only stops
+// drawing it, and coming back picks it up where it is.
 async function abreSessao(id, titulo) {
-  if (rodando) return;
   const pastaAntes = $("pasta").title, alvo = sessaoPorId(id);
-  const hist = await vivo.abrirSessao(id, alvo?.cwd);
-  if (!hist) return;
+  const espera = (abrindo = []);
+  const r = await vivo.abrirSessao(id, alvo?.cwd);
+  if (abrindo === espera) abrindo = null;
+  const solta = () => espera.forEach(despacha);
+  if (!r) return solta();
   if (alvo?.cwd && alvo.cwd !== pastaAntes) { mostraPasta(alvo.cwd); todosComandos = buscandoComandos = null; }
   window.transicaoDither?.();
+  trocaFila(id);
   sessaoAtual = id; $("titulo").textContent = titulo;
-  col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); escondePlano(); escondeCache(); $("medidor").hidden = true;
-  for (const m of hist) {
-    if (m.papel === "eu") { meu(m.texto, [], m.imagens || 0, ""); if (m.uuid) [...col.querySelectorAll(".msg.eu")].pop().dataset.uuid = m.uuid; }
+  col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); limpaPlano(); escondeCache(); $("medidor").hidden = true;
+  const t = r.turno;
+  turnoVisto = t?.tid || null; turnoN = t?.n || 0; setRodando(!!t);
+  for (const m of r.hist) {
+    if (m.papel === "eu") { meu(m.texto, (m.fotos || []).map((url) => ({ nome: "imagem", url })), m.imagens || 0, ""); if (m.uuid) [...col.querySelectorAll(".msg.eu")].pop().dataset.uuid = m.uuid; }
     else if (m.papel === "claude") { const el = bloco("msg claude", `<div class="corpo">${md(m.texto)}</div>`); decora(el); if (m.uuid) el.dataset.uuid = m.uuid; acoesResposta(el, m.texto, ""); window.camadas?.(el); }
-    else ferramenta(crypto.randomUUID(), m.nome, m.entrada, "ok");
+    else if (m.papel === "resultado") planoResultado(m.id, m.tarefa);
+    else { const id = m.id || crypto.randomUUID(); ferramenta(id, m.nome, m.entrada, "ok"); planoUsa(id, m.nome, m.entrada); }
   }
-  aviso("Conversa retomada: o Claude lembra de tudo acima.");
+  desenhaPlano();
+  if (t) {
+    repassa({ tipo: "inicio" });
+    if (t.parcial) { repassa({ tipo: "texto_inicio" }); repassa({ tipo: "texto", delta: t.parcial }); }
+    t.pendentes.forEach(repassa);
+  } else aviso("Conversa retomada: o Claude lembra de tudo acima.");
   requestAnimationFrame(() => (scroll.scrollTop = scroll.scrollHeight)); marcaSessao();
+  solta();
+  if (!t) proximaDaFila();
 }
 async function novaConversa() {
-  if (rodando || !(await vivo.nova())) return;
+  if (!(await vivo.nova())) return;
   window.transicaoDither?.();
+  trocaFila(null);
   sessaoAtual = null; $("titulo").textContent = "Nova conversa";
-  ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); escondePlano(); escondeCache(); $("medidor").hidden = true; entrada.focus();
+  turnoVisto = null; turnoN = 0; setRodando(false);
+  ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); limpaPlano(); escondeCache(); $("medidor").hidden = true; entrada.focus();
 }
 $("nova").onclick = novaConversa;
 $("pasta").onclick = async () => { if (rodando) { nota("Espere o Claude terminar para trocar de pasta."); return; } const p = await vivo.pasta(); if (p) { mostraPasta(p); novaConversa(); carregaSessoes(); todosComandos = buscandoComandos = null; } };
@@ -752,14 +806,16 @@ montaEscolha("modelo", menuEscolha("modelo"), (s) => s.selectedOptions[0]?.textC
 const GLIFO_ESF = ["·", "✢", "✳", "✶", "✻", "✽"];
 const TROCA = [[0, 0], [5, 1], [4, 2], [3, 3], [2, 4], [1, 5]];   // [speed, depth] per level
 const medidor = (n, total = 5) => Array.from({ length: total }, (_, k) => `<i class="${k < n ? "on" : ""}"></i>`).join("");
-let esfVer = null;
+let esfVer = null, ultracode = false;
 montaEscolha("esforco", (pop, sel, escolhe) => {
   const atual = Math.max(0, ESFORCO.findIndex(([v]) => v === sel.value));
   pop.classList.add("esf");
   pop.innerHTML = `<div class="esf-cab"><canvas class="esf-clawd"></canvas><div><small>Esforço</small><b class="esf-nome"></b></div><span class="esf-glifo"></span></div>
     <div class="esf-escala"><button class="esf-auto" data-k="0"><span>Auto</span></button><div class="esf-colunas">${ESFORCO.slice(1).map((_, n) => `<button class="esf-col" data-k="${n + 1}" aria-label="${ESFORCO[n + 1][1]}">${Array.from({ length: n + 1 }, () => "<i></i>").join("")}<em>${GLIFO_ESF[n + 1]}</em></button>`).join("")}</div></div>
     <p class="esf-desc"></p>
-    <div class="esf-troca"><span>Rapidez</span><span class="esf-med" data-m="0"></span><span>Profundidade</span><span class="esf-med" data-m="1"></span></div>`;
+    <div class="esf-troca"><span>Rapidez</span><span class="esf-med" data-m="0"></span><span>Profundidade</span><span class="esf-med" data-m="1"></span></div>
+    <div class="esf-ultra"><div><b>Ultracode</b><small>O Claude monta um fluxo com vários agentes para cada tarefa. Gasta bem mais do seu limite.</small></div><button class="chave" role="switch" aria-checked="${ultracode}" title="Ligar ou desligar"><i></i></button></div>`;
+  pop.querySelector(".esf-ultra .chave").onclick = () => { ultracode = !ultracode; vivo.config({ ultracode }); atualizaEscolhas(); };
   const mostra = (k, previa) => {
     pop.querySelector(".esf-nome").textContent = ESFORCO[k][1];
     pop.querySelector(".esf-glifo").textContent = k ? GLIFO_ESF[k] : "";
@@ -783,7 +839,7 @@ montaEscolha("esforco", (pop, sel, escolhe) => {
   return i ? ESFORCO[i][1] : "Auto";
 }, (s) => {
   const i = Math.max(0, ESFORCO.findIndex(([v]) => v === s.value));
-  return `<span class="esf-mini${i ? "" : " auto"}">${Array.from({ length: 5 }, (_, k) => `<i class="${k < i ? "on" : ""}"></i>`).join("")}</span>`;
+  return `<span class="esf-mini${i ? "" : " auto"}">${Array.from({ length: 5 }, (_, k) => `<i class="${k < i ? "on" : ""}"></i>`).join("")}</span>${ultracode ? '<em class="esf-uc" title="Ultracode ligado">✻</em>' : ""}`;
 });
 addEventListener("keydown", (e) => {
   if (!esfVer || popAberto !== esfVer.pop || !/^Arrow(Left|Right)$/.test(e.key)) return;
@@ -1264,7 +1320,12 @@ creditos.addEventListener("click", (e) => {
 // ---- queue -------------------------------------------------------------------------
 // Messages written while Claude works wait in line above the composer and go
 // out one by one when the turn ends; each can be dropped before it leaves.
-const fila = [];
+const fila = [], filas = new Map();
+// Leaving a conversation keeps its queue for when you come back.
+function trocaFila(id) {
+  if (fila.length) filas.set(sessaoAtual, fila.splice(0));
+  fila.push(...(filas.get(id) || [])); filas.delete(id); desenhaFila();
+}
 function desenhaFila() {
   const el = $("fila");
   el.innerHTML = fila.map((f, i) => `<div class="na-fila"><span class="rot">Na fila</span><span class="txt">${esc(f.t || f.junto.map((x) => x.nome).join(", "))}</span><button class="icone" data-i="${i}" title="Tirar da fila">${ICONE.erro}</button></div>`).join("");
@@ -1277,21 +1338,58 @@ async function proximaDaFila() {
   const { texto: final, enviados } = juntaColados(t, junto);
   meu(t, junto); window.somEvento?.("enviar");
   const bolha = col.lastElementChild;
-  setRodando(true);
-  if (!(await vivo.enviar(final, enviados))) { setRodando(false); bolha?.remove(); fila.unshift({ t, junto }); desenhaFila(); }
+  setRodando(true); turnoVisto = "novo"; turnoN = 0;
+  if (!(await vivo.enviar(final, enviados))) { setRodando(false); turnoVisto = null; bolha?.remove(); fila.unshift({ t, junto }); desenhaFila(); }
 }
 
 // ---- plan ------------------------------------------------------------------------------
-// Claude's task list (TodoWrite) stays pinned above the composer while it works.
-function mostraPlano(todos) {
-  if (!Array.isArray(todos) || !todos.length) return escondePlano();
-  const feitas = todos.filter((t) => t.status === "completed").length, el = $("plano");
-  el.innerHTML = `<button class="plano-topo" title="Mostrar ou esconder"><b>Plano</b><span class="plano-barra"><i style="width:${(feitas / todos.length) * 100}%"></i></span><small>${feitas}/${todos.length}</small></button>`
-    + `<ol>${todos.map((t) => `<li class="${["pending", "in_progress", "completed"].includes(t.status) ? t.status : ""}">${esc(t.status === "in_progress" && t.activeForm ? t.activeForm : t.content)}</li>`).join("")}</ol>`;
+// Claude's task list stays pinned above the composer: a dashed circle waits, a
+// spinner is being done, a check is done. It comes from TodoWrite (the whole
+// list each time) or from the task tools (one task at a time; a new task's id
+// arrives with its result, so it waits under the call's id until then).
+const PLANO = new Set(["TodoWrite", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet"]);
+let planoItens = new Map();
+function planoUsa(id, nome, e = {}) {
+  if (nome === "TodoWrite") {
+    if (!Array.isArray(e.todos)) return false;
+    planoItens = new Map(e.todos.map((t, i) => [String(i), { titulo: t.content, fazendo: t.activeForm, status: t.status }]));
+  } else if (nome === "TaskCreate") planoItens.set("chamada:" + id, { titulo: e.subject, fazendo: e.activeForm ?? e.active_form, status: "pending" });
+  else if (nome === "TaskUpdate") {
+    const k = String(e.taskId ?? e.id ?? e.task_id ?? ""), t = planoItens.get(k);
+    if (!t) return false;
+    if (e.status === "deleted") planoItens.delete(k);
+    else Object.assign(t, e.subject ? { titulo: e.subject } : {}, (e.activeForm ?? e.active_form) ? { fazendo: e.activeForm ?? e.active_form } : {}, e.status ? { status: e.status } : {});
+  } else return false;
+  return true;
+}
+function planoResultado(id, tarefa) {
+  if (tarefa?.id && planoItens.has("chamada:" + id)) {
+    planoItens = new Map([...planoItens].map(([k, v]) => [k === "chamada:" + id ? tarefa.id : k, v]));
+    return true;
+  }
+  if (tarefa?.lista) {
+    const antes = planoItens;
+    planoItens = new Map(tarefa.lista.map((t) => [t.id, { titulo: t.subject, fazendo: antes.get(t.id)?.fazendo, status: t.status }]));
+    return true;
+  }
+  return false;
+}
+const CIRCULO = {
+  pending: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke-dasharray="2.4 2.4"/></svg>',
+  in_progress: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" class="trilho"/><path d="M8 2a6 6 0 0 1 6 6"/></svg>',
+  completed: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" class="cheio"/><path d="m5.2 8.3 1.9 1.9 3.8-4" class="visto"/></svg>',
+};
+function desenhaPlano() {
+  const itens = [...planoItens.values()], el = $("plano");
+  if (!itens.length) return escondePlano();
+  const feitas = itens.filter((t) => t.status === "completed").length;
+  el.innerHTML = `<button class="plano-topo" title="Mostrar ou esconder"><b>Plano</b><span class="plano-barra"><i style="width:${(feitas / itens.length) * 100}%"></i></span><small>${feitas}/${itens.length}</small></button>`
+    + `<ol>${itens.map((t) => { const st = CIRCULO[t.status] ? t.status : "pending"; return `<li class="${st}">${CIRCULO[st]}<span>${esc(st === "in_progress" && t.fazendo ? t.fazendo : t.titulo || "")}</span></li>`; }).join("")}</ol>`;
   el.querySelector(".plano-topo").onclick = () => el.classList.toggle("fechado");
   el.classList.add("on");
 }
 function escondePlano() { $("plano").classList.remove("on"); }
+function limpaPlano() { planoItens = new Map(); escondePlano(); }
 
 // ---- context meter ---------------------------------------------------------------------
 // How full the conversation's context is after the last turn, and what it wrote.
@@ -1360,7 +1458,7 @@ $("atalhosBtn").onclick = abreAtalhos;
   telaInicial();
   const e = await vivo.estado();
   mostraPasta(e.cwd);
-  $("modelo").value = e.model || ""; $("modo").value = e.modo || "default"; $("esforco").value = e.esforco || ""; atualizaEscolhas();
+  $("modelo").value = e.model || ""; $("modo").value = e.modo || "default"; $("esforco").value = e.esforco || ""; ultracode = !!e.ultracode; atualizaEscolhas();
   let salvo = ""; try { salvo = localStorage.getItem("tema") || ""; } catch {}
   if (salvo.includes(":")) aplicaChave(salvo); else if (idx(salvo) >= 0) aplica(idx(salvo));
   vivo.motionLista().then((l) => ($("meusN").textContent = l.length));

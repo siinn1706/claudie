@@ -83,13 +83,21 @@ function buscaMagia(busca = "", categoria = "") {
   return [...MAGIA.pecas.values()].map((p) => [pontos(p), p]).filter(([n]) => n > 0).sort((a, b) => b[0] - a[0]).map(([, p]) => p);
 }
 
-let config = { cwd: path.join(app.getPath("home"), "projetos"), model: "", modo: "default", esforco: "" };
+let config = { cwd: path.join(app.getPath("home"), "projetos"), model: "", modo: "default", esforco: "", ultracode: false };
 // Each window holds its own conversation: the session it shows and the turn
-// running in it ({ q, ac }). The settings and the project folder are shared.
+// running in it, if any (atual). Turns it left running in other sessions keep
+// going in the background (turnos). The settings and the project folder are shared.
 const janelas = new Map();   // webContents id -> { win, sessionId, atual, cwd }
 let principal = null;        // the first window: global shortcut and test hooks
 const J = (e) => janelas.get(e.sender.id);
-const pendentes = new Map(); // permission request id -> { resolve, suggestions, input }
+const pendentes = new Map(); // permission request id -> { resolve, suggestions, input, t }
+const turnos = new Set();    // every running turn: { tid, j, q, ac, sessionId, cwd, ... }
+const turnoDe = (id) => id && [...turnos].find((t) => t.sessionId === id);
+function avisaTurnos() {
+  const rodando = [...turnos].filter((t) => t.sessionId).map((t) => t.sessionId);
+  const aguardando = [...turnos].filter((t) => t.sessionId && t.pendentes.size).map((t) => t.sessionId);
+  for (const o of janelas.values()) enviarEvento(o, { tipo: "turnos", rodando, aguardando });
+}
 
 function lerConfig() {
   // Settings saved under the app's earlier names are carried over.
@@ -111,7 +119,8 @@ const enviarEvento = (j, ev) => {
 const texto = (t) => ({ content: [{ type: "text", text: t }] });
 const peca = (slug) => MAGIA.pecas.get(String(slug).trim().toLowerCase());
 const semPeca = (slug) => ({ ...texto(`Não existe a peça "${slug}". Use buscar_fundo para achar o nome certo.`), isError: true });
-const servidorTemasPara = (j) => createSdkMcpServer({
+// Cards belong to the turn's conversation; applying a theme is for the whole window.
+const servidorTemasPara = (t) => createSdkMcpServer({
   name: "claudie",
   version: "0.2.0",
   instructions: "Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os 16 temas do Claudie (interativos, com música) e a biblioteca ASCII Magic, com " +
@@ -121,9 +130,9 @@ const servidorTemasPara = (j) => createSdkMcpServer({
     Object.entries(TEMAS).map(([id, nome]) => `${id} (${nome})`).join(", ") + ". Categorias da biblioteca: " + Object.entries(MAGIA.cats).map(([id, nome]) => `${id} (${nome})`).join(", ") + ".",
   tools: [
     tool("sugerir_tema", "Mostra na conversa um cartão do tema, com prévia animada e os botões Aplicar e Prévia.", { tema: z.enum(Object.keys(TEMAS)) },
-      async ({ tema }) => { enviarEvento(j, { tipo: "cartao_tema", tema }); return texto(`Cartão do tema ${TEMAS[tema]} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
+      async ({ tema }) => { t.ev({ tipo: "cartao_tema", tema }); return texto(`Cartão do tema ${TEMAS[tema]} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
     tool("aplicar_tema", "Aplica o tema no fundo do app agora.", { tema: z.enum(Object.keys(TEMAS)) },
-      async ({ tema }) => { enviarEvento(j, { tipo: "aplicar_tema", tema }); return texto(`Tema ${TEMAS[tema]} aplicado.`); }, { alwaysLoad: true }),
+      async ({ tema }) => { enviarEvento(t.j, { tipo: "aplicar_tema", tema }); return texto(`Tema ${TEMAS[tema]} aplicado.`); }, { alwaysLoad: true }),
     tool("buscar_fundo", "Busca animações na biblioteca ASCII Magic por palavras em inglês (ex.: ocean night, cat, rain, galaxy) e/ou categoria. Devolve até 15 peças: id, nome, categoria e descrição.",
       { busca: z.string().describe("Palavras em inglês; vazio para listar a categoria"), categoria: z.string().optional().describe("Id da categoria, opcional") },
       async ({ busca, categoria }) => {
@@ -131,12 +140,15 @@ const servidorTemasPara = (j) => createSdkMcpServer({
         return texto(r.length ? r.map((p) => `${p.slug} — ${p.nome} (${p.cat}): ${p.nota}`).join("\n") : "Nada encontrado. Tente outras palavras em inglês ou outra categoria.");
       }, { alwaysLoad: true }),
     tool("sugerir_fundo", "Mostra na conversa um cartão de uma animação da biblioteca, com Aplicar e Prévia.", { peca: z.string().describe("Id da peça, de buscar_fundo") },
-      async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); enviarEvento(j, { tipo: "cartao_arte", chave: `magia:${p.slug}` }); return texto(`Cartão de ${p.nome} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
+      async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); t.ev({ tipo: "cartao_arte", chave: `magia:${p.slug}` }); return texto(`Cartão de ${p.nome} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
     tool("aplicar_fundo", "Aplica uma animação da biblioteca no fundo do app agora.", { peca: z.string().describe("Id da peça, de buscar_fundo") },
-      async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); enviarEvento(j, { tipo: "aplicar_arte", chave: `magia:${p.slug}` }); return texto(`${p.nome} aplicada no fundo.`); }, { alwaysLoad: true }),
+      async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); enviarEvento(t.j, { tipo: "aplicar_arte", chave: `magia:${p.slug}` }); return texto(`${p.nome} aplicada no fundo.`); }, { alwaysLoad: true }),
   ],
 });
 const FERRAMENTAS_TEMA = ["sugerir_tema", "aplicar_tema", "buscar_fundo", "sugerir_fundo", "aplicar_fundo"].map((n) => `mcp__claudie__${n}`);
+// Newer models get the task tools only when a session names them; they are
+// bookkeeping (the plan the window shows), so they also need no approval.
+const FERRAMENTAS_PLANO = ["TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TodoWrite"];
 
 // Attachments: images go to Claude as image blocks (read here when they come
 // as a path), every file with a path is also listed so Claude can open it.
@@ -366,45 +378,64 @@ function aplicaIcone() {
   for (const j of janelas.values()) try { j.win.setIcon(img); } catch {}
 }
 
+// A turn belongs to its conversation, not to the window: the person may open
+// another one while it runs. Its events carry the turn id (tid), and the turn
+// keeps what a window needs to pick it up again (the reply being written, the
+// open permission cards).
 async function turno(j, texto, anexos) {
-  const ev = (x) => enviarEvento(j, x);
   const ac = new AbortController(), uuid = crypto.randomUUID(), geral = config.visual?.geral || {};
-  const novo = !j.sessionId;
+  const t = { tid: uuid, j, q: null, ac, sessionId: j.sessionId, cwd: j.cwd, n: 0, parcial: "", pendentes: new Map() };
+  const ev = t.ev = (x) => {
+    t.n++;
+    if (x.tipo === "texto_inicio") t.parcial = "";
+    else if (x.tipo === "texto") t.parcial += x.delta;
+    enviarEvento(t.j, { ...x, tid: t.tid, n: t.n });
+  };
+  const novo = !t.sessionId;
   let resposta = "";
   const prompt = montaPrompt(texto, anexos, uuid);
-  const q = query({
+  const q = t.q = query({
     prompt,
     options: {
-      cwd: j.cwd,
+      cwd: t.cwd,
       model: config.model || undefined,
-      resume: j.sessionId || undefined,
+      resume: t.sessionId || undefined,
       permissionMode: config.modo || "default",
       effort: config.esforco || undefined,
+      // Ultracode: Claude plans a workflow of many agents for each real task.
+      settings: config.ultracode ? { ultracode: true } : undefined,
       enableFileCheckpointing: true,
       thinking: geral.raciocinio === false ? undefined : { type: "adaptive", display: "summarized" },
       includePartialMessages: true,
       abortController: ac,
       systemPrompt: { type: "preset", preset: "claude_code" },
-      mcpServers: { claudie: servidorTemasPara(j) },
-      allowedTools: FERRAMENTAS_TEMA,
+      mcpServers: { claudie: servidorTemasPara(t) },
+      allowedTools: [...FERRAMENTAS_TEMA, ...FERRAMENTAS_PLANO],
       canUseTool: (toolName, input, { signal, suggestions, decisionReason }) => new Promise((resolve) => {
         const id = crypto.randomUUID();
-        pendentes.set(id, { resolve, suggestions, input, j, toolName });
+        pendentes.set(id, { resolve, suggestions, input, t, toolName });
         // Claude asking the person something: the choices become a form.
-        if (toolName === "AskUserQuestion") ev({ tipo: "pergunta", id, perguntas: input.questions || [] });
-        else ev({ tipo: "permissao", id, ferramenta: toolName, entrada: input, motivo: decisionReason ?? null, temSempre: !!suggestions?.length });
+        const pedido = toolName === "AskUserQuestion" ? { tipo: "pergunta", id, perguntas: input.questions || [] }
+          : { tipo: "permissao", id, ferramenta: toolName, entrada: input, motivo: decisionReason ?? null, temSempre: !!suggestions?.length };
+        t.pendentes.set(id, pedido); ev(pedido); avisaTurnos();
         signal.addEventListener("abort", () => {
-          if (pendentes.delete(id)) { resolve({ behavior: "deny", message: "Cancelado." }); ev({ tipo: "permissao_fim", id }); }
+          if (pendentes.delete(id)) { t.pendentes.delete(id); resolve({ behavior: "deny", message: "Cancelado." }); ev({ tipo: "permissao_fim", id }); avisaTurnos(); }
         });
       }),
     },
   });
-  j.atual = { q, ac };
+  turnos.add(t);
+  j.atual = t;
   let contexto = 0, pedidoEm = 0;
   ev({ tipo: "inicio", uuid: typeof prompt === "string" ? null : uuid });
+  avisaTurnos();
   try {
     for await (const msg of q) {
-      if (msg.session_id && msg.session_id !== j.sessionId) { j.sessionId = msg.session_id; ev({ tipo: "sessao", id: j.sessionId }); }
+      if (msg.session_id && msg.session_id !== t.sessionId) {
+        t.sessionId = msg.session_id;
+        if (t.j.atual === t) t.j.sessionId = t.sessionId;
+        ev({ tipo: "sessao", id: t.sessionId }); avisaTurnos();
+      }
       if (msg.type === "system" && msg.subtype === "thinking_tokens") {
         ev({ tipo: "pensando", tokens: msg.estimated_tokens });
       } else if (msg.type === "system" && msg.subtype === "init") {
@@ -417,6 +448,8 @@ async function turno(j, texto, anexos) {
         if (e.type === "content_block_start" && e.content_block.type === "thinking") ev({ tipo: "raciocinio_inicio" });
         if (e.type === "content_block_delta" && e.delta.type === "thinking_delta") ev({ tipo: "raciocinio", delta: e.delta.thinking });
       } else if (msg.type === "assistant" && !msg.parent_tool_use_id) {
+        // The finished message is in the transcript now; nothing left to replay.
+        t.parcial = "";
         for (const b of msg.message.content) {
           if (b.type === "tool_use") ev({ tipo: "ferramenta", id: b.id, nome: b.name, entrada: b.input });
         }
@@ -429,15 +462,15 @@ async function turno(j, texto, anexos) {
         // read it; what was written says whether that TTL is 5 minutes or 1 hour.
         if (u && (u.cache_read_input_tokens || u.cache_creation_input_tokens)) {
           const c = u.cache_creation;
-          j.cacheTtl = c?.ephemeral_1h_input_tokens ? 3600 : c?.ephemeral_5m_input_tokens ? 300 : j.cacheTtl || 300;
-          ev({ tipo: "cache", ate: (pedidoEm || Date.now()) + j.cacheTtl * 1000, ttl: j.cacheTtl });
+          t.cacheTtl = c?.ephemeral_1h_input_tokens ? 3600 : c?.ephemeral_5m_input_tokens ? 300 : t.cacheTtl || 300;
+          ev({ tipo: "cache", ate: (pedidoEm || Date.now()) + t.cacheTtl * 1000, ttl: t.cacheTtl });
         }
         if (msg.error) ev({ tipo: "erro", texto: `Erro da API: ${msg.error}` });
       } else if (msg.type === "user" && !msg.parent_tool_use_id && Array.isArray(msg.message?.content)) {
         for (const b of msg.message.content) {
           if (b.type === "tool_result") {
             const corpo = typeof b.content === "string" ? b.content : (b.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-            ev({ tipo: "ferramenta_fim", id: b.tool_use_id, erro: !!b.is_error, saida: corpo.slice(0, 4000) });
+            ev({ tipo: "ferramenta_fim", id: b.tool_use_id, erro: !!b.is_error, saida: corpo.slice(0, 4000), tarefa: tarefaDoResultado(msg.tool_use_result, corpo) });
           }
         }
       } else if (msg.type === "rate_limit_event") {
@@ -453,10 +486,23 @@ async function turno(j, texto, anexos) {
   } catch (err) {
     if (!ac.signal.aborted) ev({ tipo: "erro", texto: String(err?.message || err) });
   } finally {
-    j.atual = null;
-    ev({ tipo: "parado" });
-    if (novo && j.sessionId && geral.titulo !== false && resposta && !texto.startsWith("/")) tituloAutomatico(j, j.sessionId, texto, resposta);
+    turnos.delete(t);
+    if (t.j.atual === t) t.j.atual = null;
+    ev({ tipo: "parado", id: t.sessionId });
+    avisaTurnos();
+    if (novo && t.sessionId && geral.titulo !== false && resposta && !texto.startsWith("/")) tituloAutomatico(t.j, t.sessionId, texto, resposta);
   }
+}
+// What a task tool gave back, for the plan: the new task's id, or the whole
+// list. The structured result is preferred; the text ("Task #3 created") is
+// what the transcript keeps.
+function tarefaDoResultado(r, corpo = "") {
+  if (r && typeof r === "object") {
+    if (r.task?.id) return { id: String(r.task.id) };
+    if (Array.isArray(r.tasks)) return { lista: r.tasks.map((x) => ({ id: String(x.id), subject: x.subject, status: x.status })) };
+  }
+  const m = /^Task #(\w+) created/m.exec(corpo);
+  return m ? { id: m[1] } : undefined;
 }
 
 // History of a Claude Code session, reduced to what the window draws.
@@ -470,13 +516,22 @@ async function historico(id, dir) {
     if (m.type === "user") {
       if (typeof c === "string") { if (!c.trimStart().startsWith("<")) out.push({ papel: "eu", texto: c, uuid: m.uuid }); }
       else if (Array.isArray(c)) {
-        const t = c.filter((b) => b.type === "text").map((b) => b.text).join("\n"), imagens = c.filter((b) => b.type === "image").length;
-        if ((t && !t.startsWith("<")) || imagens) out.push({ papel: "eu", texto: t, imagens, uuid: m.uuid });
+        const t = c.filter((b) => b.type === "text").map((b) => b.text).join("\n"), imagens = c.filter((b) => b.type === "image");
+        // Pictures sent inline come back as data URLs, so they open in the preview.
+        const fotos = imagens.filter((b) => b.source?.type === "base64").map((b) => `data:${b.source.media_type};base64,${b.source.data}`);
+        if ((t && !t.startsWith("<")) || imagens.length) out.push({ papel: "eu", texto: t, imagens: imagens.length - fotos.length, fotos, uuid: m.uuid });
+        // What the task tools answered, so the plan can be rebuilt.
+        for (const b of c) {
+          if (b.type !== "tool_result") continue;
+          const corpo = typeof b.content === "string" ? b.content : (b.content || []).filter((x) => x.type === "text").map((x) => x.text).join("\n");
+          const tarefa = tarefaDoResultado(m.toolUseResult ?? m.tool_use_result, corpo);
+          if (tarefa) out.push({ papel: "resultado", id: b.tool_use_id, tarefa });
+        }
       }
     } else if (m.type === "assistant" && Array.isArray(c)) {
       for (const b of c) {
         if (b.type === "text" && b.text.trim()) out.push({ papel: "claude", texto: b.text, uuid: m.uuid });
-        if (b.type === "tool_use") out.push({ papel: "ferramenta", nome: b.name, entrada: b.input });
+        if (b.type === "tool_use") out.push({ papel: "ferramenta", id: b.id, nome: b.name, entrada: b.input });
       }
     }
   }
@@ -517,7 +572,7 @@ function criarJanela(sessao) {
   janelas.set(id, j);
   if (!principal) principal = j;
   win.on("closed", () => {
-    if (j.atual) j.atual.ac.abort();
+    for (const t of turnos) if (t.j === j) t.ac.abort();
     janelas.delete(id);
     if (principal === j) principal = janelas.values().next().value || null;
   });
@@ -557,14 +612,14 @@ function criarJanela(sessao) {
   return j;
 }
 // A conversation running in another window can't be opened to send here too.
-const emOutra = (j, id) => [...janelas.values()].some((o) => o !== j && o.sessionId === id && o.atual);
+const emOutra = (j, id) => { const t = turnoDe(id); return !!t && t.j !== j; };
 
 ipcMain.handle("estado", (e) => ({ ...config, cwd: J(e).cwd, sessionId: J(e).sessionId, rodando: !!J(e).atual, temas: TEMAS, janelas: janelas.size }));
 ipcMain.handle("enviar", (e, texto, anexos) => {
   const j = J(e);
-  if (j.atual) return false;
+  if (j.atual || (turnoDe(j.sessionId) && !emOutra(j, j.sessionId))) return false;
   if (j.sessionId && emOutra(j, j.sessionId)) { enviarEvento(j, { tipo: "erro", texto: "Essa conversa está rodando em outra janela. Espere ela terminar." }); return false; }
-  turno(j, String(texto), Array.isArray(anexos) ? anexos : []); return true;
+  turno(j, String(texto), Array.isArray(anexos) ? anexos : []); return j.atual?.tid || true;
 });
 ipcMain.handle("janela_nova", (_e, sessao) => { criarJanela(sessao || undefined); });
 ipcMain.handle("comandos", async (e) => { try { return await comandos(J(e)); } catch (e) { console.log("[comandos]", e?.message || e); return []; } });
@@ -589,14 +644,14 @@ ipcMain.handle("motion_apagar", (_e, id) => { try { fs.unlinkSync(path.join(past
 ipcMain.handle("parar", async (e) => { const a = J(e).atual; if (a) { try { await a.q.interrupt(); } catch { a.ac.abort(); } } });
 ipcMain.handle("permissao", (_e, { id, decisao }) => {
   const p = pendentes.get(id); if (!p) return;
-  pendentes.delete(id);
+  pendentes.delete(id); p.t.pendentes.delete(id); avisaTurnos();
   if (decisao === "negar") p.resolve({ behavior: "deny", message: "A pessoa negou." });
   else {
     p.resolve({ behavior: "allow", updatedPermissions: decisao === "sempre" ? p.suggestions : undefined });
     // Approving a plan leaves plan mode: the next turns may edit (asking first).
     if (p.toolName === "ExitPlanMode" && config.modo === "plan") {
       config.modo = "default"; salvarConfig(); avisaConfig();
-      p.j?.atual?.q.setPermissionMode?.("default").catch?.(() => {});
+      p.t.q.setPermissionMode?.("default").catch?.(() => {});
     }
   }
 });
@@ -671,7 +726,7 @@ ipcMain.handle("abrir_arquivo", (_e, caminho, naPasta) => { if (!caminho || !fs.
 // Answers to Claude's questions go back as the tool's input with the answers.
 ipcMain.handle("responder", (_e, { id, respostas }) => {
   const p = pendentes.get(id); if (!p) return;
-  pendentes.delete(id);
+  pendentes.delete(id); p.t.pendentes.delete(id); avisaTurnos();
   if (!respostas) p.resolve({ behavior: "deny", message: "A pessoa preferiu não responder." });
   else p.resolve({ behavior: "allow", updatedInput: { ...p.input, answers: respostas } });
 });
@@ -689,7 +744,8 @@ ipcMain.handle("desfazer", async (e, { uuid, simular }) => {
   catch (e) { return { canRewind: false, error: String(e.message || e) }; }
   finally { solta(); ac.abort(); q.return?.().catch(() => {}); }
 });
-ipcMain.handle("nova", (e) => { const j = J(e); if (!j.atual) j.sessionId = null; return !j.atual; });
+// A running turn keeps going in the background; the window starts afresh.
+ipcMain.handle("nova", (e) => { const j = J(e); j.sessionId = null; j.atual = null; return true; });
 // The Claude app (Code tab) keeps its own record of each conversation — the
 // title it shows, whether it is archived — next to the transcript Claude Code
 // writes. Reading those records lets the list use the same names the person
@@ -749,10 +805,18 @@ ipcMain.handle("sessoes", async (e, { todas } = {}) => {
 // Opening a conversation from another project moves this window there, so
 // Claude keeps working in the right folder.
 ipcMain.handle("abrir_sessao", async (e, id, cwd) => {
-  const j = J(e); if (j.atual) return null;
+  const j = J(e);
   if (cwd && cwd !== j.cwd && fs.existsSync(cwd)) j.cwd = cwd;
-  j.sessionId = id;
-  try { return await historico(id, cwd || j.cwd); } catch { return []; }
+  j.sessionId = id; j.atual = null;
+  let hist = [];
+  try { hist = await historico(id, cwd || j.cwd); } catch {}
+  if (j.sessionId !== id) return null;
+  // A turn of this conversation still running (here or left in the
+  // background): the window picks it up where it is, after the transcript.
+  const t = turnoDe(id);
+  if (!t || t.j !== j) return { hist };
+  j.atual = t;
+  return { hist, turno: { tid: t.tid, n: t.n, parcial: t.parcial, pendentes: [...t.pendentes.values()] } };
 });
 // Branch: a new conversation with this one up to a reply (or all of it).
 ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {
@@ -803,7 +867,7 @@ ipcMain.handle("buscar", async (e, termo, todas) => {
 ipcMain.handle("focar", (e) => { const w = J(e).win; if (w.isMinimized()) w.restore(); w.show(); w.focus(); });
 ipcMain.handle("renomear", async (e, { id, titulo, cwd }) => { try { await renameSession(id, titulo, { dir: cwd || J(e).cwd }); return true; } catch { return false; } });
 ipcMain.handle("apagar", async (e, id, cwd) => {
-  if ([...janelas.values()].some((o) => o.atual && o.sessionId === id)) return false;
+  if (turnoDe(id)) return false;
   try {
     await deleteSession(id, { dir: cwd || J(e).cwd });
     for (const o of janelas.values()) if (o.sessionId === id) { o.sessionId = null; if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
@@ -818,7 +882,7 @@ ipcMain.handle("pasta", async (e) => {
   config.cwd = j.cwd = r.filePaths[0]; j.sessionId = null; salvarConfig(); return j.cwd;
 });
 ipcMain.handle("config", (_e, mudanca) => { config = { ...config, ...mudanca }; salvarConfig(); avisaConfig(); return config; });
-function avisaConfig() { for (const o of janelas.values()) enviarEvento(o, { tipo: "config", modo: config.modo, model: config.model, esforco: config.esforco }); }
+function avisaConfig() { for (const o of janelas.values()) enviarEvento(o, { tipo: "config", modo: config.modo, model: config.model, esforco: config.esforco, ultracode: !!config.ultracode }); }
 // Everything the person customised (colours, fonts, sounds, music, icon, name).
 ipcMain.handle("visual", () => config.visual || {});
 // Sync, so the window can translate itself before it first paints.

@@ -60,7 +60,7 @@ const Clawd = (() => {
 
   let estado = "parado", desde = performance.now(), pulo = 0, tremor = 0, piscaAte = 0, proxPisca = performance.now() + 2500, olhar = 0, mouseX = null, ligado = true;
   const FALAS = { pensando: ["pensando…"], escrevendo: ["escrevendo…"], esperando: ["preciso de você"], erro: ["algo deu errado"], pronto: ["pronto"] };
-  const VERBO = { Read: "lendo…", Glob: "procurando…", Grep: "buscando…", Edit: "editando…", MultiEdit: "editando…", Write: "escrevendo arquivo…", Bash: "rodando comando…", PowerShell: "rodando comando…", WebFetch: "lendo a web…", WebSearch: "pesquisando…", Task: "chamando ajuda…", Agent: "chamando ajuda…", TodoWrite: "planejando…" };
+  const VERBO = { Read: "lendo…", Glob: "procurando…", Grep: "buscando…", Edit: "editando…", MultiEdit: "editando…", Write: "escrevendo arquivo…", Bash: "rodando comando…", PowerShell: "rodando comando…", WebFetch: "lendo a web…", WebSearch: "pesquisando…", Task: "chamando ajuda…", Agent: "chamando ajuda…", TodoWrite: "planejando…", TaskCreate: "planejando…", TaskUpdate: "planejando…", Workflow: "chamando ajuda…" };
   let timerBalao = null;
   function fala(texto, ms = 0) {
     clearTimeout(timerBalao);

@@ -1,0 +1,30 @@
+{
+  "Ultracode": {
+    "en": "Ultracode",
+    "vi": "Ultracode"
+  },
+  "O Claude monta um fluxo com vários agentes para cada tarefa. Gasta bem mais do seu limite.": {
+    "en": "Claude plans a workflow of many agents for each task. Uses far more of your limit.",
+    "vi": "Claude dựng một luồng nhiều agent cho mỗi tác vụ. Tốn hạn mức hơn nhiều."
+  },
+  "Ultracode ligado": {
+    "en": "Ultracode on",
+    "vi": "Đang bật Ultracode"
+  },
+  "Fluxo de agentes": {
+    "en": "Agent workflow",
+    "vi": "Luồng agent"
+  },
+  "iniciar um fluxo de vários agentes": {
+    "en": "start a multi-agent workflow",
+    "vi": "chạy một luồng nhiều agent"
+  },
+  "Pré-visualização da imagem": {
+    "en": "Image preview",
+    "vi": "Xem trước hình ảnh"
+  },
+  "Ver imagem": {
+    "en": "View image",
+    "vi": "Xem hình ảnh"
+  }
+}
