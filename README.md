@@ -1,116 +1,136 @@
 # Claudie
 
-Made by [Nguyễn Văn Nam](https://github.com/siinn1706). A fork of [Claudinho](https://github.com/Lu1sR0/claudinho) by [Luis Roberto](https://luisrobertoportifolio.com): a Windows desktop app that talks to your local **Claude Code** through the official Agent SDK and draws the chat over live ASCII wallpapers. This fork adds an **English** and **Vietnamese** interface next to the original Portuguese.
+A Windows desktop app that talks to your local **Claude Code** through the official Agent SDK and draws the chat over live ASCII wallpapers, with Clawd at your side: 15 animated themes with music and sounds, 278 animations from the ASCII Magic library, Wallpaper Engine wallpapers, and your own videos, images and GIFs.
 
-Do Nguyễn Văn Nam thực hiện. Bản fork của Claudinho, thêm giao diện **tiếng Anh** và **tiếng Việt** bên cạnh tiếng Bồ Đào Nha gốc.
-
-## Language / Ngôn ngữ
-
-Customize → General → Language (Tùy chỉnh → Chung → Ngôn ngữ): Português, English, Tiếng Việt. The default is Tiếng Việt, and switching applies right away. Claude replies in whatever language you write in, and the titles and news it writes for the app follow the interface language.
-
-How it works: the code stays in Portuguese. [`src/renderer/i18n/i18n.js`](src/renderer/i18n/i18n.js) swaps each visible text node and the title/placeholder/aria-label/alt attributes using the dictionaries in [`src/renderer/i18n/parts/`](src/renderer/i18n/parts/), keyed by the Portuguese text, with `{0}` for values that change. Your messages, Claude's replies and code are never touched. The main process uses the same dictionaries for native dialogs and exports ([`src/i18n.js`](src/i18n.js)). To translate a new string, add its Portuguese text as a key in a parts file.
-
-## Run / Chạy
+Made by [Nguyễn Văn Nam](https://github.com/siinn1706). A fork of [Claudinho](https://github.com/Lu1sR0/claudinho) ([meuclaudinho.com.br](https://meuclaudinho.com.br)) by [Luis Roberto](https://luisrobertoportifolio.com) that adds English and Vietnamese interfaces next to the original Portuguese.
+## Run
 
 1. Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in.
-2. Download `Claudie-Setup.exe` from [Releases](https://github.com/siinn1706/claudie/releases/latest) and run it (it is not code-signed, so SmartScreen asks first: More info → Run anyway). Or, from source: `npm install`, then `npm start`. Windows 10 or 11.
+2. Download `Claudie-Setup.exe` from [Releases](https://github.com/siinn1706/claudie/releases/latest) and run it. It is not code-signed, so SmartScreen asks first: More info → Run anyway. Requires Windows 10 or 11.
 
 **Sign-in:** by default the app uses your Claude Code login (your plan). Anthropic's Agent SDK docs say third-party apps should not offer claude.ai login without approval, so read [the note in the SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) and decide for yourself. Customize → General → Account lets you use an **Anthropic API key** instead (billed per use, encrypted by the OS).
 
-Not affiliated with or endorsed by Anthropic. Claude, Claude Code and Clawd are trademarks of Anthropic.
-
-## License
-
-[MIT](LICENSE). Copyright (c) 2026 Nguyễn Văn Nam for Claudie, and Copyright (c) 2026 Luis Roberto for the original Claudinho code it builds on; both notices stay in the license, as MIT requires.
-
----
-
-*The original Claudinho documentation (in Portuguese) follows.*
-
-O seu Claude Code, agora com mais vida. Um app de desktop que conversa com o **Claude Code** de verdade (pelo SDK oficial de agentes) e desenha a conversa sobre papéis de parede ASCII vivos, com o Clawd do seu lado: 15 temas animados com música e sons, 278 animações da biblioteca ASCII Magic, papéis de parede do Wallpaper Engine, vídeos, imagens e GIFs seus.
-
-Site do original: [meuclaudinho.com.br](https://meuclaudinho.com.br) · Feito por [Luis Roberto](https://luisrobertoportifolio.com)
-
-**Como entra no Claude**: por padrão, com o login do próprio Claude Code (o seu plano). Em Personalizar → Geral → Conta dá pra usar uma **chave de API da Anthropic** no lugar (cobrada por uso); a chave fica cifrada pelo sistema.
-
-## Desenvolver
+### From source
 
 ```bash
 npm install
-npm start          # abre o app
-npm run dist       # gera o instalador em dist/
+npm start          # open the app (or double-click "Abrir Claudie.bat")
+npm run dist       # build the installer into dist/
 ```
 
-## Como usar
+## Language
 
-- **Pasta do projeto** (barra lateral): a pasta onde o Claude Code trabalha.
-- **Conversas**: "Todas" mostra as conversas do Claude Code de todos os projetos (as do terminal, do app do Claude na aba Code e das outras janelas), com o nome do projeto em cada uma; "Esta pasta" mostra só as da pasta atual. A lista sincroniza sozinha quando qualquer conversa muda, e o botão ⟳ força na hora. Abrir uma conversa de outro projeto leva a janela para a pasta dele. As conversas do claude.ai (chat da web/app) não aparecem: elas ficam nos servidores da Anthropic, sem acesso oficial.
-- **Modelo e permissões**: escolha na barra lateral. Em "Perguntar", cada ferramenta que precisa de aprovação aparece como um cartão com Permitir, Sempre nesta sessão e Negar. O campo "Diga ao Claude o que fazer em vez disso" no cartão vai junto do Negar como recado. Quando o Claude apresenta um plano (modo plano), o cartão mostra o plano em Markdown e deixa aprovar em Perguntar, Editar sem perguntar ou Automático, ou continuar planejando com um ajuste.
-- **Escolhas por conversa**: modelo, permissão, esforço e Ultracode ficam guardados em cada conversa (uma conversa nova começa com a última escolha feita numa nova) e valem na hora no turno que estiver rodando; o que o Claude Code não aceitar no meio do turno vale a partir da próxima mensagem.
-- **Temas**: peça ao Claude (*"deixa o chat com a Honu Lagoon"*), digite `/theme`, `/theme lareira`, `/theme default`, ou use o botão 🎨 Temas.
-- **Biblioteca**: a aba Biblioteca do seletor tem 278 animações da [ASCII Magic](https://www.ascii-magic.com/ascii) (MIT), de 9 categorias: paisagens, cidades, cosmos, clima e natureza, animais, algoritmos, arcade, datas e mascotes (a lista fica em `tools/indice-magia.mjs`), com busca e categorias. `/wallpaper gato` abre a busca; o Claude também procura e aplica (*"põe um fundo de chuva"*).
-- **Meus**: crie no [ASCII Motion](https://www.ascii-motion.com), exporte como JSON e importe (botão, `/import` ou arrastando o arquivo para a aba). Sessões `.asciimtn` sem camadas também entram.
-- **Anexos**: clipe no campo de mensagem, arrastar arquivos para a janela ou colar imagens (Ctrl+V). Imagens vão para o Claude (as grandes demais para a API são reduzidas sozinhas; se nem assim couberem, o app avisa e não as envia); os outros arquivos ele abre pelo caminho. Clique numa imagem (no campo ou numa mensagem enviada) para vê-la em tamanho grande; Esc fecha.
-- **Comandos**: digite `/` para ver os comandos do app e os do Claude Code (skills, `/compact`, `/review`…). Setas escolhem, Tab completa, Enter executa.
-- **Mencionar arquivos**: digite `@` para listar os arquivos e pastas da pasta da conversa (respeita o `.gitignore` em repositórios git) e filtre digitando. Setas/Tab/Enter escolhem e Esc fecha; escolher uma pasta insere `@pasta/` e continua a lista dentro dela. O `@caminho` vai como texto para o Claude.
-- **Cache do prompt**: o relógio ao lado do medidor de contexto conta quanto falta para o cache expirar (5 min ou 1 h, conforme o que a API gravou). Mandar a próxima mensagem antes disso reaproveita o contexto; depois, ele é lido de novo inteiro.
-- **Remote Control**: o botão do celular no topo liga o `claude remote-control` na pasta atual e mostra o link para continuar pelo claude.ai/code ou pelo app do Claude. Precisa do login de assinatura do Claude e de uma pasta em que o Claude Code já confia; desligar (ou fechar o Claudie) encerra o servidor.
-- **Esforço**: a barrinha ao lado do modelo define quanto o Claude pensa (padrão a máximo). Permissões e modelo abrem um menu que explica cada opção.
-- **Ultracode**: o interruptor no cartão de esforço faz o Claude montar um fluxo com vários agentes para cada tarefa (o `ultracode` do Claude Code). Gasta bem mais do limite; precisa dos workflows ligados no Claude Code (no Pro, `enableWorkflows` no /config) e de um modelo com nível xhigh.
-- **Conversas**: fixar no topo, arquivar, duplicar, exportar em Markdown, renomear e apagar (menu ⋯). Arquivar tira a conversa da lista (não vale para uma que está rodando); "Arquivadas", embaixo da lista, mostra as arquivadas (inclusive as que o app do Claude arquivou) e o menu ⋯ dela tem "Desarquivar". A busca (Ctrl+K) procura também dentro das mensagens.
-- **Respostas**: copiar, ler em voz alta e **ramificar daqui** (nova conversa a partir daquela resposta; a original fica intacta). Hora em cada mensagem.
-- **Git e worktrees**: o ramo atual da pasta aparece ao lado do título (também dentro de um worktree). "Nova conversa num worktree" (barra lateral) pede um nome curto, cria um ramo novo com `git worktree add` em `<pasta>/.claude/worktrees` (se o projeto já usa essa pasta) ou em `<pasta>-worktrees/` e abre uma conversa nele; ao apagar a última conversa de um worktree o app oferece removê-lo (com confirmação; mudanças não salvas impedem).
-- **Pull request**: com o GitHub CLI (`gh`) instalado e a pasta num repositório do GitHub, o painel de detalhes mostra o PR do ramo (número, título, estado e resumo dos checks), com botões para abrir no navegador e para criar um (envia o ramo com `git push -u origin HEAD` e roda `gh pr create --fill`, só ao clicar e depois de confirmar).
-- **Terminal**: o botão do topo (ou Ctrl+`) abre um terminal na pasta da conversa, sem pty: PowerShell (ou `pwsh`) no Windows, bash/zsh nos outros sistemas. Enter executa, ↑/↓ percorrem o histórico, Ctrl+C (ou o botão de parar) encerra o que está rodando e reinicia o shell, e "Mandar pro Claude" anexa a saída do último comando à mensagem. Cores ANSI são removidas; o shell fecha junto com a janela.
-- **Enquanto o Claude trabalha**: dá para abrir outra conversa ou começar uma nova; a que está rodando continua em segundo plano (a lista mostra um círculo girando, ou um ponto âmbar quando ela espera a sua aprovação) e, ao voltar, a resposta e os cartões pendentes estão lá. O que você enviar entra na fila da conversa e sai quando ele terminar. O plano dele (TodoWrite ou as ferramentas Task*, com círculo tracejado, girando e marcado) fica fixo acima do campo e volta ao reabrir a conversa, e o medidor ao lado do botão mostra quanto do contexto já foi usado.
-- **Avisos**: com a janela em segundo plano, uma notificação avisa quando o Claude termina ou precisa de aprovação. Ctrl+Shift+Espaço mostra o Claudinho de qualquer lugar. Ctrl+/ lista os atalhos.
-- **Clawd**: o mascote do Claude Code está em todo lugar. Na abertura ele se monta com ladrilhos; na tela inicial ele segue o mouse com os olhos, acena quando você passa por cima, pula e solta faíscas no clique e dorme se você fica parado; ao lado do campo de mensagem ele acompanha o Claude (pensa, digita, chama você, pula quando termina); na barra lateral e no "pensando" ele balança e digita. Dá pra **pegar o Clawd** ao lado do campo: ele balança pendurado no mouse, cai quando você solta (e fica tonto se for arremessado) e volta andando pro lugar; clique nele e ele pula e fala (tem muitas falas). De vez em quando ele espia de trás da barra lateral quando você passa o mouse num projeto. Ele também é o ícone do app; o atalho **Claudinho** na pasta abre o app com esse ícone.
-- **Várias janelas**: abra uma conversa em outra janela (menu ⋯ da conversa) ou uma janela nova com Ctrl+Shift+N; cada janela tem a sua conversa.
-- **Conectores (MCP)**: o painel de detalhes (Ctrl+J) mostra cada conector com estado, escopo e número de ferramentas. Dá para desligar e ligar (vale também nas próximas mensagens da pasta), reconectar e remover (usa `claude mcp remove`), e "Adicionar conector" cria um novo (comando local, http ou sse, com variáveis ou cabeçalhos) via `claude mcp add`. Os erros do Claude Code aparecem no painel. Os conectores do claude.ai só são mostrados; gerencie-os em claude.ai/settings/connectors. Nada roda sem o seu clique.
-- **Barra lateral**: grupos (pastas que abrem e fecham; arraste conversas para elas) e cores para as conversas, no menu ⋯.
-- **Respostas longas** vêm dobradas, com um índice dos títulos e "Ler a resposta inteira".
-- **Janelinhas flutuantes** (arraste pelo título, redimensione pelo canto e fixe no alfinete para ela ficar aberta no mesmo lugar, mesmo depois de fechar o app): **Alterações da conversa** (botão no topo: em pasta com git mostra o diff real contra o último commit, com lista de arquivos, totais, abrir arquivo e reverter com confirmação, atualizado ao fim de cada turno; a aba "Desta conversa" lista só o que o Claude mudou, com diff e "desfazer a partir daqui"), o **plano** do Claude destacado e o **player de música** (no botão de som).
-- **Clique direito** no papel de parede abre um menu radial. `!comando` no campo pede ao Claude para rodar no terminal. Clique direito num bloquinho do trilho volta os arquivos para antes dali.
-- **Enquanto o Claude trabalha**: o raciocínio aparece num bloco recolhível, cada ferramenta vira um bloquinho no trilho do topo (clique para ir até ela), edições aparecem como diff (+/−), e o papel de parede reage (ondas, ritmo).
-- **Saídas das ferramentas**: o cartão mostra o começo do resultado e o botão "Ver tudo" carrega o texto completo; imagens devolvidas por uma ferramenta aparecem no cartão (clique para ampliar) e, ao reabrir a conversa, os cartões voltam com o resultado e o estado (ok ou erro). O que um subagente faz (Task/Agent) aparece como lista dentro do cartão dele, com o total de ferramentas, e o trabalho em segundo plano (comandos, agentes, monitores e fluxos do ultracode) fica numa faixa "Em segundo plano" acima do campo de mensagem enquanto roda.
-- **Tarefas em segundo plano**: a faixa e o contador ao lado do campo ("2 tarefas") abrem uma janelinha como a "Tarefas em segundo plano" do Claude Desktop. Em "Rodando" cada tarefa tem um cartão com o tempo correndo, tokens e ferramentas; um fluxo mostra as fases (concluídos/total, um quadradinho por agente, e a tabela de agentes com tokens e duração ao abrir a fase) e cada tarefa tem o botão de parar (o fluxo pede um segundo clique). "Concluídas" guarda, por conversa e enquanto o app estiver aberto, as últimas 100 com situação (Concluída, Falhou, Parada), duração e resumo. As fases vêm do `meta` do script do fluxo e os agentes e tokens, do que o Claude Code grava em disco durante a execução (só leitura); a conversa aberta pode trocar à vontade que o estado continua no app. Esc fecha.
-- **Desfazer**: passe o mouse numa mensagem sua e clique na seta: os arquivos que o Claude mudou a partir dali voltam ao que eram (com prévia antes).
-- **Perguntas do Claude** viram um formulário com as opções; **textos colados grandes** viram um anexo que dá pra abrir e editar; **título automático** para conversas novas; aviso e "continuar sozinho" quando o limite do plano estoura.
-- **Personalizar** (barra lateral ou `/customize`):
-  - **Geral**: enviar com Enter ou Ctrl+Enter, **desempenho** (Automático, Máximo ou Leve), mostrar raciocínio, título automático, Clawd, papel de parede que reage, notificações e a **conta** (login do Claude Code ou chave de API).
-  - **Fundo**: imagens, GIFs e vídeos seus como papel de parede (também arrastando para a aba Meus), e papéis de parede de vídeo e de página do **Wallpaper Engine** (os de cena só rodam dentro dele), com ajuste, escurecer, desfocar e som do vídeo.
-  - **Cores**: paletas prontas, cor de destaque, do texto e do vidro, opacidade e desfoque do vidro, vidro claro ou escuro.
-  - **Fontes**: fonte da interface e do código (da internet ou seus arquivos .ttf/.otf/.woff), tamanho do texto e largura da conversa.
-  - **Sons**: um som seu para enviar, terminar, pedido de aprovação, erro, clique no papel de parede e abrir o app.
-  - **Música**: suas músicas tocando em sequência ou aleatórias, no lugar da música dos temas ou junto (controles também no botão de som).
-  - **Ícone e nome**: ícone da janela e da barra de tarefas, opcionalmente na barra lateral, e o nome do app.
-  - Os arquivos ficam copiados em `%APPDATA%\Claudinho\pessoal`; "Restaurar tudo" volta ao padrão.
-- **Uso do plano** (botão de fôlego no topo): o Clawd treina na academia; vai cansando conforme a sessão de 5 horas enche e dorme quando bate o limite, com a hora em que libera. Mostra também a semana e por modelo.
-- **Clawd conversa**: de tempos em tempos ele comenta o projeto, conta curiosidades do Claude e da Anthropic, dá dicas do app e traz novidades (uma busca rápida por dia). Clique nele para ouvir a próxima. Dá pra desligar em Personalizar → Geral.
-- **Créditos**: na barra lateral, quem fez cada arte e cada parte do app.
-- **Som**: botão no topo (começa desligado).
-- `/new` começa uma conversa nova.
+Customize → General → Language: Portuguese, English or Vietnamese. The default is Vietnamese, and switching applies immediately. Claude replies in whatever language you write in; the titles and news it writes for the app follow the interface language.
 
-## Estrutura
+The source code stays in Portuguese. [`src/renderer/i18n/i18n.js`](src/renderer/i18n/i18n.js) swaps each visible text node and the `title`, `placeholder`, `aria-label` and `alt` attributes using the dictionaries in [`src/renderer/i18n/parts/`](src/renderer/i18n/parts/), keyed by the Portuguese text, with `{0}` for values that change. Your messages, Claude's replies and code are never touched. The main process uses the same dictionaries for native dialogs and exports ([`src/i18n.js`](src/i18n.js)). To translate a new string, add its Portuguese text as a key in a parts file.
 
-- `src/main.js`: a janela e a ponte com o Claude Code (`query()` do `@anthropic-ai/claude-agent-sdk`), permissões e as ferramentas de tema que o Claude pode chamar.
-- `src/preload.cjs`: as chamadas que a janela pode fazer.
-- `src/renderer/`: a interface (`index.html`, `app.css`, `app.js`) e o motor dos papéis de parede (`wallpapers/`).
-- `src/renderer/wallpapers/arte.mjs`: toca as peças da ASCII Magic e as animações importadas; `magia-indice.js` é gerado por `node tools/indice-magia.mjs`.
-- `docs/pesquisa-melhorias.md`: o que os usuários mais pedem ao Claude e conceitos de design, com o que já foi feito e o que falta.
-- `src/renderer/personalizar.js`: o painel Personalizar (cores, fontes, sons, música, ícone e nome).
-- `src/renderer/extras.js`, `clawd-arte.js`, `clawd.js`, `interface.js`, `os.js`: raciocínio, diffs, desfazer, perguntas, limites, o Clawd, o trilho de atividade, as janelinhas e o menu radial.
-- `src/renderer/simulador.js`: abre a interface num navegador comum com respostas de mentira, para mexer no visual sem o Claude Code.
+## Features
 
-## Testes
+### Conversations
 
-- `node tools/teste-sdk.mjs`: uma pergunta curta pelo SDK, para conferir o login e o streaming.
-- `VIVO_LOG=1 VIVO_TESTE="mensagem" npm start`: envia a mensagem ao abrir e registra os eventos no terminal (`VIVO_ANEXO=arquivo` anexa um arquivo).
-- `node`/testes: com `VIVO_PASTA` ou `VIVO_JS` o app usa um perfil separado (`%APPDATA%\Claudinho-teste`), então os testes não mexem nas suas configurações e rodam com o app aberto.
-- `VIVO_MOTION=arquivo.json`: importa uma animação do ASCII Motion ao abrir. `VIVO_JS="expressão" VIVO_FOTO=tela.png`: roda um código na janela e salva uma foto dela.
+- **Project folder** (sidebar): the folder Claude Code works in.
+- **List**: "All" shows Claude Code conversations from every project (terminal, the Claude app's Code tab, other windows), labeled with the project name; "This folder" shows only the current folder's. The list syncs whenever a conversation changes, and ⟳ forces a refresh. Opening a conversation from another project moves the window to that folder. claude.ai web/app chats do not appear: they live on Anthropic's servers with no official access.
+- **Menu ⋯**: pin, archive, duplicate, export to Markdown, rename, delete, open in another window, group and color. Archiving hides a conversation (not while it is running); "Archived", below the list, shows them (including ones the Claude app archived) with "Unarchive". Search (Ctrl+K) also looks inside messages. Groups are folders you can drag conversations into.
+- **Per-conversation settings**: model, permission mode, effort and Ultracode are saved per conversation (a new one starts with the last choice made in a new one) and apply right away to the running turn; anything Claude Code can't change mid-turn applies from the next message.
+- **Multiple windows**: Ctrl+Shift+N opens a new window; each window has its own conversation.
+- `/new` starts a new conversation.
 
-## Licença e créditos
+### Talking to Claude
 
-Código sob a licença MIT (veja `LICENSE`). As animações da biblioteca vêm do pacote [ascii-magic-art](https://www.ascii-magic.com/ascii) (MIT). O Claude Agent SDK é da Anthropic e segue os termos dela.
+- **Model and permissions**: pick them in the sidebar; each menu explains its options. In "Ask" mode, each tool that needs approval shows a card with Allow, Always this session and Deny; "Tell Claude what to do instead" is sent along with Deny. When Claude presents a plan (plan mode), the card renders it as Markdown and lets you approve into Ask, Edit without asking or Auto, or keep planning with a note.
+- **Effort**: the bar next to the model sets how much Claude thinks, from Default to Maximum.
+- **Ultracode**: the switch on the effort card makes Claude build a multi-agent workflow for each task (Claude Code's `ultracode`). It uses much more of your limit and needs workflows enabled in Claude Code (on Pro, `enableWorkflows` in `/config`) and a model with the xhigh level.
+- **Attachments**: the paperclip, dragging files onto the window, or pasting images (Ctrl+V). Images go to Claude (ones too large for the API are shrunk automatically; if they still don't fit, the app warns and doesn't send them); other files are opened by path. Click an image to view it full size; Esc closes.
+- **Commands**: type `/` to see the app's commands and Claude Code's (skills, `/compact`, `/review`…). Arrows select, Tab completes, Enter runs. `!command` asks Claude to run it in the terminal.
+- **File mentions**: type `@` to list files and folders in the conversation's folder (respects `.gitignore` in git repos) and type to filter. Arrows/Tab/Enter pick, Esc closes; picking a folder inserts `@folder/` and continues inside it. The `@path` is sent to Claude as text.
+- **Claude's questions** become a form with the options; **large pastes** become an attachment you can open and edit; new conversations get an **automatic title**; when the plan limit is hit you get a warning and "Continue on its own when it resets".
 
-O Claudinho é um projeto independente de fã. Não é afiliado nem endossado pela Anthropic. Claude, Claude Code e Clawd são marcas da Anthropic.
+### While Claude works
+
+- You can open another conversation or start a new one; the running one continues in the background (a spinner in the list, or an amber dot when it is waiting for approval), and its reply and pending cards are there when you return. Messages you send are queued and go out when it finishes.
+- Reasoning appears in a collapsible block, each tool becomes a block on the top rail (click to jump to it; right-click to restore files to before that point), edits show as +/− diffs, and the wallpaper reacts (ripples, rhythm).
+- Claude's plan (TodoWrite or the Task* tools) stays pinned above the input and returns when you reopen the conversation. The meter next to the send button shows how much context is used, and the clock beside it counts down until the prompt cache expires (5 min or 1 h, whichever the API recorded); sending before then reuses the cached context.
+- **Tool output**: cards show the start of the result and "Show all" loads the rest; images returned by a tool appear in the card (click to enlarge). Reopened conversations restore cards with their result and status. A subagent's (Task/Agent) activity is listed inside its card with a tool count.
+- **Background tasks**: commands, agents, monitors and ultracode workflows show in an "In the background" strip above the input. The strip and the counter next to the input ("2 tasks") open a "Background tasks" window like Claude Desktop's. "Running" shows a card per task with elapsed time, tokens and tools; a workflow shows its phases (done/total, one square per agent, and an agent table with tokens and duration when expanded), and every task has a stop button (workflows ask for a second click). "Completed" keeps the last 100 per conversation while the app is open, with status (Completed, Failed, Stopped), duration and summary. Phases come from the workflow script's `meta`; agents and tokens are read (read-only) from what Claude Code writes to disk. Esc closes.
+- **Notifications**: with the window in the background, you're notified when Claude finishes or needs approval.
+
+### Replies and undo
+
+- **Replies**: copy, read aloud, and **branch from here** (a new conversation starting at that reply; the original stays intact). Each message shows its time. Long replies come folded, with a table of contents and "Read the full reply".
+- **Undo**: hover one of your messages and click the arrow: files Claude changed from that point on are restored (with a preview first).
+
+### Git, terminal and connectors
+
+- **Git and worktrees**: the folder's current branch shows next to the title (also inside a worktree). "New conversation in a worktree" (sidebar) asks for a short name, creates a new branch with `git worktree add` in `<folder>/.claude/worktrees` (if the project already uses it) or in `<folder>-worktrees/`, and opens a conversation there. Deleting a worktree's last conversation offers to remove it (with confirmation; uncommitted changes block it).
+- **Pull requests**: with the GitHub CLI (`gh`) installed and the folder in a GitHub repo, the details panel shows the branch's PR (number, title, state and checks summary), with buttons to open it in the browser or create one (`git push -u origin HEAD` then `gh pr create --fill`, only on click and after confirmation).
+- **Terminal**: the top button (or Ctrl+`) opens a terminal in the conversation's folder, without a pty: PowerShell (or `pwsh`) on Windows, bash/zsh elsewhere. Enter runs, ↑/↓ browse history, Ctrl+C (or the stop button) kills the running command and restarts the shell, and "Send to Claude" attaches the last command's output to your message. ANSI colors are stripped; the shell closes with the window.
+- **Connectors (MCP)**: the details panel (Ctrl+J) shows each connector with status, scope and tool count. You can disable and enable them (also applies to later messages in that folder), reconnect, remove (`claude mcp remove`), and "Add connector" creates one (local command, http or sse, with env vars or headers) via `claude mcp add`. Claude Code errors show in the panel. claude.ai connectors are display-only; manage them at claude.ai/settings/connectors. Nothing runs without your click.
+- **Remote Control**: the phone button at the top starts `claude remote-control` in the current folder and shows the link to continue on claude.ai/code or in the Claude app. Needs a Claude subscription login and a folder Claude Code already trusts; turning it off (or closing Claudie) stops the server.
+
+### Floating windows
+
+Drag by the title, resize from the corner, and pin to keep one open in the same place, even after restarting the app:
+
+- **Chat changes** (top button): in a git folder, the real diff against the last commit, with a file list, totals, open file and revert with confirmation, refreshed after each turn. The "This conversation" tab lists only what Claude changed, with diffs and "Undo from here".
+- Claude's **plan**, highlighted.
+- The **music player** (on the sound button).
+
+### Wallpapers
+
+- **Themes**: ask Claude (*"put the chat on Honu Lagoon"*), type `/theme`, `/theme koi` or `/theme default`, or use the 🎨 Themes button.
+- **Library**: 278 animations from [ASCII Magic](https://www.ascii-magic.com/ascii) in 9 categories (landscapes, cities, cosmos, weather and nature, animals, algorithms, arcade, occasions and mascots; the list lives in `tools/indice-magia.mjs`), with search. `/wallpaper cat` opens the search; Claude can also find and apply one (*"give me a rain background"*).
+- **Mine**: create in [ASCII Motion](https://www.ascii-motion.com), export as JSON and import (button, `/import`, or drag the file onto the tab). Layerless `.asciimtn` sessions work too.
+- **Right-click** the wallpaper for a radial menu.
+- **Sound**: the button at the top (starts muted).
+
+### Customize
+
+Sidebar or `/customize`:
+
+- **General**: send with Enter or Ctrl+Enter, **performance** (Automatic, Maximum or Light), show reasoning, automatic titles, Clawd, reactive wallpaper, notifications, language and **account** (Claude Code login or API key).
+- **Background**: your images, GIFs and videos as wallpaper (also by dragging onto the Mine tab), plus **Wallpaper Engine** video and web wallpapers (scene ones only run inside Wallpaper Engine), with fit, dim, blur and video sound.
+- **Colors**: preset palettes, accent, text and glass colors, glass opacity and blur, light or dark glass.
+- **Fonts**: interface and code fonts (from the web or your own .ttf/.otf/.woff), text size and chat width.
+- **Sounds**: your own sounds for send, finish, approval request, error, wallpaper click and app open.
+- **Music**: your tracks in order or shuffled, replacing the theme music or alongside it (controls also on the sound button).
+- **Icon and name**: window and taskbar icon, optionally in the sidebar, and the app name.
+
+Files are copied into `%APPDATA%\Claudie\pessoal`; "Reset everything" restores the defaults.
+
+### Clawd
+
+Claude Code's mascot is everywhere. On launch it assembles from tiles; on the home screen it follows the mouse, waves when you hover, jumps and sparks on click, and sleeps when you're idle; next to the input it mirrors Claude (thinks, types, calls you, jumps when done); in the sidebar and the "thinking" indicator it sways and types.
+
+- **Grab Clawd** next to the input: it dangles from the cursor, falls when released (and gets dizzy if thrown), and walks back. Click it and it jumps and talks. Sometimes it peeks from behind the sidebar when you hover a project.
+- **Clawd talks**: from time to time it comments on the project, shares Claude and Anthropic trivia, gives app tips and brings news (one quick search a day). Click it for the next one; turn it off in Customize → General.
+- **Plan usage** (top button): Clawd works out at the gym, tiring as the 5-hour session fills and sleeping at the limit, with the reset time. Also shows the week and per-model usage.
+- It is also the app icon; running the app with `VIVO_ATALHOS=1` creates a `Claudie.lnk` shortcut with that icon in the Start Menu and the app folder.
+
+### Shortcuts and credits
+
+- Ctrl+Shift+Space shows Claudie from anywhere; Ctrl+/ lists all shortcuts.
+- **Credits** (sidebar): who made each artwork and each part of the app.
+
+## Project structure
+
+- `src/main.js`: the window and the bridge to Claude Code (`query()` from `@anthropic-ai/claude-agent-sdk`), permissions and the theme tools Claude can call.
+- `src/preload.cjs`: the calls the window can make.
+- `src/renderer/`: the interface (`index.html`, `app.css`, `app.js`) and the wallpaper engine (`wallpapers/`).
+- `src/renderer/wallpapers/arte.mjs`: plays ASCII Magic pieces and imported animations; `magia-indice.js` is generated by `node tools/indice-magia.mjs`.
+- `src/renderer/personalizar.js`: the Customize panel.
+- `src/renderer/extras.js`, `clawd-arte.js`, `clawd.js`, `interface.js`, `os.js`: reasoning, diffs, undo, questions, limits, Clawd, the activity rail, floating windows and the radial menu.
+- `src/renderer/simulador.js`: opens the interface in a regular browser with fake replies, for working on visuals without Claude Code.
+- `docs/pesquisa-melhorias.md`: what users ask Claude for most and design concepts, with what's done and what's left (in Portuguese).
+
+## Testing
+
+- `node tools/teste-sdk.mjs`: a short question through the SDK, to check login and streaming.
+- `VIVO_LOG=1 VIVO_TESTE="message" npm start`: sends the message on launch and logs events to the terminal (`VIVO_ANEXO=file` attaches a file).
+- With `VIVO_PASTA` or `VIVO_JS` set, the app uses a separate profile (`%APPDATA%\Claudie-teste`), so tests don't touch your settings and can run while the app is open.
+- `VIVO_MOTION=file.json` imports an ASCII Motion animation on launch. `VIVO_JS="expression" VIVO_FOTO=screen.png` runs code in the window and saves a screenshot.
+
+## License and credits
+
+[MIT](LICENSE). Copyright (c) 2026 Nguyễn Văn Nam for Claudie, and Copyright (c) 2026 Luis Roberto for the original Claudinho code it builds on; both notices stay in the license, as MIT requires. Library animations come from the [ascii-magic-art](https://www.ascii-magic.com/ascii) package (MIT). The Claude Agent SDK belongs to Anthropic and follows its terms.
+
+An independent fan project, not affiliated with or endorsed by Anthropic. Claude, Claude Code and Clawd are trademarks of Anthropic.
