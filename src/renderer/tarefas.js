@@ -61,9 +61,16 @@ chipTarefas.className = "tf-chip"; chipTarefas.title = "Tarefas em segundo plano
 chipTarefas.innerHTML = '<i class="tf-gira"></i><b></b><span></span>';
 $("cache").before(chipTarefas);
 chipTarefas.onclick = () => abreTarefas();
+// The sheet also has its place in the top bar, like the other panels.
+const botaoTarefas = document.createElement("button");
+botaoTarefas.className = "icone tf-btn"; botaoTarefas.title = "Tarefas em segundo plano";
+botaoTarefas.innerHTML = `${svg('<rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M7.5 9h3M7.5 13h6M7.5 17h4"/><circle cx="16.5" cy="9" r="1.2"/>')}<i class="badge"></i>`;
+$("infoBtn").before(botaoTarefas);
+botaoTarefas.onclick = () => abreTarefas();
 function desenhaChip() {
   const n = fundoVisto.ativas.length;
   chipTarefas.classList.toggle("on", n > 0);
+  tfTxt(tfQ(botaoTarefas, ".badge"), n ? String(n) : ""); botaoTarefas.classList.toggle("tem", n > 0);
   tfTxt(tfQ(chipTarefas, "b"), String(n)); tfTxt(chipTarefas.lastChild, n === 1 ? "tarefa" : "tarefas");
 }
 

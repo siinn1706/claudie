@@ -1266,3 +1266,7 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .term-linha { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-top: 1px solid var(--line); font: 12.5px var(--mono); }
 .term-linha span { color: var(--accent-2); }
 .term-linha input { flex: 1; min-width: 0; padding: 7px 0; background: none; border: 0; outline: 0; font: inherit; }
+/* Background tasks button in the top bar: a count while something runs. */
+.tf-btn { position: relative; }
+.tf-btn .badge { position: absolute; top: 2px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--accent); color: #fff; font: 600 9.5px/14px var(--fonte); text-align: center; display: none; }
+.tf-btn.tem .badge { display: block; }
