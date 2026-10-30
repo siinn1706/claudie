@@ -59,8 +59,6 @@
   "Parar": { "en": "Stop", "vi": "Dừng" },
   "Enviar (Enter)": { "en": "Send (Enter)", "vi": "Gửi (Enter)" },
   "Não deu pra enviar agora.": { "en": "Couldn't send right now.", "vi": "Hiện không thể gửi." },
-  "[nome]": { "en": "[name]", "vi": "[tên]" },
-  "[busca]": { "en": "[search]", "vi": "[từ khóa]" },
   "Escolher um tema do Claudie": { "en": "Pick a Claudie theme", "vi": "Chọn một chủ đề của Claudie" },
   "Procurar um fundo na biblioteca ASCII Magic": { "en": "Find a wallpaper in the ASCII Magic library", "vi": "Tìm hình nền trong thư viện ASCII Magic" },
   "Importar uma animação feita no ASCII Motion": { "en": "Import an animation made in ASCII Motion", "vi": "Nhập một hoạt ảnh làm bằng ASCII Motion" },

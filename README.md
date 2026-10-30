@@ -47,9 +47,9 @@ npm run dist       # gera o instalador em dist/
 - **Conversas**: "Todas" mostra as conversas do Claude Code de todos os projetos (as do terminal, do app do Claude na aba Code e das outras janelas), com o nome do projeto em cada uma; "Esta pasta" mostra só as da pasta atual. A lista sincroniza sozinha quando qualquer conversa muda, e o botão ⟳ força na hora. Abrir uma conversa de outro projeto leva a janela para a pasta dele. As conversas do claude.ai (chat da web/app) não aparecem: elas ficam nos servidores da Anthropic, sem acesso oficial.
 - **Modelo e permissões**: escolha na barra lateral. Em "Perguntar", cada ferramenta que precisa de aprovação aparece como um cartão com Permitir, Sempre nesta sessão e Negar. O campo "Diga ao Claude o que fazer em vez disso" no cartão vai junto do Negar como recado. Quando o Claude apresenta um plano (modo plano), o cartão mostra o plano em Markdown e deixa aprovar em Perguntar, Editar sem perguntar ou Automático, ou continuar planejando com um ajuste.
 - **Escolhas por conversa**: modelo, permissão, esforço e Ultracode ficam guardados em cada conversa (uma conversa nova começa com a última escolha feita numa nova) e valem na hora no turno que estiver rodando; o que o Claude Code não aceitar no meio do turno vale a partir da próxima mensagem.
-- **Temas**: peça ao Claude (*"deixa o chat com a Honu Lagoon"*), digite `/tema`, `/tema lareira`, `/tema padrão`, ou use o botão 🎨 Temas.
-- **Biblioteca**: a aba Biblioteca do seletor tem 278 animações da [ASCII Magic](https://www.ascii-magic.com/ascii) (MIT), de 9 categorias: paisagens, cidades, cosmos, clima e natureza, animais, algoritmos, arcade, datas e mascotes (a lista fica em `tools/indice-magia.mjs`), com busca e categorias. `/fundo gato` abre a busca; o Claude também procura e aplica (*"põe um fundo de chuva"*).
-- **Meus**: crie no [ASCII Motion](https://www.ascii-motion.com), exporte como JSON e importe (botão, `/importar` ou arrastando o arquivo para a aba). Sessões `.asciimtn` sem camadas também entram.
+- **Temas**: peça ao Claude (*"deixa o chat com a Honu Lagoon"*), digite `/theme`, `/theme lareira`, `/theme default`, ou use o botão 🎨 Temas.
+- **Biblioteca**: a aba Biblioteca do seletor tem 278 animações da [ASCII Magic](https://www.ascii-magic.com/ascii) (MIT), de 9 categorias: paisagens, cidades, cosmos, clima e natureza, animais, algoritmos, arcade, datas e mascotes (a lista fica em `tools/indice-magia.mjs`), com busca e categorias. `/wallpaper gato` abre a busca; o Claude também procura e aplica (*"põe um fundo de chuva"*).
+- **Meus**: crie no [ASCII Motion](https://www.ascii-motion.com), exporte como JSON e importe (botão, `/import` ou arrastando o arquivo para a aba). Sessões `.asciimtn` sem camadas também entram.
 - **Anexos**: clipe no campo de mensagem, arrastar arquivos para a janela ou colar imagens (Ctrl+V). Imagens vão para o Claude (as grandes demais para a API são reduzidas sozinhas; se nem assim couberem, o app avisa e não as envia); os outros arquivos ele abre pelo caminho. Clique numa imagem (no campo ou numa mensagem enviada) para vê-la em tamanho grande; Esc fecha.
 - **Comandos**: digite `/` para ver os comandos do app e os do Claude Code (skills, `/compact`, `/review`…). Setas escolhem, Tab completa, Enter executa.
 - **Mencionar arquivos**: digite `@` para listar os arquivos e pastas da pasta da conversa (respeita o `.gitignore` em repositórios git) e filtre digitando. Setas/Tab/Enter escolhem e Esc fecha; escolher uma pasta insere `@pasta/` e continua a lista dentro dela. O `@caminho` vai como texto para o Claude.
@@ -76,7 +76,7 @@ npm run dist       # gera o instalador em dist/
 - **Tarefas em segundo plano**: a faixa e o contador ao lado do campo ("2 tarefas") abrem uma janelinha como a "Tarefas em segundo plano" do Claude Desktop. Em "Rodando" cada tarefa tem um cartão com o tempo correndo, tokens e ferramentas; um fluxo mostra as fases (concluídos/total, um quadradinho por agente, e a tabela de agentes com tokens e duração ao abrir a fase) e cada tarefa tem o botão de parar (o fluxo pede um segundo clique). "Concluídas" guarda, por conversa e enquanto o app estiver aberto, as últimas 100 com situação (Concluída, Falhou, Parada), duração e resumo. As fases vêm do `meta` do script do fluxo e os agentes e tokens, do que o Claude Code grava em disco durante a execução (só leitura); a conversa aberta pode trocar à vontade que o estado continua no app. Esc fecha.
 - **Desfazer**: passe o mouse numa mensagem sua e clique na seta: os arquivos que o Claude mudou a partir dali voltam ao que eram (com prévia antes).
 - **Perguntas do Claude** viram um formulário com as opções; **textos colados grandes** viram um anexo que dá pra abrir e editar; **título automático** para conversas novas; aviso e "continuar sozinho" quando o limite do plano estoura.
-- **Personalizar** (barra lateral ou `/personalizar`):
+- **Personalizar** (barra lateral ou `/customize`):
   - **Geral**: enviar com Enter ou Ctrl+Enter, **desempenho** (Automático, Máximo ou Leve), mostrar raciocínio, título automático, Clawd, papel de parede que reage, notificações e a **conta** (login do Claude Code ou chave de API).
   - **Fundo**: imagens, GIFs e vídeos seus como papel de parede (também arrastando para a aba Meus), e papéis de parede de vídeo e de página do **Wallpaper Engine** (os de cena só rodam dentro dele), com ajuste, escurecer, desfocar e som do vídeo.
   - **Cores**: paletas prontas, cor de destaque, do texto e do vidro, opacidade e desfoque do vidro, vidro claro ou escuro.
@@ -89,7 +89,7 @@ npm run dist       # gera o instalador em dist/
 - **Clawd conversa**: de tempos em tempos ele comenta o projeto, conta curiosidades do Claude e da Anthropic, dá dicas do app e traz novidades (uma busca rápida por dia). Clique nele para ouvir a próxima. Dá pra desligar em Personalizar → Geral.
 - **Créditos**: na barra lateral, quem fez cada arte e cada parte do app.
 - **Som**: botão no topo (começa desligado).
-- `/nova` começa uma conversa nova.
+- `/new` começa uma conversa nova.
 
 ## Estrutura
 

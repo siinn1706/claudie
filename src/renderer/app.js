@@ -1,7 +1,7 @@
 // The window: a Claude Code conversation drawn over a live ASCII wallpaper.
 // Text streams in as Markdown; tool calls show as cards that fill in with
 // their result; permission requests wait for a click; themes come from the
-// picker, from /tema, or from Claude itself through the app's theme tools.
+// picker, from /theme, or from Claude itself through the app's theme tools.
 
 const $ = (id) => document.getElementById(id);
 const col = $("col"), scroll = $("scroll"), entrada = $("entrada"), picker = $("picker"), banner = $("banner"), menu = $("menu");
@@ -334,16 +334,16 @@ async function envia(textoForcado) {
   const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null ? anexos : [];
   if (!t && !junto.length) return;
   const limpa = () => { entrada.value = ""; ajustaAltura(); fechaComandos(); fechaMencoes(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
-  if (t === "/tema") { abrePicker("claudie"); limpa(); return; }
-  if (t.startsWith("/tema ")) {
-    const pedido = t.slice(6).trim().toLowerCase(), i = THEMES.findIndex((x) => x.id === pedido || x.name.toLowerCase() === pedido);
-    if (["padrao", "padrão", "off"].includes(pedido)) aplica(-1); else if (i >= 0) aplica(i); else abrePicker("claudie");
+  if (t === "/theme") { abrePicker("claudie"); limpa(); return; }
+  if (t.startsWith("/theme ")) {
+    const pedido = t.slice(7).trim().toLowerCase(), i = THEMES.findIndex((x) => x.id === pedido || x.name.toLowerCase() === pedido);
+    if (["default", "off"].includes(pedido)) aplica(-1); else if (i >= 0) aplica(i); else abrePicker("claudie");
     limpa(); return;
   }
-  if (t === "/fundo" || t.startsWith("/fundo ")) { abrePicker("biblioteca", t.slice(6).trim()); limpa(); return; }
-  if (t === "/importar") { limpa(); importaMotion(); return; }
-  if (t === "/personalizar") { limpa(); abrePersonal(); return; }
-  if (t === "/nova") { novaConversa(); limpa(); return; }
+  if (t === "/wallpaper" || t.startsWith("/wallpaper ")) { abrePicker("biblioteca", t.slice(10).trim()); limpa(); return; }
+  if (t === "/import") { limpa(); importaMotion(); return; }
+  if (t === "/customize") { limpa(); abrePersonal(); return; }
+  if (t === "/new") { novaConversa(); limpa(); return; }
   if (rodando) {
     fila.push({ t, junto: [...junto] }); limpa();
     if (junto === anexos) { anexos = []; desenhaAnexos(); }
@@ -391,11 +391,11 @@ entrada.addEventListener("blur", () => setTimeout(fechaMencoes, 120));
 // Enter runs.
 const comandosEl = $("comandos");
 const LOCAIS = [
-  { nome: "tema", dica: "[nome]", descricao: "Escolher um tema do Claudie" },
-  { nome: "fundo", dica: "[busca]", descricao: "Procurar um fundo na biblioteca ASCII Magic" },
-  { nome: "importar", descricao: "Importar uma animação feita no ASCII Motion" },
-  { nome: "personalizar", descricao: "Fundos, cores, fontes, sons, música, ícone e nome" },
-  { nome: "nova", descricao: "Começar uma conversa nova" },
+  { nome: "theme", dica: "[name]", descricao: "Escolher um tema do Claudie" },
+  { nome: "wallpaper", dica: "[search]", descricao: "Procurar um fundo na biblioteca ASCII Magic" },
+  { nome: "import", descricao: "Importar uma animação feita no ASCII Motion" },
+  { nome: "customize", descricao: "Fundos, cores, fontes, sons, música, ícone e nome" },
+  { nome: "new", descricao: "Começar uma conversa nova" },
 ].map((c) => ({ ...c, local: true }));
 let todosComandos = null, buscandoComandos = null, cmdVis = [], cmdSel = 0;
 function carregaComandos() {
@@ -607,7 +607,7 @@ const SUGESTOES = [
   ["Me explica a estrutura deste projeto", "Explicar o projeto", "Visão geral das pastas e do que cada parte faz", '<path d="M6.5 3.5h7l4 4v13h-11z"/><path d="M13.5 3.5v4h4M9 12h6M9 15.5h6"/>'],
   ["Procura bugs ou problemas no código deste projeto", "Procurar bugs", "Uma revisão atrás do que pode quebrar", '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>'],
   ["Escreve testes para as partes mais importantes deste projeto", "Escrever testes", "Cobrir o que mais importa primeiro", '<path d="M9 3.5v6L4.5 18a2 2 0 0 0 1.8 2.8h11.4A2 2 0 0 0 19.5 18L15 9.5v-6M7.5 3.5h9M7 14.5h10"/>'],
-  ["/tema", "Escolher um tema", "Um fundo vivo pro chat, com música", '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>'],
+  ["/theme", "Escolher um tema", "Um fundo vivo pro chat, com música", '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>'],
 ];
 function telaInicial() {
   const h = new Date().getHours(), oi = h < 5 ? "Boa madrugada" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
