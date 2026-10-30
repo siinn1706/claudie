@@ -151,7 +151,7 @@ function aplicaInfo(t, x) {
     let k = t.wfMetas.findIndex((m) => m.toolUseId && m.toolUseId === x.toolUseId);
     if (k < 0 && x.nome) k = t.wfMetas.findIndex((m) => m.meta.nome === x.nome);
     if (k < 0 && info?.meta) x.meta = info.meta;
-    else if (k < 0 && t.wfMetas.length) k = 0;
+    else if (k < 0 && !x.toolUseId && t.wfMetas.length === 1 && ![...t.tarefas.values()].some((y) => y !== x && y.tipo === "local_workflow")) k = 0; // only when unambiguous
     if (!x.meta && k >= 0) x.meta = t.wfMetas.splice(k, 1)[0].meta;
   }
   if (x.meta) {
@@ -203,9 +203,9 @@ export function trataMensagem(t, msg) {
   const sub = msg.subtype, id = msg.task_id;
   if (sub === "background_tasks_changed") {
     // The whole set of live tasks: what is not there any more is gone (its
-    // notification, if it comes, still adds the finished row).
+    // notification, if it comes, enriches the finished row recorded here).
     const vivas = new Set(msg.tasks.filter((x) => !x.ambient).map((x) => x.task_id));
-    for (const [k, x] of t.tarefas) if (visivel(x) && !vivas.has(k)) { t.tarefas.delete(k); for (const [c, w] of t.filhos) if (w === k) t.filhos.delete(c); }
+    for (const [k, x] of [...t.tarefas]) if (visivel(x) && !vivas.has(k)) fecha(t, k, "completed");
     for (const x of msg.tasks) if (!x.ambient && !t.tarefas.has(x.task_id) && !t.filhos.has(x.task_id) && t.tarefas.get(x.parent_task_id)?.tipo !== "local_workflow") t.tarefas.set(x.task_id, novaTarefa(x, true));
     enviaFundo(t, true); return true;
   }
@@ -224,7 +224,7 @@ export function trataMensagem(t, msg) {
   }
   if (sub === "task_progress") {
     const dono = t.filhos.get(id), x = t.tarefas.get(dono || id); if (!x) return true;
-    if (x.runId && msg.run_id && msg.run_id < x.runId) return true; // a late frame
+    if (!dono && x.runId && msg.run_id && msg.run_id < x.runId) return true; // a late frame
     const a = dono ? x.agentes.get(id) : x;
     if (a) {
       if (msg.usage) { a.tokens = num(msg.usage.total_tokens); if (!dono) { a.usos = num(msg.usage.tool_uses); a.duracaoMs = num(msg.usage.duration_ms); } }

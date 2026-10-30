@@ -150,6 +150,7 @@ function criaFase() {
   tfQ(el, ".tf-fase-cab").onclick = () => {
     const k = el.dataset.k; tfFases.has(k) ? tfFases.delete(k) : tfFases.add(k);
     el.classList.toggle("aberta", tfFases.has(k)); tfQ(el, ".tf-fase-cab").setAttribute("aria-expanded", tfFases.has(k));
+    desenhaTarefas(); // fills the agent table of the phase just opened
   };
   return el;
 }

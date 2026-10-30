@@ -1169,7 +1169,7 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .tf-chip b { font-weight: 600; }
 @media (max-width: 1240px) { .tf-chip span { display: none; } .tf-chip { gap: 5px; padding: 2px 8px; } }
 .tf-chip:hover { background: var(--hover); color: var(--ui); }
-.tf-chip + .cache, .tf-chip + .medidor { margin-left: 0; }
+.tf-chip.on ~ .cache, .tf-chip.on ~ .medidor, .tf-chip.on ~ .enviar { margin-left: 0; }
 .janelinha[data-id="tarefas"] { max-width: calc(100% - 16px); }
 .janelinha:focus { outline: none; }
 .janelinha .jl-corpo.tf { padding: 6px 10px 12px; }
