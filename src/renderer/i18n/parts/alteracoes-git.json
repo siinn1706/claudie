@@ -1,0 +1,18 @@
+{
+  "Atualizar": { "en": "Refresh", "vi": "Làm mới" },
+  "Reler o git agora": { "en": "Re-read git now", "vi": "Đọc lại git ngay" },
+  "Todas as mudanças": { "en": "All changes", "vi": "Tất cả thay đổi" },
+  "Desta conversa": { "en": "This conversation", "vi": "Trong cuộc trò chuyện này" },
+  "Nenhuma mudança em relação ao último commit.": { "en": "No changes since the last commit.", "vi": "Không có thay đổi nào so với commit gần nhất." },
+  "Há mudanças demais: só uma parte aparece.": { "en": "Too many changes: only part of them is shown.", "vi": "Có quá nhiều thay đổi: chỉ hiển thị một phần." },
+  "Arquivo binário: o diff não é mostrado.": { "en": "Binary file: the diff is not shown.", "vi": "Tệp nhị phân: không hiển thị diff." },
+  "Arquivo grande demais: o diff está cortado.": { "en": "File too large: the diff is cut.", "vi": "Tệp quá lớn: diff đã bị cắt." },
+  "Abrir arquivo": { "en": "Open file", "vi": "Mở tệp" },
+  "Apagar arquivo novo": { "en": "Delete new file", "vi": "Xóa tệp mới" },
+  "Restaurar arquivo": { "en": "Restore file", "vi": "Khôi phục tệp" },
+  "Reverter mudanças": { "en": "Revert changes", "vi": "Hoàn nguyên thay đổi" },
+  "Confirmar: apagar?": { "en": "Confirm: delete?", "vi": "Xác nhận: xóa?" },
+  "Confirmar: reverter?": { "en": "Confirm: revert?", "vi": "Xác nhận: hoàn nguyên?" },
+  "(diff longo, cortado)": { "en": "(long diff, cut)", "vi": "(diff dài, đã cắt)" },
+  "Não deu: {0}": { "en": "Could not: {0}", "vi": "Không được: {0}" }
+}

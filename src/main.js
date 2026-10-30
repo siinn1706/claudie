@@ -916,6 +916,70 @@ ipcMain.handle("novidades", async () => {
 // Files Claude changed open in their own app, or show in their folder.
 ipcMain.handle("abrir_arquivo", (_e, caminho, naPasta) => abreArquivo(caminho, naPasta));
 
+// Review of the working tree against HEAD for the "changes" window. Git runs
+// with execFile in the conversation's folder only; output is bounded and
+// files too large or binary are only noted.
+const GIT_MAX = 12 * 1024 * 1024, GIT_ARQ_MAX = 200 * 1024, GIT_NOVOS_MAX = 200, ARVORE_VAZIA = "4b825dc642cb6eb9a060e54bf8d69288fbcb8904";
+const git = (cwd, args, max = GIT_MAX) => new Promise((ok) => execFile("git", ["-c", "core.quotepath=false", ...args], { cwd, encoding: "utf8", windowsHide: true, maxBuffer: max, timeout: 20000 }, (erro, saida, err) => ok({ erro, saida: saida || "", err: String(err || "") })));
+function fatiaDiff(bruto) {
+  const arquivos = [];
+  for (const parte of bruto.split(/^diff --git /m).slice(1)) {
+    const h = parte.search(/^@@ /m), cab = parte.slice(0, h < 0 ? parte.length : h);
+    const novo = /^new file mode/m.test(cab), apagado = /^deleted file mode/m.test(cab), binario = /^Binary files|^GIT binary patch/m.test(cab);
+    const m = cab.match(/^\+\+\+ b\/(.+)$/m) || cab.match(/^--- a\/(.+)$/m) || cab.match(/^a\/(.+) b\/\1$/m);
+    if (!m) continue;
+    let diff = binario ? "" : parte.slice(cab.length), mais = 0, menos = 0;
+    for (const l of diff.split("\n")) { if (l[0] === "+") mais++; else if (l[0] === "-") menos++; }
+    const grande = diff.length > GIT_ARQ_MAX;
+    if (grande) diff = diff.slice(0, diff.lastIndexOf("\n", GIT_ARQ_MAX));
+    arquivos.push({ caminho: m[1].replace(/\r$/, ""), estado: novo ? "A" : apagado ? "D" : "M", binario, grande, mais, menos, diff });
+  }
+  return arquivos;
+}
+function arquivoNovo(cwd, rel) {
+  const base = { caminho: rel, estado: "A", novo: true, mais: 0, menos: 0, diff: "" };
+  try {
+    const abs = path.join(cwd, rel), st = fs.statSync(abs); if (!st.isFile()) return null;
+    if (st.size > GIT_ARQ_MAX) return { ...base, grande: true };
+    const buf = fs.readFileSync(abs);
+    if (buf.length === 0) return base;
+    if (buf.subarray(0, 8192).includes(0)) return { ...base, binario: true };
+    const linhas = buf.toString("utf8").replace(/\r?\n$/, "").split(/\r?\n/);
+    return { ...base, mais: linhas.length, diff: `@@ -0,0 +1,${linhas.length} @@\n` + linhas.map((l) => "+" + l).join("\n") };
+  } catch { return null; }
+}
+ipcMain.handle("git_alteracoes", async (e) => {
+  const cwd = J(e)?.cwd;
+  if (!cwd || !fs.existsSync(cwd)) return { git: false };
+  const dentro = await git(cwd, ["rev-parse", "--is-inside-work-tree"], 1024);
+  if (dentro.erro || dentro.saida.trim() !== "true") return { git: false };
+  const temHead = !(await git(cwd, ["rev-parse", "--verify", "-q", "HEAD"], 1024)).erro;
+  const d = await git(cwd, ["diff", temHead ? "HEAD" : ARVORE_VAZIA, "--no-color", "--no-ext-diff", "--no-renames", "--relative", "-U3", "--", "."]);
+  // a diff past the buffer still comes back as far as it got
+  const arquivos = d.saida ? fatiaDiff(d.saida) : [];
+  const soltos = await git(cwd, ["ls-files", "--others", "--exclude-standard", "-z", "--", "."], 4 * 1024 * 1024);
+  const nomes = soltos.saida.split("\0").filter(Boolean), tem = new Set(arquivos.map((a) => a.caminho));
+  for (const rel of nomes.slice(0, GIT_NOVOS_MAX)) { if (tem.has(rel)) continue; const a = arquivoNovo(cwd, rel.replace(/\\/g, "/")); if (a) arquivos.push(a); }
+  for (const a of arquivos) a.abs = path.join(cwd, a.caminho);
+  arquivos.sort((a, b) => a.caminho.localeCompare(b.caminho));
+  return { git: true, arquivos, truncado: (!!d.erro && !!d.saida) || nomes.length > GIT_NOVOS_MAX };
+});
+// Undo one file's changes: restore tracked files from HEAD, delete new ones.
+ipcMain.handle("git_reverter", async (e, rel) => {
+  const cwd = J(e)?.cwd, raiz = cwd && caminhoReal(cwd);
+  if (!raiz || typeof rel !== "string" || !rel) return { ok: false, erro: "Sem pasta." };
+  const abs = path.resolve(raiz, rel), pai = caminhoReal(path.dirname(abs));
+  if (!sobRaiz(raiz, abs) || abs === raiz || !pai || !sobRaiz(raiz, pai)) return { ok: false, erro: "Fora da pasta." };
+  const alvo = path.relative(raiz, abs).replace(/\\/g, "/");
+  const falha = (r) => ({ ok: false, erro: r.err.trim() || String(r.erro.message) });
+  if (!(await git(raiz, ["cat-file", "-e", "HEAD:./" + alvo], 1024)).erro) {
+    const r = await git(raiz, ["restore", "--source=HEAD", "--staged", "--worktree", "--", alvo], 1024 * 1024);
+    return r.erro ? falha(r) : { ok: true };
+  }
+  if (!(await git(raiz, ["ls-files", "--error-unmatch", "--", alvo], 1024 * 1024)).erro) { const r = await git(raiz, ["rm", "-f", "-q", "--", alvo], 1024 * 1024); if (r.erro) return falha(r); }
+  try { fs.rmSync(abs, { force: true }); return { ok: true }; } catch (x) { return { ok: false, erro: String(x.message || x) }; }
+});
+
 // Answers to Claude's questions go back as the tool's input with the answers.
 ipcMain.handle("responder", (_e, { id, respostas }) => {
   const p = pendentes.get(id); if (!p) return;

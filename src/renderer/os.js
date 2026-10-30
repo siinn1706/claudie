@@ -79,25 +79,101 @@ function alteracoes() {
   return porArquivo;
 }
 ABRE_JANELINHA.alteracoes = () => abreAlteracoes();
+// Real working-tree diff against HEAD when the folder is a git repository;
+// the per-conversation list (what Claude touched) is the other tab, and the
+// only view without git.
+let altModo = "git", altGit = null, altSeq = 0;
+const altAbertos = new Map(); // file -> is its diff expanded
+const altNome = (f) => f.split(/[\\/]/).pop();
+const altPasta = (f) => f.split(/[\\/]/).slice(-3, -1).join("/");
+// unified diff text from git -> the same rows the other diffs use, plus line numbers
+function diffGitHtml(texto) {
+  let velho = 0, novo = 0, n = 0, html = "";
+  for (const l of texto.split("\n")) {
+    if (!l) continue;
+    if (++n > 600) { html += '<div class="l corte"><i>⋯</i><code>(diff longo, cortado)</code></div>'; break; }
+    const h = l.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)/);
+    if (h) { velho = +h[1]; novo = +h[2]; html += `<div class="l hunk"><u></u><u></u><i>⋯</i><code>${esc(l)}</code></div>`; continue; }
+    if (l[0] === "\\") continue;
+    const s = l[0] === "+" ? "mais" : l[0] === "-" ? "menos" : "";
+    html += `<div class="l ${s}"><u>${s === "mais" ? "" : velho}</u><u>${s === "menos" ? "" : novo}</u><i>${s === "mais" ? "+" : s === "menos" ? "−" : ""}</i><code>${esc(l.slice(1)) || " "}</code></div>`;
+    if (s !== "mais") velho++;
+    if (s !== "menos") novo++;
+  }
+  return `<div class="diff">${html}</div>`;
+}
 function abreAlteracoes() {
-  const j = janelinha("alteracoes", "Alterações da conversa", { largura: 520, altura: 460 });
-  const desenha = () => {
+  const j = janelinha("alteracoes", "Alterações da conversa", { largura: 760, altura: 520 });
+  j.corpo.classList.add("alt");
+  j.corpo.innerHTML = '<div class="alt-topo"><div class="alt-abas"></div><button class="btn" data-atual title="Reler o git agora">Atualizar</button></div><div class="alt-conteudo"></div>';
+  const abas = j.corpo.querySelector(".alt-abas"), cont = j.corpo.querySelector(".alt-conteudo");
+  const modo = () => (altGit?.git ? altModo : "conv");
+  const desenhaConv = () => {
     const mapa = alteracoes();
-    if (!mapa.size) { j.corpo.innerHTML = '<p class="jl-vazio">Nenhum arquivo foi mudado nesta conversa ainda.</p>'; return; }
+    if (!mapa.size) { cont.innerHTML = '<p class="jl-vazio">Nenhum arquivo foi mudado nesta conversa ainda.</p>'; return; }
     let mais = 0, menos = 0;
-    j.corpo.innerHTML = [...mapa].map(([f, lista], k) => {
+    cont.innerHTML = [...mapa].map(([f, lista], k) => {
       const blocos = lista.map(({ card }) => diffDe(card._nome, card._entrada));
       blocos.forEach((b) => { const m = b.contagem.match(/\+(\d+).*?−(\d+)/); if (m) { mais += +m[1]; menos += +m[2]; } });
-      return `<details class="arq-alt"${mapa.size < 4 ? " open" : ""}><summary>${ICONE.editar}<b title="${esc(f)}">${esc(f.split(/[\\/]/).pop())}</b><small>${esc(f.split(/[\\/]/).slice(-3, -1).join("/"))}</small><span class="n">${lista.length}×</span></summary>`
+      return `<details class="arq-alt"${mapa.size < 4 ? " open" : ""}><summary>${ICONE.editar}<b title="${esc(f)}">${esc(altNome(f))}</b><small>${esc(altPasta(f))}</small><span class="n">${lista.length}×</span></summary>`
         + lista.map(({ dono }, n) => `<div class="mud">${blocos[n].html}<div class="mud-b"><button class="btn" data-ir="${k}:${n}">Ver na conversa</button>${dono?.dataset.uuid ? `<button class="btn" data-desfaz="${k}:${n}">Desfazer a partir daqui</button>` : ""}</div></div>`).join("") + "</details>";
     }).join("");
-    j.corpo.insertAdjacentHTML("afterbegin", `<div class="jl-resumo"><b>${mapa.size} arquivo${mapa.size > 1 ? "s" : ""}</b><em class="contagem"><b>+${mais}</b><s>−${menos}</s></em></div>`);
+    cont.insertAdjacentHTML("afterbegin", `<div class="jl-resumo"><b>${mapa.size} arquivo${mapa.size > 1 ? "s" : ""}</b><em class="contagem"><b>+${mais}</b><s>−${menos}</s></em></div>`);
     const lista = [...mapa.values()];
-    j.corpo.querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.ir.split(":").map(Number), c = lista[k][n].card; c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.remove("piscando"); void c.offsetWidth; c.classList.add("piscando"); }));
-    j.corpo.querySelectorAll("[data-desfaz]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.desfaz.split(":").map(Number), d = lista[k][n].dono; d.scrollIntoView({ behavior: "smooth", block: "center" }); desfazDaqui(d); }));
+    cont.querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.ir.split(":").map(Number), c = lista[k][n].card; c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.remove("piscando"); void c.offsetWidth; c.classList.add("piscando"); }));
+    cont.querySelectorAll("[data-desfaz]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.desfaz.split(":").map(Number), d = lista[k][n].dono; d.scrollIntoView({ behavior: "smooth", block: "center" }); desfazDaqui(d); }));
   };
-  desenha(); j.redesenha = desenha;
+  const desenhaGit = () => {
+    const a = altGit.arquivos;
+    if (!a.length) { cont.innerHTML = '<p class="jl-vazio">Nenhuma mudança em relação ao último commit.</p>'; return; }
+    const mais = a.reduce((s, f) => s + f.mais, 0), menos = a.reduce((s, f) => s + f.menos, 0);
+    const estado = (f) => (f.novo ? "U" : f.estado);
+    cont.innerHTML = `<div class="jl-resumo"><b>${a.length} arquivo${a.length > 1 ? "s" : ""}</b><em class="contagem"><b>+${mais}</b><s>−${menos}</s></em></div>`
+      + (altGit.truncado ? '<p class="jl-vazio">Há mudanças demais: só uma parte aparece.</p>' : "")
+      + `<div class="alt-git"><nav class="alt-lista">${a.map((f, k) => `<button data-k="${k}" title="${esc(f.caminho)}"><span class="est est-${estado(f)}">${estado(f)}</span><b>${esc(altNome(f.caminho))}</b><em class="contagem"><b>+${f.mais}</b><s>−${f.menos}</s></em></button>`).join("")}</nav>`
+      + `<div class="alt-diffs">${a.map((f, k) => {
+        const aberto = altAbertos.has(f.caminho) ? altAbertos.get(f.caminho) : a.length < 4;
+        const aviso = f.binario ? "Arquivo binário: o diff não é mostrado." : f.grande ? "Arquivo grande demais: o diff está cortado." : "";
+        return `<details class="arq-alt" data-k="${k}"${aberto ? " open" : ""}><summary><span class="est est-${estado(f)}">${estado(f)}</span><b title="${esc(f.caminho)}">${esc(altNome(f.caminho))}</b><small>${esc(altPasta(f.caminho))}</small><em class="contagem"><b>+${f.mais}</b><s>−${f.menos}</s></em></summary>`
+          + `<div class="mud">${f.diff ? diffGitHtml(f.diff) : ""}${aviso ? `<p class="jl-vazio alt-nota">${aviso}</p>` : ""}<div class="mud-b"><button class="btn" data-abre="${k}">Abrir arquivo</button><button class="btn" data-reverte="${k}">${f.novo ? "Apagar arquivo novo" : f.estado === "D" ? "Restaurar arquivo" : "Reverter mudanças"}</button></div></div></details>`;
+      }).join("")}</div></div>`;
+    cont.querySelectorAll("details").forEach((d) => d.addEventListener("toggle", () => altAbertos.set(a[+d.dataset.k].caminho, d.open)));
+    cont.querySelectorAll(".alt-lista button").forEach((b) => (b.onclick = () => { const d = cont.querySelector(`details[data-k="${b.dataset.k}"]`); d.open = true; d.scrollIntoView({ behavior: "smooth", block: "start" }); }));
+    cont.querySelectorAll("[data-abre]").forEach((b) => (b.onclick = () => vivo.abrirArquivo(a[+b.dataset.abre].abs)));
+    // reverting needs a second click: the first one only arms the button
+    cont.querySelectorAll("[data-reverte]").forEach((b) => (b.onclick = async () => {
+      const f = a[+b.dataset.reverte];
+      if (!b.dataset.arma) {
+        b.dataset.arma = b.textContent; b.textContent = f.novo ? "Confirmar: apagar?" : "Confirmar: reverter?"; b.classList.add("perigo");
+        setTimeout(() => { if (b.isConnected && b.dataset.arma) { b.textContent = b.dataset.arma; delete b.dataset.arma; b.classList.remove("perigo"); } }, 4000);
+        return;
+      }
+      b.disabled = true;
+      const r = await vivo.gitReverter(f.caminho);
+      if (!r?.ok) nota(`Não deu: ${r?.erro || ""}`);
+      busca();
+    }));
+  };
+  const desenha = () => {
+    const m = modo(), sc = cont.scrollTop;
+    abas.innerHTML = altGit?.git ? `<button class="btn${m === "git" ? " forte" : ""}" data-m="git">Todas as mudanças</button><button class="btn${m === "conv" ? " forte" : ""}" data-m="conv">Desta conversa</button>` : "";
+    abas.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { altModo = b.dataset.m; desenha(); }));
+    j.corpo.querySelector("[data-atual]").hidden = m !== "git";
+    m === "git" ? desenhaGit() : desenhaConv();
+    cont.scrollTop = sc;
+  };
+  const busca = async () => {
+    const n = ++altSeq, r = await vivo.gitAlteracoes().catch(() => null);
+    if (n !== altSeq || !j.el.isConnected) return;
+    altGit = r; desenha();
+  };
+  j.corpo.querySelector("[data-atual]").onclick = busca;
+  // the per-conversation tab follows the chat; the git one is re-read when asked or when a turn ends
+  j.redesenha = () => { if (modo() === "conv") desenha(); };
+  j.busca = busca;
+  desenha(); busca();
 }
+aoEvento((ev) => { if (ev.tipo === "parado" || ev.tipo === "sessao") janelinhas.get("alteracoes")?.busca?.(); });
 const botaoAlt = document.createElement("button");
 botaoAlt.className = "icone alt-btn"; botaoAlt.title = "Alterações da conversa"; botaoAlt.innerHTML = `${svg('<path d="M8 4v12M4 8h8M14 17h6"/><rect x="3" y="3" width="18" height="18" rx="3"/>')}<i class="badge"></i>`;
 $("atalhosBtn").before(botaoAlt);

@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld("vivo", {
   uso: () => ipcRenderer.invoke("uso"),
   novidades: () => ipcRenderer.invoke("novidades"),
   abrirArquivo: (caminho, naPasta) => ipcRenderer.invoke("abrir_arquivo", caminho, naPasta),
+  gitAlteracoes: () => ipcRenderer.invoke("git_alteracoes"),
+  gitReverter: (caminho) => ipcRenderer.invoke("git_reverter", caminho),
   atualizacao: () => ipcRenderer.invoke("atualizacao"),
   atualizacaoProcurar: () => ipcRenderer.invoke("atualizacao_procurar"),
   atualizacaoInstalar: () => ipcRenderer.invoke("atualizacao_instalar"),
