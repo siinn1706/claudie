@@ -71,7 +71,7 @@
   "Remover": { "en": "Remove", "vi": "Gỡ bỏ" },
   "{0}: só dá pra anexar arquivos do disco ou imagens coladas.": { "en": "{0}: you can only attach files from disk or pasted images.", "vi": "{0}: chỉ có thể đính kèm tệp trên đĩa hoặc hình ảnh đã dán." },
   "Esse arquivo: só dá pra anexar arquivos do disco ou imagens coladas.": { "en": "This file: you can only attach files from disk or pasted images.", "vi": "Tệp này: chỉ có thể đính kèm tệp trên đĩa hoặc hình ảnh đã dán." },
-  "Imagem grande demais (máx. 5 MB).": { "en": "Image too large (max 5 MB).", "vi": "Hình ảnh quá lớn (tối đa 5 MB)." },
+  "Imagem grande demais (máx. 40 MB).": { "en": "Image too large (max 40 MB).", "vi": "Hình ảnh quá lớn (tối đa 40 MB)." },
   "imagem colada.png": { "en": "pasted image.png", "vi": "hình ảnh đã dán.png" },
   "Solte para virar fundo": { "en": "Drop to make it a wallpaper", "vi": "Thả để đặt làm hình nền" },
   "Solte para anexar": { "en": "Drop to attach", "vi": "Thả để đính kèm" },

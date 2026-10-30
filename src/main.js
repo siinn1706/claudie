@@ -115,6 +115,32 @@ function avisaTurnos() {
   for (const o of janelas.values()) enviarEvento(o, { tipo: "turnos", rodando, aguardando });
 }
 
+// Paths that come from the window or from a file we don't own are only trusted
+// inside a root: symlinks are resolved first, so a link can't lead out of it.
+const sobRaiz = (raiz, alvo) => { const r = path.relative(raiz, alvo); return r === "" || (r !== ".." && !r.startsWith(".." + path.sep) && !path.isAbsolute(r)); };
+const caminhoReal = (p) => { try { return fs.realpathSync(p); } catch { return null; } };
+// A path written inside a project file, resolved against that folder; null if it escapes.
+function dentroDaPasta(pasta, rel) {
+  if (typeof rel !== "string" || !rel || path.isAbsolute(rel)) return null;
+  const raiz = caminhoReal(pasta), alvo = raiz && caminhoReal(path.resolve(raiz, rel));
+  return alvo && sobRaiz(raiz, alvo) && alvo !== raiz ? alvo : null;
+}
+// What "abrir_arquivo" may touch: the folders being worked in, the app's own
+// files and what the person attached. Launchable file types are never opened.
+const anexosPermitidos = new Set();
+const EXECUTAVEL = /\.(exe|bat|cmd|com|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|msi|msc|scr|lnk|url|reg|hta|cpl|jar)$/i;
+function dentroDeRaizPermitida(alvo) {
+  const raizes = [config.cwd, ...[...janelas.values()].flatMap((j) => [j.cwd, j.atual?.cwd]), ...[...turnos].map((t) => t.cwd), path.join(app.getPath("userData"), "pessoal"), path.join(app.getPath("userData"), "motion"), ...anexosPermitidos];
+  return raizes.some((r) => { const real = r && caminhoReal(r); return real && sobRaiz(real, alvo); });
+}
+function abreArquivo(caminho, naPasta) {
+  const alvo = typeof caminho === "string" && caminho ? caminhoReal(path.resolve(caminho)) : null;
+  if (!alvo || !dentroDeRaizPermitida(alvo)) return false;
+  if (naPasta || EXECUTAVEL.test(caminho) || EXECUTAVEL.test(alvo)) shell.showItemInFolder(alvo);
+  else shell.openPath(alvo);
+  return true;
+}
+
 function lerConfig() {
   // Settings saved under the app's earlier names are carried over.
   const antigos = ["Tessela", "claude-vivo"].map((n) => path.join(app.getPath("appData"), n, "config.json"));
@@ -172,21 +198,49 @@ const IMAGEM = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg
 // Each message goes with an id of ours, so the window can later undo the file
 // changes made after it (file checkpoints are kept per user message). Slash
 // commands go as plain text, which is how Claude Code runs them.
-function montaPrompt(texto, anexos = [], uuid) {
+// The API refuses an image over 5 MB of base64 or 8000 px on a side: bigger ones
+// are shrunk (PNG first, JPEG when that is still too big) or left out.
+const LIMITE_B64 = 5_000_000, LADO_MAX = 8000, ARQUIVO_MAX = 40 * 1024 * 1024;
+function ajustaImagem(dados, mime) {
+  const img = nativeImage.createFromBuffer(Buffer.from(dados, "base64")), { width: w, height: h } = img.getSize();
+  if (dados.length <= LIMITE_B64 && (!w || Math.max(w, h) <= LADO_MAX)) return { dados, mime };
+  if (!w || !h) return null; // not a format Electron can decode, so it can't be shrunk
+  const inicio = Math.min(1, LADO_MAX / Math.max(w, h));
+  for (const jpeg of mime === "image/png" ? [false, true] : [true]) {
+    for (let i = 0, escala = inicio; i < 8; i++, escala *= 0.75) {
+      const r = escala < 1 ? img.resize({ width: Math.max(1, Math.round(w * escala)), height: Math.max(1, Math.round(h * escala)), quality: "best" }) : img;
+      const b64 = (jpeg ? r.toJPEG(85) : r.toPNG()).toString("base64");
+      if (b64.length <= LIMITE_B64) return { dados: b64, mime: jpeg ? "image/jpeg" : "image/png" };
+    }
+  }
+  return null;
+}
+function montaPrompt(texto, anexos = [], uuid, avisa = () => {}) {
   if (!anexos.length && texto.startsWith("/")) return texto;
-  const imagens = [], caminhos = [];
+  const imagens = [], caminhos = [], largadas = [];
   for (const a of anexos) {
     let { dados, mime } = a;
     if (a.caminho) {
-      caminhos.push(a.caminho);
+      caminhos.push(a.caminho); anexosPermitidos.add(a.caminho);
       const tipo = IMAGEM[path.extname(a.caminho).toLowerCase()];
-      try { if (tipo && fs.statSync(a.caminho).size <= 5 * 1024 * 1024) { dados = fs.readFileSync(a.caminho).toString("base64"); mime = tipo; } } catch {}
+      try {
+        if (tipo && fs.statSync(a.caminho).size <= ARQUIVO_MAX) { dados = fs.readFileSync(a.caminho).toString("base64"); mime = tipo; }
+        else if (tipo) { dados = null; largadas.push(path.basename(a.caminho)); }
+      } catch {}
     }
-    if (dados && Object.values(IMAGEM).includes(mime)) imagens.push({ type: "image", source: { type: "base64", media_type: mime, data: dados } });
+    if (!dados || !Object.values(IMAGEM).includes(mime)) continue;
+    let ok = null;
+    try { ok = ajustaImagem(dados, mime); } catch {}
+    if (ok) imagens.push({ type: "image", source: { type: "base64", media_type: ok.mime, data: ok.dados } });
+    else largadas.push(a.nome || (a.caminho && path.basename(a.caminho)) || "imagem");
   }
-  let t = texto;
-  if (caminhos.length) t += `${t ? "\n\n" : ""}Arquivos anexados:\n${caminhos.map((c) => `- ${c}`).join("\n")}`;
-  const conteudo = imagens.length ? [...imagens, { type: "text", text: t || "Veja a imagem anexada." }] : t;
+  let corpo = texto;
+  if (caminhos.length) corpo += `${corpo ? "\n\n" : ""}Arquivos anexados:\n${caminhos.map((c) => `- ${c}`).join("\n")}`;
+  if (largadas.length) {
+    avisa(`${largadas.map((n) => t("Imagem grande demais para enviar: {0}", n)).join("\n")}`);
+    corpo += `${corpo ? "\n\n" : ""}(${largadas.length} imagem(ns) anexada(s) não foram enviadas por serem grandes demais: ${largadas.join(", ")}.)`;
+  }
+  const conteudo = imagens.length ? [...imagens, { type: "text", text: corpo || "Veja a imagem anexada." }] : corpo;
   const mensagem = { type: "user", uuid, message: { role: "user", content: conteudo }, parent_tool_use_id: null };
   return (async function* () { yield mensagem; })();
 }
@@ -207,24 +261,15 @@ async function tituloAutomatico(j, id, pergunta, resposta) {
 }
 
 // Claude Code's own slash commands, with descriptions. They come from a
-// running query, so when no turn is running a short idle one is opened just to
-// ask (no message is sent, nothing is spent); the list is kept per folder.
-const comandosPorPasta = new Map();
+// query: the one of a running turn when there is one, otherwise a short idle
+// one is opened just to ask (no message is sent, nothing is spent). The list is
+// kept per folder for a while.
 async function comandos(j) {
   const cwd = j?.cwd || config.cwd;
-  if (comandosPorPasta.has(cwd)) return comandosPorPasta.get(cwd);
-  let lista = [];
-  if (j?.atual) lista = await j.atual.q.supportedCommands();
-  else {
-    const ac = new AbortController();
-    let solta;
-    const espera = new Promise((r) => (solta = r));
-    const q = query({ prompt: (async function* () { await espera; })(), options: { cwd, abortController: ac, systemPrompt: { type: "preset", preset: "claude_code" } } });
-    try { lista = await q.supportedCommands(); } finally { solta(); ac.abort(); q.return?.().catch(() => {}); }
-  }
-  const r = lista.map((c) => ({ nome: c.name, descricao: c.description || "", dica: c.argumentHint || "" }));
-  comandosPorPasta.set(cwd, r);
-  return r;
+  return comCache(`comandos|${cwd}`, 10 * 60e3, async () => {
+    const lista = await comConsulta(j || { cwd }, (q) => q.supportedCommands());
+    return lista.map((c) => ({ nome: c.name, descricao: c.description || "", dica: c.argumentHint || "" }));
+  });
 }
 
 // Animations made in ASCII Motion (ascii-motion.app): its JSON export, a saved
@@ -339,9 +384,10 @@ function listaWallpaperEngine() {
         vistos.add(pasta);
         const tipo = String(p.type || "").toLowerCase();
         if (tipo !== "video" && tipo !== "web") { if (tipo === "scene") cenas++; continue; }
-        if (!p.file || !fs.existsSync(path.join(pasta, p.file))) continue;
-        const prev = p.preview && path.join(pasta, p.preview);
-        itens.push({ pasta, nome: String(p.title || d.name).trim().slice(0, 80), tipo, preview: prev && fs.existsSync(prev) ? pathToFileURL(prev).href : null });
+        // project.json is someone else's file: its paths must stay inside the project folder
+        if (!dentroDaPasta(pasta, p.file)) continue;
+        const prev = dentroDaPasta(pasta, p.preview);
+        itens.push({ pasta, nome: String(p.title || d.name).trim().slice(0, 80), tipo, preview: prev ? pathToFileURL(prev).href : null });
       }
     }
   }
@@ -376,14 +422,17 @@ function listaWeb() {
 function importaWallpaperEngine(pasta) {
   if (!listaWallpaperEngine().itens.some((i) => i.pasta === pasta)) throw new Error("Esse papel de parede não está mais na biblioteca do Wallpaper Engine.");
   const p = lerProjeto(pasta), nome = String(p.title || "Wallpaper Engine").trim().slice(0, 60);
-  if (String(p.type).toLowerCase() === "video") return copiaPessoal("fundos", path.join(pasta, p.file), nome);
+  const arquivo = dentroDaPasta(pasta, p.file);
+  if (!arquivo) throw new Error("Esse papel de parede aponta para um arquivo fora da sua pasta.");
+  if (String(p.type).toLowerCase() === "video") return copiaPessoal("fundos", arquivo, nome);
   const id = `${crypto.randomBytes(3).toString("hex")}-${nome.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "web"}`;
   const dest = path.join(pastaWeb(), id);
-  fs.cpSync(pasta, dest, { recursive: true });
+  // links are not copied: one pointing outside would be served from the copy
+  fs.cpSync(pasta, dest, { recursive: true, filter: (src) => !fs.lstatSync(src).isSymbolicLink() });
   fs.writeFileSync(path.join(dest, "claudie-we.js"), shimWeb(p.general?.properties));
   const html = path.join(dest, p.file), h = fs.readFileSync(html, "utf8"), tag = '<script src="claudie-we.js"></script>';
   fs.writeFileSync(html, /<head[^>]*>/i.test(h) ? h.replace(/<head[^>]*>/i, (m) => m + tag) : tag + h);
-  fs.writeFileSync(path.join(dest, "claudie.json"), JSON.stringify({ nome, file: p.file, preview: p.preview || null }));
+  fs.writeFileSync(path.join(dest, "claudie.json"), JSON.stringify({ nome, file: p.file, preview: dentroDaPasta(pasta, p.preview) ? p.preview : null }));
   return listaWeb().find((i) => i.id === id);
 }
 // The window icon: the person's own, or the mosaic mark.
@@ -413,7 +462,7 @@ async function turno(j, texto, anexos) {
   // Until the query exists the window follows no tagged stream, so a setup failure is sent untagged.
   const aviso = (x) => (t.q ? ev(x) : enviarEvento(t.j, x));
   try {
-  const prompt = montaPrompt(texto, anexos, uuid);
+  const prompt = montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m }));
   const q = t.q = query({
     prompt,
     options: {
@@ -506,6 +555,7 @@ async function turno(j, texto, anexos) {
     if (!ac.signal.aborted) aviso({ tipo: "erro", texto: String(err?.message || err) });
   } finally {
     turnos.delete(t);
+    if (t.sessionId) esquece(t.sessionId);
     if (t.j.atual === t) t.j.atual = null;
     // A turn that ends without an abort must not leave cards waiting for an answer.
     for (const id of [...t.pendentes.keys()]) {
@@ -649,6 +699,7 @@ ipcMain.handle("janela_nova", (_e, sessao) => { criarJanela(sessao || undefined)
 ipcMain.handle("comandos", async (e) => { try { return await comandos(J(e)); } catch (e) { console.log("[comandos]", e?.message || e); return []; } });
 ipcMain.handle("anexar", async (e) => {
   const r = await dialog.showOpenDialog(J(e).win, { title: t("Anexar arquivos"), defaultPath: J(e).cwd, properties: ["openFile", "multiSelections"] });
+  if (!r.canceled) r.filePaths.forEach((p) => anexosPermitidos.add(p));
   return r.canceled ? [] : r.filePaths;
 });
 ipcMain.handle("motion_importar", async (e, caminho) => {
@@ -689,25 +740,53 @@ function ramoGit(dir) {
   }
   return "";
 }
+// Every helper question goes through here so Claude Code (and the MCP servers
+// it loads) starts at most once for it: a running turn of the conversation
+// answers directly, and idle callers share one short query that closes when the
+// last of them is done.
+const ociosas = new Map(); // folder|session|model -> { q, n, fecha }
 async function comConsulta(j, fn) {
-  if (j.atual) return fn(j.atual.q);
-  const ac = new AbortController();
-  let solta;
-  const espera = new Promise((r) => (solta = r));
-  const q = query({ prompt: (async function* () { await espera; })(), options: { cwd: j.cwd, resume: j.sessionId || undefined, model: cfgJ(j).model || undefined, abortController: ac, systemPrompt: { type: "preset", preset: "claude_code" }, mcpServers: { claudie: servidorTemasPara(j) } } });
-  try { return await fn(q); } finally { solta(); ac.abort(); q.return?.().catch(() => {}); }
+  const rodando = j.atual || turnoDe(j.sessionId);
+  if (rodando?.q) return fn(rodando.q);
+  const chave = `${j.cwd}|${j.sessionId || ""}|${cfgJ(j).model || ""}`;
+  let o = ociosas.get(chave);
+  if (!o) {
+    const ac = new AbortController();
+    let solta;
+    const espera = new Promise((r) => (solta = r));
+    const q = query({ prompt: (async function* () { await espera; })(), options: { cwd: j.cwd, resume: j.sessionId || undefined, model: cfgJ(j).model || undefined, abortController: ac, systemPrompt: { type: "preset", preset: "claude_code" }, mcpServers: { claudie: servidorTemasPara(j) } } });
+    o = { q, n: 0, fecha() { ociosas.delete(chave); solta(); ac.abort(); q.return?.().catch(() => {}); } };
+    ociosas.set(chave, o);
+  }
+  o.n++;
+  try { return await fn(o.q); } finally { if (--o.n === 0) o.fecha(); }
 }
+// Results of those questions: asked again while one is in flight they share its
+// answer, and a fresh one is reused for ttl ms (a failure is not kept).
+const respostas = new Map(), emVoo = new Map();
+function comCache(chave, ttl, fn) {
+  const r = respostas.get(chave);
+  if (r && Date.now() - r.quando < ttl) return Promise.resolve(r.valor);
+  if (emVoo.has(chave)) return emVoo.get(chave);
+  const p = fn().then((valor) => { respostas.set(chave, { quando: Date.now(), valor }); return valor; }).finally(() => emVoo.delete(chave));
+  emVoo.set(chave, p);
+  return p;
+}
+// A turn changes the context and the usage, so what was read for its conversation is stale.
+const esquece = (id) => { for (const k of respostas.keys()) if (k.endsWith(`|${id}`)) respostas.delete(k); };
 ipcMain.handle("painel", async (e) => {
   const j = J(e);
   const ambiente = { computador: os.hostname(), pasta: j.cwd, ramo: ramoGit(j.cwd), modelo: cfgJ(j).model || "" };
   try {
     // connectors are still connecting right after start: give them a few seconds
-    const [contexto, conectores] = await comConsulta(j, async (q) => {
+    const consulta = () => comConsulta(j, async (q) => {
       const ctx = await q.getContextUsage({ detail: "summary" });
       let st = await q.mcpServerStatus();
       for (let i = 0; i < 12 && st.some((c) => c.status === "pending"); i++) { await new Promise((r) => setTimeout(r, 500)); st = await q.mcpServerStatus(); }
       return [ctx, st];
     });
+    // a running turn is asked live; only an idle conversation is cached
+    const [contexto, conectores] = j.atual || turnoDe(j.sessionId) ? await consulta() : await comCache(`painel|${j.cwd}|${cfgJ(j).model || ""}|${j.sessionId || ""}`, 20e3, consulta);
     return {
       ambiente: { ...ambiente, modelo: contexto?.model || ambiente.modelo },
       contexto: contexto && { total: contexto.totalTokens, max: contexto.maxTokens, pct: contexto.percentage, categorias: (contexto.categories || []).map((c) => ({ nome: c.name, tokens: c.tokens, cor: c.color, tipo: c.kind || (c.isDeferred ? "deferred" : "used") })), memoria: (contexto.memoryFiles || []).map((m) => ({ caminho: m.path, tokens: m.tokens })) },
@@ -720,7 +799,8 @@ ipcMain.handle("painel", async (e) => {
 // call experimental, so any failure just means "no data".
 ipcMain.handle("uso", async (e) => {
   try {
-    const u = await comConsulta(J(e), (q) => q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true }));
+    const j = J(e), consulta = () => comConsulta(j, (q) => q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true }));
+    const u = j.atual || turnoDe(j.sessionId) ? await consulta() : await comCache(`uso|${j.cwd}|${cfgJ(j).model || ""}|${j.sessionId || ""}`, 60e3, consulta);
     const janelas = Object.entries(u?.rate_limits || {}).filter(([, v]) => v && typeof v === "object" && "utilization" in v)
       .map(([id, v]) => ({ id, uso: v.utilization, renova: v.resets_at }));
     return { plano: u?.subscription_type || null, disponivel: !!u?.rate_limits_available, janelas, sessao: u?.session ? { custo: u.session.total_cost_usd, linhas: [u.session.total_lines_added, u.session.total_lines_removed], ms: u.session.total_api_duration_ms } : null };
@@ -744,7 +824,7 @@ ipcMain.handle("novidades", async () => {
   return itens;
 });
 // Files Claude changed open in their own app, or show in their folder.
-ipcMain.handle("abrir_arquivo", (_e, caminho, naPasta) => { if (!caminho || !fs.existsSync(caminho)) return false; if (naPasta) shell.showItemInFolder(caminho); else shell.openPath(caminho); return true; });
+ipcMain.handle("abrir_arquivo", (_e, caminho, naPasta) => abreArquivo(caminho, naPasta));
 
 // Answers to Claude's questions go back as the tool's input with the answers.
 ipcMain.handle("responder", (_e, { id, respostas }) => {
@@ -871,8 +951,20 @@ ipcMain.handle("exportar", async (e, { id, titulo, cwd }) => {
   } catch (err) { return { erro: String(err?.message || err) }; }
 });
 // Search inside the conversations of this folder, not only their titles.
-// The text of each one is kept until it changes.
+// The text of each one is kept until it changes, within a size budget: the Map
+// keeps insertion order, so the least recently searched go first.
 const textoDasSessoes = new Map();
+const MAX_SESSOES_EM_CACHE = 150, MAX_CARACTERES_EM_CACHE = 20_000_000;
+function guardaTexto(id, c) {
+  textoDasSessoes.delete(id); textoDasSessoes.set(id, c);
+  let total = 0;
+  for (const v of textoDasSessoes.values()) total += v.texto.length;
+  for (const k of textoDasSessoes.keys()) {
+    if (textoDasSessoes.size <= MAX_SESSOES_EM_CACHE && total <= MAX_CARACTERES_EM_CACHE) break;
+    if (k === id) continue;
+    total -= textoDasSessoes.get(k).texto.length; textoDasSessoes.delete(k);
+  }
+}
 ipcMain.handle("buscar", async (e, termo, todas) => {
   const t = String(termo || "").toLowerCase().trim();
   if (t.length < 2) return [];
@@ -882,8 +974,8 @@ ipcMain.handle("buscar", async (e, termo, todas) => {
     if (!c || c.quando !== s.lastModified) {
       const h = await historico(s.sessionId, s.cwd).catch(() => []);
       c = { quando: s.lastModified, texto: h.filter((m) => m.texto).map((m) => m.texto).join("\n") };
-      textoDasSessoes.set(s.sessionId, c);
-    }
+      guardaTexto(s.sessionId, c);
+    } else { textoDasSessoes.delete(s.sessionId); textoDasSessoes.set(s.sessionId, c); }
     const i = c.texto.toLowerCase().indexOf(t);
     if (i >= 0) achados.push({ id: s.sessionId, trecho: (i > 40 ? "…" : "") + c.texto.slice(Math.max(0, i - 40), i + t.length + 70).replace(/\s+/g, " ") });
   }
@@ -895,6 +987,7 @@ ipcMain.handle("apagar", async (e, id, cwd) => {
   if (turnoDe(id)) return false;
   try {
     await deleteSession(id, { dir: cwd || J(e).cwd });
+    textoDasSessoes.delete(id);
     if (config.porSessao?.[id]) { delete config.porSessao[id]; salvarConfig(); }
     for (const o of janelas.values()) if (o.sessionId === id) { o.sessionId = null; if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
     return true;
@@ -1021,7 +1114,9 @@ app.commandLine.appendSwitch("enable-zero-copy");
 // Test runs (VIVO_PASTA / VIVO_JS) use a profile of their own, so they never
 // touch the person's settings and can run with the app open.
 if (process.env.VIVO_PASTA || process.env.VIVO_JS) app.setPath("userData", path.join(app.getPath("appData"), process.env.VIVO_PERFIL || "Claudie-teste"));
-if (!process.env.VIVO_ATALHOS && !app.requestSingleInstanceLock()) app.quit();
+// A second copy only hands over to the first: it quits and sets nothing up.
+const instanciaUnica = !!process.env.VIVO_ATALHOS || app.requestSingleInstanceLock();
+if (!instanciaUnica) app.quit();
 app.on("second-instance", () => {
   const w = principal?.win; if (!w) return;
   if (w.isMinimized()) w.restore(); w.show(); w.focus();
@@ -1146,6 +1241,7 @@ ipcMain.handle("remoto_ligar", (e, ligar) => {
 app.on("before-quit", desligaRemoto);
 
 app.whenReady().then(() => {
+  if (!instanciaUnica) return;
   if (process.env.VIVO_ATALHOS) { criaAtalhos(); app.quit(); return; }
   servePapelWeb(); trazDoNomeAntigo(); lerConfig(); criarJanela(); atalhoGlobal(); vigiaSessoes(); iniciaAtualizacoes();
 });

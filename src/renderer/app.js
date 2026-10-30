@@ -417,7 +417,7 @@ async function anexaArquivos(lista) {
     const caminho = vivo.caminhoDe ? vivo.caminhoDe(f) : "";
     if (caminho) { anexaCaminho(caminho); continue; }
     if (!/^image\/(png|jpeg|gif|webp)$/.test(f.type)) { nota(`${f.name || "Esse arquivo"}: só dá pra anexar arquivos do disco ou imagens coladas.`); continue; }
-    if (f.size > 5 * 1024 * 1024) { nota("Imagem grande demais (máx. 5 MB)."); continue; }
+    if (f.size > 40 * 1024 * 1024) { nota("Imagem grande demais (máx. 40 MB)."); continue; }
     const dados = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(",")[1]); fr.readAsDataURL(f); });
     anexos.push({ nome: f.name || "imagem colada.png", dados, mime: f.type, url: URL.createObjectURL(f) });
   }
