@@ -1118,3 +1118,29 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .lightbox.on { opacity: 1; pointer-events: auto; }
 .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
 .anexo.img, .msg-anexos img { cursor: zoom-in; }
+
+/* Tool output, subagent activity and background work */
+.ferr .ferr-saida { border-top: 1px solid var(--line); }
+.ferr .ferr-saida pre { border-top: 0; }
+.ferr .res-rot { padding: 6px 12px 0; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ui-dim); }
+.ferr .ver-tudo { margin: 0 12px 10px; }
+.ferr .ferr-saida img { display: block; max-width: calc(100% - 24px); max-height: 260px; margin: 6px 12px 10px; border-radius: 8px; border: 1px solid var(--line); cursor: var(--cur-mao, zoom-in); }
+.ferr summary .sub-n { flex: none; font: normal 11.5px var(--mono); color: var(--ui-dim); }
+.sub-lista { border-top: 1px solid var(--line); padding: 4px 6px; display: flex; flex-direction: column; gap: 1px; }
+.sub { display: flex; gap: 8px; align-items: center; padding: 3px 8px; font-size: 12.5px; min-width: 0; }
+.sub svg { width: 13px; height: 13px; flex: none; color: var(--ui-dim); }
+.sub b { font-weight: 500; white-space: nowrap; }
+.sub span { color: var(--ui-dim); font: 12px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+.sub .estado { width: 14px; height: 14px; flex: none; display: grid; place-items: center; }
+.sub .estado svg { width: 12px; height: 12px; }
+.sub .estado.rodando { border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: gira 0.8s linear infinite; }
+.sub .estado.ok { color: var(--ok); } .sub .estado.erro { color: var(--err); }
+.fundo { display: none; margin-bottom: 8px; padding: 6px 12px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--composer); backdrop-filter: blur(var(--blur)); font-size: 12.5px; }
+.fundo.on { display: block; animation: entra 0.25s var(--ease) backwards; }
+.fundo-cab { display: flex; gap: 8px; align-items: center; margin-bottom: 2px; }
+.fundo-cab b { font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-2); }
+.fundo-cab em { font: normal 11px var(--mono); color: var(--ui-dim); }
+.fundo-item { display: flex; gap: 8px; align-items: center; padding: 2px 0; min-width: 0; }
+.fundo-item i { width: 11px; height: 11px; flex: none; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: gira 0.8s linear infinite; }
+.fundo-item b { font-weight: 500; white-space: nowrap; }
+.fundo-item span { color: var(--ui-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }

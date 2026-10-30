@@ -1,0 +1,12 @@
+{
+  "Ver tudo": { "en": "Show all", "vi": "Xem tất cả" },
+  "Saída completa indisponível": { "en": "Full output unavailable", "vi": "Không có đầu ra đầy đủ" },
+  "— resultado —": { "en": "— result —", "vi": "— kết quả —" },
+  "1 ferramenta": { "en": "1 tool", "vi": "1 công cụ" },
+  "{0} ferramentas": { "en": "{0} tools", "vi": "{0} công cụ" },
+  "Em segundo plano": { "en": "In the background", "vi": "Chạy nền" },
+  "Agente": { "en": "Agent", "vi": "Tác tử" },
+  "Monitor": { "en": "Monitor", "vi": "Giám sát" },
+  "Fluxo": { "en": "Workflow", "vi": "Luồng" },
+  "Tarefa": { "en": "Task", "vi": "Tác vụ" }
+}

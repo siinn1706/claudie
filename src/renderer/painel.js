@@ -79,3 +79,16 @@ aoEvento((ev) => { if (ev.tipo === "parado" || ev.tipo === "sessao") setTimeout(
 for (const id of ["nova", "pasta"]) $(id).addEventListener("click", () => setTimeout(atualizaInfo, 600));
 lista.addEventListener("click", () => setTimeout(atualizaInfo, 800));
 if (le("infoAberta", false)) alternaInfo(true);
+
+// Background work of the running turn (shells, agents, monitors): a strip above
+// the plan, filled by the "fundo" events and emptied when the turn ends.
+const fundoEl = document.createElement("div");
+fundoEl.className = "fundo"; fundoEl.setAttribute("aria-label", "Em segundo plano");
+$("plano").before(fundoEl);
+const tipoFundo = (tipo = "") => /bash|shell/.test(tipo) ? "Comando" : /agent/.test(tipo) ? "Agente" : /monitor/.test(tipo) ? "Monitor" : /workflow/.test(tipo) ? "Fluxo" : "Tarefa";
+function desenhaFundo(tarefas = []) {
+  fundoEl.innerHTML = tarefas.length ? `<div class="fundo-cab"><b>Em segundo plano</b><em>${tarefas.length}</em></div>` + tarefas.map((x) => `<div class="fundo-item"><i></i><b>${esc(tipoFundo(x.tipo))}</b><span title="${esc(x.descricao || "")}">${esc(x.descricao || "")}</span></div>`).join("") : "";
+  fundoEl.classList.toggle("on", tarefas.length > 0);
+}
+const limpaFundo = () => desenhaFundo([]);
+aoEvento((ev) => { if (ev.tipo === "fundo") desenhaFundo(ev.tarefas); else if (ev.tipo === "inicio" || ev.tipo === "parado") limpaFundo(); });

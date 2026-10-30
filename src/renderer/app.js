@@ -195,11 +195,47 @@ function ferramenta(id, nome, e, fim = null) {
   tiraBoas(); col.append(d); desce();
   ferramentas.set(id, d);
 }
-function ferramentaFim(id, erro, saida) {
+function ferramentaFim(id, erro, saida, maior = false, imagens = []) {
   const d = ferramentas.get(id); if (!d) return;
-  const i = d.querySelector(".estado"); i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
-  const pre = d.querySelector("pre");
-  if (saida && pre) pre.textContent += "\n\n— resultado —\n" + saida;
+  const i = d.querySelector("summary .estado"); i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
+  if (!(saida && d.querySelector("pre")) && !imagens.length) return;
+  const res = document.createElement("div"); res.className = "ferr-saida";
+  const pre = document.createElement("pre"); pre.textContent = saida;
+  res.innerHTML = `<div class="res-rot">— resultado —</div>`; res.append(pre);
+  // The event carries only the start of a long output; the rest is fetched on demand.
+  if (maior) {
+    const b = document.createElement("button"); b.className = "btn ver-tudo"; b.textContent = "Ver tudo";
+    b.onclick = async () => {
+      b.disabled = true;
+      const todo = await vivo.saida(id);
+      if (todo == null) { b.textContent = "Saída completa indisponível"; return; }
+      pre.textContent = todo; b.remove();
+    };
+    res.append(b);
+  }
+  for (const url of imagens) {
+    const img = document.createElement("img"); img.src = url; img.alt = rotulo(d._nome); img.title = "Ver imagem"; img.onclick = () => abreImagem(url, rotulo(d._nome));
+    res.append(img);
+  }
+  d.append(res);
+}
+// What a subagent does, listed inside the card of the tool that started it.
+function subFerramenta({ pai, id, nome, entrada }) {
+  const d = ferramentas.get(pai); if (!d) return;
+  let lista = d.querySelector(".sub-lista");
+  if (!lista) { lista = document.createElement("div"); lista.className = "sub-lista"; d.append(lista); d._subs = new Map(); d.open = true; }
+  if (d._subs.has(id)) return;
+  const li = document.createElement("div"); li.className = "sub";
+  li.innerHTML = `${iconeDa(nome)}<b>${esc(rotulo(nome))}</b><span>${esc(resumo(nome, entrada) || "")}</span><i class="estado rodando"></i>`;
+  lista.append(li); d._subs.set(id, li);
+  let n = d.querySelector(".sub-n");
+  if (!n) { n = document.createElement("em"); n.className = "sub-n"; d.querySelector("summary .estado").before(n); }
+  n.textContent = d._subs.size === 1 ? t("1 ferramenta") : t("{0} ferramentas", d._subs.size);
+  desce();
+}
+function subFim({ pai, id, erro }) {
+  const i = ferramentas.get(pai)?._subs?.get(id)?.querySelector(".estado"); if (!i) return;
+  i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
 }
 
 function permissao(ev) {
@@ -252,7 +288,9 @@ aoEvento((ev) => {
     case "uso": mostraUso(ev); break;
     case "cache": mostraCache(ev); break;
     case "remoto": mostraRemoto(ev); break;
-    case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida); if (planoResultado(ev.id, ev.tarefa)) desenhaPlano(); break;
+    case "sub_ferramenta": subFerramenta(ev); break;
+    case "sub_ferramenta_fim": subFim(ev); break;
+    case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida, ev.maior, ev.imagens); if (planoResultado(ev.id, ev.tarefa)) desenhaPlano(); break;
     case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", `Quer ${pedido(ev.ferramenta)}.`); break;
     case "permissao_fim": document.querySelector(`.perm[data-id="${ev.id}"], .pergunta[data-id="${ev.id}"]`)?.remove(); break;
     case "apagada": if (sessaoAtual === ev.id) { novaConversa(); nota("Esta conversa foi apagada em outra janela."); } break;
@@ -721,14 +759,14 @@ async function abreSessao(id, titulo) {
   window.transicaoDither?.();
   trocaFila(id);
   sessaoAtual = id; $("titulo").textContent = titulo;
-  col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); limpaPlano(); escondeCache(); $("medidor").hidden = true;
+  col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true;
   if (r.cfg) mostraEscolhas(r.cfg);
   const t = r.turno;
   turnoVisto = t?.tid || null; turnoN = t?.n || 0; setRodando(!!t);
   for (const m of r.hist) {
     if (m.papel === "eu") { meu(m.texto, (m.fotos || []).map((url) => ({ nome: "imagem", url })), m.imagens || 0, ""); if (m.uuid) [...col.querySelectorAll(".msg.eu")].pop().dataset.uuid = m.uuid; }
     else if (m.papel === "claude") { const el = bloco("msg claude", `<div class="corpo">${md(m.texto)}</div>`); decora(el); if (m.uuid) el.dataset.uuid = m.uuid; acoesResposta(el, m.texto, ""); window.camadas?.(el); }
-    else if (m.papel === "resultado") planoResultado(m.id, m.tarefa);
+    else if (m.papel === "resultado") { ferramentaFim(m.id, m.erro, m.saida + (m.maior ? "…" : "")); planoResultado(m.id, m.tarefa); }
     else { const id = m.id || crypto.randomUUID(); ferramenta(id, m.nome, m.entrada, "ok"); planoUsa(id, m.nome, m.entrada); }
   }
   desenhaPlano();
@@ -736,6 +774,7 @@ async function abreSessao(id, titulo) {
     repassa({ tipo: "inicio" });
     if (t.parcial) { repassa({ tipo: "texto_inicio" }); repassa({ tipo: "texto", delta: t.parcial }); }
     t.pendentes.forEach(repassa);
+    (t.subs || []).forEach(repassa); repassa({ tipo: "fundo", tarefas: t.fundo || [] });
   } else aviso("Conversa retomada: o Claude lembra de tudo acima.");
   requestAnimationFrame(() => (scroll.scrollTop = scroll.scrollHeight)); marcaSessao();
   solta();
@@ -747,7 +786,7 @@ async function novaConversa() {
   trocaFila(null);
   sessaoAtual = null; $("titulo").textContent = "Nova conversa";
   turnoVisto = null; turnoN = 0; setRodando(false);
-  ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); limpaPlano(); escondeCache(); $("medidor").hidden = true; entrada.focus();
+  ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true; entrada.focus();
 }
 $("nova").onclick = novaConversa;
 $("pasta").onclick = async () => { if (rodando) { nota("Espere o Claude terminar para trocar de pasta."); return; } const p = await vivo.pasta(); if (p) { mostraPasta(p); novaConversa(); carregaSessoes(); todosComandos = buscandoComandos = null; } };

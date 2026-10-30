@@ -449,9 +449,11 @@ function aplicaIcone() {
 // open permission cards).
 async function turno(j, texto, anexos) {
   const ac = new AbortController(), uuid = crypto.randomUUID(), geral = config.visual?.geral || {};
-  const t = { tid: uuid, j, q: null, ac, sessionId: j.sessionId, cwd: j.cwd, n: 0, parcial: "", pendentes: new Map() };
+  const t = { tid: uuid, j, q: null, ac, sessionId: j.sessionId, cwd: j.cwd, n: 0, parcial: "", pendentes: new Map(), subs: [], tarefas: new Map() };
   const ev = t.ev = (x) => {
     t.n++;
+    // Subagent activity is kept (bounded) so a window that opens the turn later can redraw it.
+    if (x.tipo.startsWith("sub_")) { t.subs.push(x); if (t.subs.length > 400) t.subs.shift(); }
     if (x.tipo === "texto_inicio") t.parcial = "";
     else if (x.tipo === "texto") t.parcial += x.delta;
     enviarEvento(t.j, { ...x, tid: t.tid, n: t.n });
@@ -508,6 +510,24 @@ async function turno(j, texto, anexos) {
         ev({ tipo: "pensando", tokens: msg.estimated_tokens });
       } else if (msg.type === "system" && msg.subtype === "init") {
         ev({ tipo: "info", modelo: msg.model, cwd: msg.cwd, modo: msg.permissionMode });
+      } else if (msg.type === "system" && msg.subtype === "background_tasks_changed") {
+        // The whole set of live background tasks: replace what was known.
+        const vivas = new Set(msg.tasks.filter((x) => !x.ambient).map((x) => x.task_id));
+        for (const [id, x] of t.tarefas) if (x.bg && !vivas.has(id)) t.tarefas.delete(id);
+        for (const x of msg.tasks) if (!x.ambient) t.tarefas.set(x.task_id, { id: x.task_id, tipo: x.task_type, descricao: x.description, bg: true });
+        fundoEnvia(t);
+      } else if (msg.type === "system" && msg.subtype === "task_started") {
+        if (!msg.ambient && !msg.skip_transcript) { t.tarefas.set(msg.task_id, { id: msg.task_id, tipo: msg.task_type || msg.subagent_type || "", descricao: msg.description, bg: msg.is_backgrounded !== false }); fundoEnvia(t); }
+      } else if (msg.type === "system" && msg.subtype === "task_updated") {
+        const x = t.tarefas.get(msg.task_id), p = msg.patch || {};
+        if (x) {
+          if (p.is_backgrounded != null) x.bg = p.is_backgrounded;
+          if (p.description) x.descricao = p.description;
+          if (["completed", "failed", "killed"].includes(p.status)) t.tarefas.delete(msg.task_id);
+          fundoEnvia(t);
+        }
+      } else if (msg.type === "system" && msg.subtype === "task_notification") {
+        if (t.tarefas.delete(msg.task_id)) fundoEnvia(t);
       } else if (msg.type === "stream_event" && !msg.parent_tool_use_id) {
         const e = msg.event;
         if (e.type === "message_start") pedidoEm = Date.now();
@@ -537,9 +557,17 @@ async function turno(j, texto, anexos) {
       } else if (msg.type === "user" && !msg.parent_tool_use_id && Array.isArray(msg.message?.content)) {
         for (const b of msg.message.content) {
           if (b.type === "tool_result") {
-            const corpo = typeof b.content === "string" ? b.content : (b.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-            ev({ tipo: "ferramenta_fim", id: b.tool_use_id, erro: !!b.is_error, saida: corpo.slice(0, 4000), tarefa: tarefaDoResultado(msg.tool_use_result, corpo) });
+            const corpo = textoDoResultado(b.content), maior = corpo.length > SAIDA_VISTA;
+            if (maior) guardaSaida(b.tool_use_id, corpo);
+            ev({ tipo: "ferramenta_fim", id: b.tool_use_id, erro: !!b.is_error, saida: corpo.slice(0, SAIDA_VISTA), maior, imagens: imagensDoResultado(b.content), tarefa: tarefaDoResultado(msg.tool_use_result, corpo) });
           }
+        }
+      } else if (msg.parent_tool_use_id && (msg.type === "assistant" || msg.type === "user") && Array.isArray(msg.message?.content)) {
+        // What a subagent does shows inside its parent card; its text stays out of the reply.
+        const pai = msg.parent_tool_use_id;
+        for (const b of msg.message.content) {
+          if (b.type === "tool_use") ev({ tipo: "sub_ferramenta", pai, id: b.id, nome: b.name, entrada: enxuto(b.input) });
+          else if (b.type === "tool_result") ev({ tipo: "sub_ferramenta_fim", pai, id: b.tool_use_id, erro: !!b.is_error });
         }
       } else if (msg.type === "rate_limit_event") {
         ev({ tipo: "limite", info: msg.rate_limit_info });
@@ -567,6 +595,33 @@ async function turno(j, texto, anexos) {
     if (novo && t.sessionId && geral.titulo !== false && resposta && !texto.startsWith("/")) tituloAutomatico(t.j, t.sessionId, texto, resposta);
   }
 }
+// A tool result: the live event carries its start (SAIDA_VISTA chars) and the
+// pictures; the full text stays here, bounded, for the "Ver tudo" button.
+const SAIDA_VISTA = 4000, SAIDA_MAX = 1 << 20, SAIDAS_TOTAL = 24 << 20, SAIDAS_QTD = 200, FOTO_MAX = 3_000_000;
+const saidasCheias = new Map();
+let saidasBytes = 0;
+function guardaSaida(id, texto) {
+  const velho = saidasCheias.get(id);
+  if (velho != null) { saidasBytes -= velho.length; saidasCheias.delete(id); }
+  const s = texto.slice(0, SAIDA_MAX);
+  saidasCheias.set(id, s); saidasBytes += s.length;
+  // Least recently stored goes first, by count and by total size.
+  for (const [k, v] of saidasCheias) {
+    if (saidasBytes <= SAIDAS_TOTAL && saidasCheias.size <= SAIDAS_QTD) break;
+    saidasCheias.delete(k); saidasBytes -= v.length;
+  }
+}
+const textoDoResultado = (c) => typeof c === "string" ? c : (c || []).filter((x) => x.type === "text").map((x) => x.text).join("\n");
+// Pictures in a result as data URLs; very large ones are left out.
+function imagensDoResultado(c) {
+  if (!Array.isArray(c)) return [];
+  return c.filter((x) => x.type === "image" && x.source?.type === "base64" && x.source.data?.length <= FOTO_MAX).slice(0, 4).map((x) => `data:${x.source.media_type};base64,${x.source.data}`);
+}
+// A tool input small enough for a live event: long strings cut, nested values dropped.
+const enxuto = (o) => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, typeof v === "string" ? v.slice(0, 300) : typeof v === "object" ? undefined : v]));
+// The background tasks running now, for the strip above the composer.
+const fundoLista = (t) => [...t.tarefas.values()].filter((x) => x.bg).map(({ id, tipo, descricao }) => ({ id, tipo, descricao }));
+const fundoEnvia = (t) => t.ev({ tipo: "fundo", tarefas: fundoLista(t) });
 // What a task tool gave back, for the plan: the new task's id, or the whole
 // list. The structured result is preferred; the text ("Task #3 created") is
 // what the transcript keeps.
@@ -597,9 +652,10 @@ async function historico(id, dir) {
         // What the task tools answered, so the plan can be rebuilt.
         for (const b of c) {
           if (b.type !== "tool_result") continue;
-          const corpo = typeof b.content === "string" ? b.content : (b.content || []).filter((x) => x.type === "text").map((x) => x.text).join("\n");
+          const corpo = textoDoResultado(b.content);
           const tarefa = tarefaDoResultado(m.toolUseResult ?? m.tool_use_result, corpo);
-          if (tarefa) out.push({ papel: "resultado", id: b.tool_use_id, tarefa });
+          // Result text (cut) and status, so a reopened card shows what happened.
+          out.push({ papel: "resultado", id: b.tool_use_id, tarefa, erro: !!b.is_error, saida: corpo.slice(0, SAIDA_VISTA), maior: corpo.length > SAIDA_VISTA });
         }
       }
     } else if (m.type === "assistant" && Array.isArray(c)) {
@@ -907,6 +963,7 @@ ipcMain.handle("sessoes", async (e, { todas } = {}) => {
 });
 // Opening a conversation from another project moves this window there, so
 // Claude keeps working in the right folder.
+ipcMain.handle("saida", (e, id) => saidasCheias.get(String(id)) ?? null);
 ipcMain.handle("abrir_sessao", async (e, id, cwd) => {
   const j = J(e);
   if (cwd && cwd !== j.cwd && fs.existsSync(cwd)) j.cwd = cwd;
@@ -920,7 +977,7 @@ ipcMain.handle("abrir_sessao", async (e, id, cwd) => {
   const cfg = cfgSessao(id);
   if (!t || t.j !== j) return { hist, cfg };
   j.atual = t;
-  return { hist, cfg, turno: { tid: t.tid, n: t.n, parcial: t.parcial, pendentes: [...t.pendentes.values()] } };
+  return { hist, cfg, turno: { tid: t.tid, n: t.n, parcial: t.parcial, pendentes: [...t.pendentes.values()], subs: t.subs, fundo: fundoLista(t) } };
 });
 // Branch: a new conversation with this one up to a reply (or all of it).
 ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {

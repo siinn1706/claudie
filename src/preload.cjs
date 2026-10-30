@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("vivo", {
   barra: (claro) => ipcRenderer.invoke("barra", claro),
   link: (url) => ipcRenderer.invoke("link", url),
   comandos: () => ipcRenderer.invoke("comandos"),
+  saida: (id) => ipcRenderer.invoke("saida", id),
   anexar: () => ipcRenderer.invoke("anexar"),
   // A dropped file's path on disk ("" for pasted data, which has none).
   caminhoDe: (arquivo) => { try { return webUtils.getPathForFile(arquivo) || ""; } catch { return ""; } },
