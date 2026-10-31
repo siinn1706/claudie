@@ -117,7 +117,6 @@ function cloud(g, s, top, bottom) {
 // Themes. `wake`: the pointer leaves ripples in the water. `click`: what a
 // click spawns. Effects with a `draw` are drawn among the subjects, as tiles.
 
-const KOI_ANG = [];
 const ripple = (x, y, t, o = {}) => ({ kind: "ripple", x, y, t, life: o.life ?? 1.8, speed: o.speed ?? 300, force: o.force ?? 650, alpha: o.alpha ?? 1, chars: o.chars });
 
 const THEMES = [
@@ -282,10 +281,10 @@ const THEMES = [
       fishes.forEach(({ pal, p: [cx, cy, rx, ry, sp, ph] }, i) => {
         const at = (tt) => [W * cx + W * rx * Math.cos(sp * tt + ph), H * cy + H * ry * Math.sin(sp * tt * 1.3 + ph)];
         const [x0, y0] = at(t), [x, y, vx, vy] = env.body("k" + i, x0, y0, "curious", 420, 1), [x1, y1] = at(t + 0.08);
-        const ang = Math.atan2(y1 - y0 + vy * 0.08, x1 - x0 + vx * 0.08), prev = KOI_ANG[i] ?? ang, dA = Math.atan2(Math.sin(ang - prev), Math.cos(ang - prev));
-        KOI_ANG[i] = prev + dA * Math.min(1, env.dt * 3);
+        const ang = Math.atan2(y1 - y0 + vy * 0.08, x1 - x0 + vx * 0.08), prev = env.mem.get("kang" + i) ?? ang, dA = Math.atan2(Math.sin(ang - prev), Math.cos(ang - prev));
+        env.mem.set("kang" + i, prev + dA * Math.min(1, env.dt * 3));
         const h = env.hovered("k" + i);
-        g.save(); g.translate(x, y); g.rotate(KOI_ANG[i]); g.scale(k * 1.55, k * 1.55); koi(g, t + Math.max(0, h) * 2.5, pal, i * 1.7); g.restore();
+        g.save(); g.translate(x, y); g.rotate(env.mem.get("kang" + i)); g.scale(k * 1.55, k * 1.55); koi(g, t + Math.max(0, h) * 2.5, pal, i * 1.7); g.restore();
         env.hit("k" + i, x, y, 80 * k * 1.55, "koi");
       });
       for (const f of env.effects) if (f.kind === "food") {

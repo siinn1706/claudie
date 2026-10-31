@@ -39,7 +39,7 @@ const Som = (() => {
   const lfo = (rate, depth, param) => { const o = ctx.createOscillator(); o.frequency.value = rate; const g = ganho(depth); o.connect(g).connect(param); o.start(); return o; };
   const pan = (v) => { const p = ctx.createStereoPanner(); p.pan.value = v; return p; };
   // Sends a node to `out` dry and into the hall by `molhado`.
-  const saida = (node, out, molhado = 0.3) => { node.connect(out); if (molhado) { const s = ganho(molhado); node.connect(s).connect(reverb); } };
+  const saida = (node, out, molhado = 0.3) => { node.connect(out); if (molhado) { const s = ganho(molhado); node.connect(s).connect(out.wet || reverb); } };
 
   function tom({ type = "sine", f0, f1 = f0, dur = 0.2, vol = 0.2, at = 0, attack = 0.006, out = master, molhado = 0.15 }) {
     const t = agora() + at, o = ctx.createOscillator(), g = ganho(0);
@@ -49,7 +49,7 @@ const Som = (() => {
   }
   function sopro({ type = "bandpass", f0 = 800, f1 = f0, q = 1, dur = 0.3, vol = 0.2, at = 0, attack = 0.02, out = master, molhado = 0.1 }) {
     const t = agora() + at, s = ctx.createBufferSource(), b = filtro(type, f0, q), g = ganho(0);
-    s.buffer = noiseBuf;
+    s.buffer = noiseBuf; s.loop = true;
     b.frequency.setValueAtTime(f0, t); b.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(b).connect(g); saida(g, out, molhado); s.start(t, Math.random() * 2); s.stop(t + dur + 0.05);
@@ -135,7 +135,7 @@ const Som = (() => {
       notasAc.forEach((m) => [-5, 5].forEach((cents) => { const os = ctx.createOscillator(); os.type = o.ondaPad ?? "triangle"; os.frequency.value = hz(m); os.detune.value = cents; os.connect(lp); os.start(t); os.stop(t + dur + 0.1); }));
     };
     tocaAcorde();
-    const id = setInterval(() => { if (ligado) tocaAcorde(); }, o.compasso * 1000);
+    const id = setInterval(() => { if (ligado && !out.parado) tocaAcorde(); }, o.compasso * 1000);
     nos.push({ stop: () => clearInterval(id) });
     cada(o.intervalo[0], o.intervalo[1], () => {
       if (Math.random() < (o.pausa ?? 0.2)) return;
@@ -163,15 +163,17 @@ const Som = (() => {
     sopro({ type: "highpass", f0: 2600, f1: 4200, dur: dur * 0.5, vol: 0.025 * forca, at: dur * 0.38, attack: 0.6, out, molhado: 0.3 });
   }
   function cama(build) {
-    const out = ganho(0), nos = [], timers = [];
-    out.connect(master);
-    const cada = (min, max, fn) => { const tick = () => { if (ligado) fn(); timers.push(setTimeout(tick, (min + Math.random() * (max - min)) * 1000)); }; timers.push(setTimeout(tick, Math.random() * min * 1000)); };
+    const out = ganho(0), wet = ganho(1), nos = [], timers = [];
+    out.connect(master); wet.connect(reverb); out.wet = wet;
+    // One entry per ticker: `id` always holds the pending timeout.
+    const cada = (min, max, fn) => { const t = {}; const tick = () => { if (ligado && !out.parado) fn(); t.id = setTimeout(tick, (min + Math.random() * (max - min)) * 1000); }; t.id = setTimeout(tick, Math.random() * min * 1000); timers.push(t); };
     build(out, nos, cada);
     out.gain.setTargetAtTime(1, agora(), 1.2);
     return () => {
-      out.gain.setTargetAtTime(0, agora(), 0.35);
-      timers.forEach(clearTimeout);
-      setTimeout(() => { nos.forEach((n) => { try { n.stop(); } catch {} }); out.disconnect(); }, 2000);
+      out.parado = true;
+      out.gain.setTargetAtTime(0, agora(), 0.35); wet.gain.setTargetAtTime(0, agora(), 0.35);
+      timers.forEach((t) => clearTimeout(t.id));
+      setTimeout(() => { nos.forEach((n) => { try { n.stop(); } catch {} }); out.disconnect(); wet.disconnect(); }, 2000);
     };
   }
   const camada = (out, nos, { tipo = "lowpass", f = 500, q = 0.7, vol = 0.08, taxa = 0.1, prof = 0.03, varre = 0 }) => {

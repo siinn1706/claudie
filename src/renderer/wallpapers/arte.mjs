@@ -52,7 +52,7 @@ function desenhaMotion(ctx, W, H, anim, q, cobre) {
 }
 
 const cv = document.getElementById("arte"), ctx = cv.getContext("2d");
-let W = 0, H = 0, dpr = 1, tocando = null, raf = 0;
+let W = 0, H = 0, dpr = 1, tocando = null, raf = 0, seq = 0;
 function ajusta() {
   dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
@@ -65,7 +65,8 @@ function laco(ms) {
   raf = requestAnimationFrame(laco);
   const p = tocando; if (!p) return;
   p.tempo = (p.tempo || 0) + (antes ? Math.min(0.1, (ms - antes) / 1000) : 0) * velocidade; antes = ms;
-  if (ms - p.ultimo < p.passo) return;
+  const d = window.desempenho, cap = d ? (document.hasFocus() ? d.fps : d.fpsFora) : 0;
+  if (ms - p.ultimo < Math.max(p.passo, cap ? 1000 / cap : 0) - 4) return;
   p.ultimo = ms;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = p.fundo; ctx.fillRect(0, 0, W, H);
@@ -75,7 +76,9 @@ function laco(ms) {
 window.Arte = {
   // Plays an ASCII Magic piece by slug and resolves to its meta.
   async magia(slug, { cobre = true } = {}) {
-    const mod = await carrega(slug), draw = mod.default(), atlas = new GlyphAtlas();
+    const my = ++seq, mod = await carrega(slug);
+    if (my !== seq) return mod.meta;
+    const draw = mod.default(), atlas = new GlyphAtlas();
     tocando = { fundo: FUNDO, passo: 1000 / Math.min(mod.meta.fps || 20, 30), ultimo: 0, inicio: performance.now(),
       desenha: (t) => desenhaMagia(ctx, W, H, mod, draw, t, cobre, atlas, dpr) };
     if (!raf) raf = requestAnimationFrame(laco);
@@ -83,6 +86,7 @@ window.Arte = {
   },
   // Plays an imported ASCII Motion animation.
   motion(anim, { cobre = anim.w >= 60 } = {}) {
+    seq++;
     const total = anim.quadros.reduce((s, q) => s + (q.dur || 80), 0) || 1;
     tocando = { fundo: anim.fundo || FUNDO, passo: 1000 / 30, ultimo: 0, inicio: performance.now(),
       desenha: (t) => {
@@ -92,7 +96,7 @@ window.Arte = {
       } };
     if (!raf) raf = requestAnimationFrame(laco);
   },
-  parar() { tocando = null; cancelAnimationFrame(raf); raf = 0; antes = 0; },
+  parar() { seq++; tocando = null; cancelAnimationFrame(raf); raf = 0; antes = 0; },
   velocidade(v) { velocidade = v; },
   // Still thumbnails, drawn once into a small canvas.
   async miniMagia(slug, canvas, { cobre = true, t = 2.5 } = {}) {
@@ -111,7 +115,7 @@ window.Arte = {
     canvas.width = w * k; canvas.height = h * k;
     let id = 0, parado = false;
     const quadro = () => {
-      if (parado) return;
+      if (parado || !canvas.isConnected) return;
       c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = FUNDO; c.fillRect(0, 0, w, h);
       desenhaMagia(c, w, h, mod, draw, 2.5 + (performance.now() - t0) / 1000, cobre, null, k);
       id = setTimeout(quadro, 1000 / Math.min(mod.meta.fps || 20, 24));

@@ -22,7 +22,7 @@ const RAMP = "8%XSSt%t;:";
 function Renderer(canvas, opt) {
   const ctx = canvas.getContext("2d");
   const oc = document.createElement("canvas"), ox = oc.getContext("2d", { willReadFrequently: true });
-  const self = { canvas, ctx, cw: opt.cw, ch: opt.ch, ss: opt.ss, W: 0, H: 0, cols: 0, rows: 0, trail: null, effects: [], bodies: new Map(), hits: [], hover: new Map() };
+  const self = { canvas, ctx, cw: opt.cw, ch: opt.ch, ss: opt.ss, W: 0, H: 0, cols: 0, rows: 0, trail: null, effects: [], bodies: new Map(), mem: new Map(), hits: [], hover: new Map() };
 
   self.resize = (W, H) => {
     const dpr = opt.dpr ?? Math.min(2, devicePixelRatio || 1);
@@ -32,7 +32,7 @@ function Renderer(canvas, opt) {
     oc.width = self.cols * self.ss; oc.height = self.rows * self.ss;
     self.trail = new Float32Array(self.cols * self.rows);
   };
-  self.reset = () => { self.bodies.clear(); self.hover.clear(); self.effects = []; self.trail && self.trail.fill(0); };
+  self.reset = () => { self.bodies.clear(); self.mem.clear(); self.hover.clear(); self.effects = []; self.trail && self.trail.fill(0); };
 
   const sample = (draw) => {
     const { cols, rows, ss, cw, ch } = self;
@@ -74,7 +74,7 @@ function Renderer(canvas, opt) {
       W, H, t, dt, mouse, cw, ch, k: opt.k ?? Math.min(W, H) / 1000,
       // A subject the pointer can touch: the page plays its sound on enter.
       hit: (key, x, y, r, kind) => self.hits.push({ key, x, y, r, kind }),
-      hovered: (key) => (self.hover.has(key) ? t - self.hover.get(key) : -1), effects: self.effects, lure,
+      hovered: (key) => (self.hover.has(key) ? t - self.hover.get(key) : -1), effects: self.effects, mem: self.mem, lure,
       near: (x, y, R = 220) => (mouse ? clamp(1 - Math.hypot(x - mouse.x, y - mouse.y) / R) : 0),
       // A subject on a spring: `mode` says how it answers the pointer.
       body(key, x, y, mode = "flee", R = 260, F = 1) {
