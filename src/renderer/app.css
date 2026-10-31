@@ -1336,3 +1336,26 @@ body.themed.light .colado-texto { background: var(--tinta-1); color: var(--ui); 
 /* "pinned" tag is generated in JS, so it follows the document language set by i18n */
 html:lang(en) .janelinha.fixa header b::after { content: "pinned"; }
 html:lang(vi) .janelinha.fixa header b::after { content: "đã ghim"; }
+
+/* first-run card: install Claude Code and sign in */
+.prep-fundo { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px); animation: abre 0.25s var(--ease); transition: opacity 0.25s; }
+.prep-fundo.saindo { opacity: 0; }
+.prep { width: min(480px, 100%); max-height: calc(100% - 32px); overflow: auto; border-radius: 16px; border: 1px solid var(--line-2); background: var(--card); backdrop-filter: blur(calc(var(--blur) + 10px)) saturate(1.3); padding: 22px 22px 18px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45); }
+.prep h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; }
+.prep-sub { margin: 0 0 16px; color: var(--ui-2); font-size: 13px; }
+.prep ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.prep-passo { display: flex; gap: 12px; } .prep-passo > div { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.prep-passo b { font-weight: 500; font-size: 14px; } .prep-passo small { color: var(--ui-dim); font-size: 12.5px; } .prep-passo small:empty { display: none; }
+.prep-ic { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 1.5px solid var(--line-2); }
+.prep-passo[data-estado="rodando"] .prep-ic { border-color: var(--accent); border-top-color: transparent; animation: gira 0.9s linear infinite; }
+.prep-passo[data-estado="agora"] .prep-ic { border-color: var(--accent); }
+.prep-passo[data-estado="ok"] .prep-ic { border-color: var(--ok); background: var(--ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; }
+.prep-passo[data-estado="erro"] .prep-ic { border-color: var(--err); } .prep-passo[data-estado="erro"] small { color: var(--err); }
+.prep-passo:not([data-estado]) { opacity: 0.5; }
+.prep-log { margin: 0; max-height: 140px; overflow: auto; padding: 8px 10px; border-radius: 8px; background: var(--code); font: 11.5px/1.45 var(--mono); color: var(--ui-2); white-space: pre-wrap; word-break: break-all; }
+.prep-opcoes, .prep-link, .prep-chave { display: grid; gap: 8px; margin-top: 4px; }
+.prep-opcoes[hidden], .prep-link[hidden], .prep-chave[hidden], .prep-log[hidden], .prep .btn[hidden] { display: none; }
+.prep-linha { display: flex; gap: 8px; } .prep-linha input { flex: 1; min-width: 0; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--pill); color: inherit; font: 12.5px var(--mono); }
+.prep-linha input:focus { outline: none; border-color: var(--accent); }
+.prep .btn.leve { background: none; border-color: transparent; color: var(--ui-dim); justify-self: start; padding-left: 0; }
+@media (prefers-reduced-motion: reduce) { .prep-fundo { animation: none; } .prep-passo[data-estado="rodando"] .prep-ic { animation: none; } }

@@ -1595,6 +1595,66 @@ ipcMain.handle("conta_salvar", (_e, { entrar, chave }) => {
   salvarConfig();
   return { entrar: config.entrar || "login", temChave: !!config.chaveApi };
 });
+// ---- first launch check: Claude Code installed and signed in --------------------------
+// The window asks once when the app opens. Missing Claude Code is installed with
+// Anthropic's own script; signing in runs `claude auth login`, whose page link and
+// "paste the code" prompt come to the window, or takes an API key saved above.
+async function achaClaudeAsync() {
+  if (claudeExe === undefined) { const r = await acharClaudeExeAsync(); if (claudeExe === undefined) { claudeExe = r.exe; claudeTentativas = r.tentativas; } }
+  return claudeExe;
+}
+const rodaClaude = (exe, args) => new Promise((ok) => {
+  const c = comandoClaude(exe, args);
+  execFile(c.cmd, c.args, { env: c.env, timeout: 30000, windowsHide: true, encoding: "utf8" }, (e, out) => ok(e && !out ? null : String(out || "")));
+});
+ipcMain.handle("claude_checa", async () => {
+  const exe = await achaClaudeAsync();
+  if (!exe) return { instalado: temClaudeEmbutido(), logado: temClaudeEmbutido() ? null : false };
+  const versao = ((await rodaClaude(exe, ["--version"])) || "").trim().split(/\s/)[0];
+  if (config.entrar === "chave" && chaveApi()) return { instalado: true, versao, logado: true, metodo: "chave" };
+  let s = null; try { s = JSON.parse((await rodaClaude(exe, ["auth", "status", "--json"])) || "null"); } catch {}
+  // A Claude Code too old to say leaves the decision to its own first run.
+  if (!s || typeof s.loggedIn !== "boolean") return { instalado: true, versao, logado: null };
+  return { instalado: true, versao, logado: s.loggedIn, metodo: s.authMethod, email: s.email || "" };
+});
+let instalando = null, entrando = null;
+const linhasPara = (e, fonte) => {
+  let resto = "";
+  return (b) => {
+    const partes = (resto + b.toString()).split(/\r?\n/); resto = partes.pop();
+    // the login prompt has no newline: send what is left when it looks like one
+    if (/>\s*$/.test(resto)) { partes.push(resto); resto = ""; }
+    for (const l of partes) if (l.trim()) enviarEvento(J(e), { tipo: "claude_setup", fonte, linha: l.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").slice(0, 2000) });
+  };
+};
+ipcMain.handle("claude_instalar", (e) => instalando ??= new Promise((ok) => {
+  const win = process.platform === "win32";
+  const p = win
+    ? spawn(resolveExe("powershell"), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "irm https://claude.ai/install.ps1 | iex"], { windowsHide: true })
+    : spawn("/bin/bash", ["-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
+  const linha = linhasPara(e, "instalar");
+  p.stdout.on("data", linha); p.stderr.on("data", linha);
+  const fim = async (codigo) => { instalando = null; claudeExe = undefined; const exe = await achaClaudeAsync(); ok({ ok: !!exe, codigo, exe }); };
+  p.on("error", (err) => { linha(Buffer.from(String(err.message || err) + "\n")); fim(-1); });
+  p.on("close", fim);
+}));
+ipcMain.handle("claude_entrar", async (e, { console: daConsole } = {}) => {
+  const exe = await achaClaudeAsync();
+  if (!exe) return { erro: "O Claude Code não está instalado." };
+  try { entrando?.kill(); } catch {}
+  const c = comandoClaude(exe, ["auth", "login", ...(daConsole ? ["--console"] : [])]);
+  const p = entrando = spawn(c.cmd, c.args, { env: c.env, windowsHide: true });
+  const linha = linhasPara(e, "entrar");
+  p.stdout.on("data", linha); p.stderr.on("data", linha);
+  p.on("error", (err) => linha(Buffer.from(String(err.message || err) + "\n")));
+  p.on("close", (codigo) => { if (entrando === p) entrando = null; enviarEvento(J(e), { tipo: "claude_setup", fonte: "entrar", fim: true, codigo }); });
+  return { ok: true };
+});
+ipcMain.handle("claude_codigo", (_e, codigo) => {
+  if (!entrando || typeof codigo !== "string" || !codigo.trim()) return false;
+  try { entrando.stdin.write(codigo.trim() + "\n"); return true; } catch { return false; }
+});
+ipcMain.handle("claude_entrar_cancela", () => { try { entrando?.kill(); } catch {} entrando = null; return true; });
 ipcMain.handle("we_lista", () => listaWallpaperEngine());
 ipcMain.handle("we_importar", async (_e, pasta) => { try { return { item: await importaWallpaperEngine(String(pasta)) }; } catch (e) { return { erro: String(e.message || e) }; } });
 ipcMain.handle("barra", (e, claro) => { try { J(e).win.setTitleBarOverlay({ color: "#00000000", symbolColor: claro ? "#10323c" : "#e9e6e1" }); } catch {} });

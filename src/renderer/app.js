@@ -1760,6 +1760,10 @@ $("atalhosBtn").onclick = abreAtalhos;
     entrada.focus();
   } else {
     carregaSessoes();
-    boasVindas(() => { document.body.classList.remove("entrando"); entrada.focus(); });
+    boasVindas(() => {
+      document.body.classList.remove("entrando"); entrada.focus();
+      // Once per launch: a reload of this window doesn't ask again.
+      if (!sessionStorage.getItem("claudeChecado")) { sessionStorage.setItem("claudeChecado", "1"); preparaClaude(); }
+    });
   }
 })();
