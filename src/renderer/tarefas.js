@@ -8,10 +8,11 @@
 
 let fundoVisto = { ativas: [], concluidas: [] }, tfSheet = null, tfTimer = 0;
 const tfAberto = { rodando: true, concluidas: false }, tfFases = new Set(), tfLidas = new Set(), tfArma = new Map();
-const TF_ESTADO = { completed: "Concluída", failed: "Falhou", stopped: "Parada" };
+const TF_ESTADO = { completed: "Concluída", failed: "Falhou", stopped: "Parada", interrupted: "Interrompida" };
 const TF_ICONE = {
   completed: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'), failed: svg('<path d="M7 7l10 10M17 7 7 17"/>'), stopped: svg('<rect x="7" y="7" width="10" height="10" rx="1.5"/>'),
 };
+let tfDecidiu = false; // the person toggled the finished group: never reopen it for them
 const TF_CHEV = svg('<path d="m9 6 6 6-6 6"/>');
 const tfFormato = {};
 // 790100 -> "790,1 mil" (pt), "790.1K" (en): the compact form of the interface language
@@ -50,7 +51,7 @@ const tfQ = (el, s) => el.querySelector(s);
 // ---- state, strip chip --------------------------------------------------------------------
 function aplicaFundo(ev) {
   if (ev.ativas) fundoVisto.ativas = ev.ativas;
-  if (ev.concluidas) fundoVisto.concluidas = ev.concluidas;
+  if (ev.concluidas) { fundoVisto.concluidas = ev.concluidas; if (!tfDecidiu && ev.concluidas.some((x) => x.interrompida)) tfAberto.concluidas = true; }
   desenhaFundo(fundoVisto.ativas); desenhaChip(); desenhaTarefas();
 }
 const limpaFundo = () => aplicaFundo({ ativas: [], concluidas: [] });
@@ -86,7 +87,7 @@ function abreTarefas() {
   for (const s of j.corpo.querySelectorAll(".tf-sec")) {
     const k = s.dataset.sec, cab = tfQ(s, ".tf-sec-cab");
     tfSheet.sec[k] = { el: s, lista: tfQ(s, ".tf-lista"), n: tfQ(s, "em") };
-    cab.onclick = () => { tfAberto[k] = !tfAberto[k]; cab.setAttribute("aria-expanded", tfAberto[k]); desenhaTarefas(); };
+    cab.onclick = () => { if (k === "concluidas") tfDecidiu = true; tfAberto[k] = !tfAberto[k]; cab.setAttribute("aria-expanded", tfAberto[k]); desenhaTarefas(); };
   }
   j.el.tabIndex = -1; j.el.focus({ preventScroll: true });
   desenhaTarefas();
@@ -185,17 +186,23 @@ function atualizaAgente(el, a) {
 
 // a finished task
 function criaLinha() {
-  const el = tfEl('<div class="tf-l1"><span class="tf-ic"></span><span class="tf-tipo"></span><b class="tf-nome"></b><span class="tf-estado"></span><time class="tf-tempo"></time></div><p class="tf-resumo"></p>', "tf-conc");
+  const el = tfEl('<div class="tf-l1"><span class="tf-ic"></span><span class="tf-tipo"></span><b class="tf-nome"></b><span class="tf-estado"></span><time class="tf-tempo"></time></div><p class="tf-resumo"></p><div class="tf-fases"></div>', "tf-conc");
+  el._fases = new Map();
+  tfQ(el, ".tf-fases").onclick = (e) => e.stopPropagation(); // phases open on their own, not the row
   el.onclick = () => { const k = el.dataset.k; tfLidas.has(k) ? tfLidas.delete(k) : tfLidas.add(k); el.classList.toggle("aberta", tfLidas.has(k)); };
   return el;
 }
 function atualizaLinha(el, x) {
   el.dataset.k = `${x.id}:${x.fim}`; el.classList.toggle("aberta", tfLidas.has(el.dataset.k));
-  const ic = tfQ(el, ".tf-ic"); tfClasse(ic, "tf-ic e-" + x.estado); if (ic.dataset.e !== x.estado) { ic.dataset.e = x.estado; ic.innerHTML = TF_ICONE[x.estado] || ""; }
+  // interrupted (limit, error, Claude Code gone): its own badge, drawn as stopped
+  const ev = x.interrompida && x.estado === "completed" ? "stopped" : x.estado;
+  const ic = tfQ(el, ".tf-ic"); tfClasse(ic, "tf-ic e-" + ev); if (ic.dataset.e !== ev) { ic.dataset.e = ev; ic.innerHTML = TF_ICONE[ev] || ""; }
   tfTxt(tfQ(el, ".tf-tipo"), tipoFundo(x.tipo));
   tfTxt(tfQ(el, ".tf-nome"), (x.tipo === "local_workflow" && x.nome) || x.descricao || x.nome || tipoFundo(x.tipo));
-  tfTxt(tfQ(el, ".tf-estado"), TF_ESTADO[x.estado] || "");
+  tfTxt(tfQ(el, ".tf-estado"), x.interrompida ? TF_ESTADO.interrupted : TF_ESTADO[x.estado] || "");
   tfTxt(tfQ(el, ".tf-tempo"), x.duracaoMs ? tfDur(x.duracaoMs) : "");
   const r = tfQ(el, ".tf-resumo"); tfTxt(r, x.resumo || ""); tfOculta(r, !x.resumo);
-  el.title = [x.tokens ? `${tfNum(x.tokens)} tokens` : "", x.nAgentes ? `${x.nAgentes} agentes` : ""].filter(Boolean).join(" · ");
+  const fs = tfQ(el, ".tf-fases"); tfOculta(fs, !x.fases?.length);
+  if (x.fases) tfSync(fs, el._fases, x.fases, (f) => `${el.dataset.k}:${f.i}`, criaFase, (e, f) => atualizaFase(e, f, `${el.dataset.k}:${f.i}`));
+  el.title = [x.interrompida && x.nAgentes ? window.t("{0}/{1} agentes terminaram", x.nFeitos, x.nAgentes) : "", x.tokens ? `${tfNum(x.tokens)} tokens` : "", x.nAgentes ? `${x.nAgentes} agentes` : ""].filter(Boolean).join(" · ");
 }

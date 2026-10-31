@@ -1301,7 +1301,7 @@ ipcMain.handle("abrir_sessao", async (e, id, cwd) => {
   // An idle one (open in another window or not) comes to this window.
   const t = vivaDe(id);
   const cfg = cfgSessao(id);
-  if (!t || (t.ativo && t.j !== j && !t.j.fechada)) return { hist, cfg, fundo: { ativas: [], concluidas: concluidasDe(id) } };
+  if (!t || (t.ativo && t.j !== j && !t.j.fechada)) return { hist, cfg, fundo: { ativas: [], concluidas: concluidasDe(id, cwd || j.cwd) } };
   t.j = j; j.atual = t;
   if (!t.ativo) return { hist, cfg, fundo: fundoLista(t) };
   return { hist, cfg, fundo: fundoLista(t), turno: { tid: t.tid, n: t.n, parcial: t.parcial, pendentes: [...t.pendentes.values()], subs: t.subs } };

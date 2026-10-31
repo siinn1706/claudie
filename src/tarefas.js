@@ -16,8 +16,24 @@ const tempo = (v) => (typeof v === "number" ? v : typeof v === "string" && Numbe
 
 // Finished tasks live per conversation for the whole app session, newest first.
 const concluidasPorSessao = new Map();
-export const concluidasDe = (chave) => concluidasPorSessao.get(chave) || [];
-export const esqueceTarefas = (chave) => concluidasPorSessao.delete(chave);
+const varridas = new Set();
+// With `cwd`, a conversation not seen in this app run (after a restart) is first
+// rebuilt from disk: interrupted workflow runs (lePassadas, with their frame),
+// then every task the transcript says finished (leNotificacoes).
+export function concluidasDe(chave, cwd) {
+  if (cwd && chave && !varridas.has(chave)) {
+    varridas.add(chave); if (varridas.size > 200) varridas.delete(varridas.values().next().value);
+    const ja = new Set((concluidasPorSessao.get(chave) || []).flatMap((r) => [r.id, r.runId].filter(Boolean)));
+    let novos = 0;
+    for (const item of [...lePassadas(chave, cwd), ...leNotificacoes(chave, cwd)]) {
+      if (ja.has(item.id) || (item.runId && ja.has(item.runId))) continue;
+      ja.add(item.id); guardaConcluida(chave, item); novos++;
+    }
+    if (novos) concluidasPorSessao.get(chave).sort((a, b) => (b.fim || 0) - (a.fim || 0));
+  }
+  return concluidasPorSessao.get(chave) || [];
+}
+export const esqueceTarefas = (chave) => { varridas.delete(chave); return concluidasPorSessao.delete(chave); };
 function guardaConcluida(chave, item) {
   let l = concluidasPorSessao.get(chave);
   if (!l) { l = []; concluidasPorSessao.set(chave, l); if (concluidasPorSessao.size > MAX_SESSOES) concluidasPorSessao.delete(concluidasPorSessao.keys().next().value); }
@@ -176,12 +192,21 @@ export function workflowSaida(t, r) {
   if (x) { aplicaInfo(t, x); agenda(t); }
 }
 
+// The frame of a workflow as last seen. An agent that had not finished (queued
+// or running when the run ended) is shown as stopped; any agent that did not
+// end "done" makes the run interrupted, even when the SDK says completed.
+function quadro(x) {
+  const s = serializa(x); let ok = 0, mal = 0;
+  for (const f of s.fases) for (const a of f.agentes) { if (a.estado === "done") ok++; else { mal++; if (!final(a.estado)) a.estado = "stopped"; } }
+  return { fases: s.fases, nAgentes: s.nAgentes, nFeitos: ok, interrompida: mal > 0 };
+}
 function registra(t, x, estado, d = {}) {
-  const u = d.usage || {};
+  const u = d.usage || {}, wf = x.tipo === "local_workflow", q = wf ? quadro(x) : null;
   const item = {
     id: x.id, runId: x.runId, tipo: x.tipo, nome: x.nome, descricao: x.detalhe && x.tipo === "local_workflow" ? x.detalhe : x.descricao, estado,
     resumo: corta(d.summary || x.resumo), tokens: num(u.total_tokens) || tokensDe(x), usos: num(u.tool_uses) || x.usos,
     duracaoMs: num(u.duration_ms) || x.duracaoMs || Date.now() - x.inicio, fim: Date.now(), nAgentes: x.agentes.size,
+    ...(wf ? q : {}), interrompida: wf ? q.interrompida : !!d.interrompida,
   };
   guardaConcluida(t.sessionId || t.tid, item); t.concSujo = true; return item;
 }
@@ -189,6 +214,7 @@ const estadoFinal = (s) => (s === "killed" ? "stopped" : s === "completed" || s 
 function fecha(t, id, estado, d) {
   const x = t.tarefas.get(id); if (!x) return false;
   t.tarefas.delete(id);
+  if (x.tipo === "local_workflow" && x.dir) try { leWorkflow(x); } catch {} // the last word from disk
   for (const [k, v] of t.filhos) if (v === id) t.filhos.delete(k);
   if (visivel(x)) registra(t, x, estado, d);
   if (t.vigia && ![...t.tarefas.values()].some((y) => y.tipo === "local_workflow" && y.dir)) { clearInterval(t.vigia); t.vigia = null; }
@@ -251,7 +277,7 @@ export function trataMensagem(t, msg) {
     else {
       // Already closed by a patch: the notification adds its summary and numbers. Never seen: a row from the notification alone.
       const l = concluidasDe(t.sessionId || t.tid), c = l.find((r) => r.id === id);
-      if (c) { c.estado = e; if (msg.summary) c.resumo = corta(msg.summary); if (msg.usage) { c.tokens = num(msg.usage.total_tokens) || c.tokens; c.usos = num(msg.usage.tool_uses) || c.usos; c.duracaoMs = num(msg.usage.duration_ms) || c.duracaoMs; } t.concSujo = true; }
+      if (c) { c.estado = e; if (c.tipo !== "local_workflow") c.interrompida = false; if (msg.summary) c.resumo = corta(msg.summary); if (msg.usage) { c.tokens = num(msg.usage.total_tokens) || c.tokens; c.usos = num(msg.usage.tool_uses) || c.usos; c.duracaoMs = num(msg.usage.duration_ms) || c.duracaoMs; } t.concSujo = true; }
       else {
         const u = msg.usage || {};
         guardaConcluida(t.sessionId || t.tid, { id, runId: msg.run_id || "", tipo: "", nome: "", descricao: corta(msg.summary), estado: e, resumo: "", tokens: num(u.total_tokens), usos: num(u.tool_uses), duracaoMs: num(u.duration_ms), fim: Date.now(), nAgentes: 0 });
@@ -266,7 +292,7 @@ export function trataMensagem(t, msg) {
 export function fechaTudo(t) {
   clearInterval(t.vigia); t.vigia = null;
   if (!t.tarefas) return;
-  for (const id of [...t.tarefas.keys()]) fecha(t, id, "stopped");
+  for (const id of [...t.tarefas.keys()]) fecha(t, id, "stopped", { interrompida: true });
   enviaFundo(t, true);
 }
 
@@ -293,6 +319,64 @@ function manda(t) {
   t.ev({ tipo: "fundo", sessaoId: t.sessionId, ...fundoLista(t, comConcluidas) });
 }
 export function enviaFundo(t, ja = false) { if (!ja) return agenda(t); clearTimeout(t.fundoTimer); t.fundoTimer = null; manda(t); }
+
+// ---- runs left on disk by the SDK ----------------------------------------------------------
+// <config>/projects/<cwd, non-alphanumerics as "-">/<session>/workflows/wf_*.json
+// holds the final frame of every run. Only the interrupted ones come back (newest 20).
+const sessaoOk = (s) => /^[\w-]+$/.test(String(s));
+const pastaProjeto = (cwd) => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(process.env.USERPROFILE || process.env.HOME || "", ".claude"), "projects", String(cwd).replace(/[^a-zA-Z0-9]/g, "-"));
+function lePassadas(sessao, cwd) {
+  const out = [];
+  if (!sessaoOk(sessao)) return out;
+  try {
+    const pasta = path.join(pastaProjeto(cwd), String(sessao), "workflows");
+    const arqs = fs.readdirSync(pasta).filter((n) => /^wf_[\w-]+\.json$/.test(n)).map((n) => { const p = path.join(pasta, n); return { p, m: fs.statSync(p).mtimeMs }; }).sort((a, b) => b.m - a.m).slice(0, 20);
+    for (const { p } of arqs) {
+      let j; try { if (fs.statSync(p).size > (8 << 20)) continue; j = JSON.parse(fs.readFileSync(p, "utf8")); } catch { continue; }
+      if (!j || !Array.isArray(j.workflowProgress)) continue;
+      const prog = j.workflowProgress, de = prog.some((i) => i?.type === "workflow_phase" && i.index === 0) ? 0 : 1; // 1-based in the file
+      const meta = parseMetaWorkflow(j.script) || { nome: "", descricao: "", fases: [] };
+      const x = { id: String(j.taskId || j.runId), runId: String(j.runId || ""), tipo: "local_workflow", nome: corta(j.workflowName || meta.nome), detalhe: meta.descricao, descricao: "", tokens: num(j.totalTokens), fases: [], agentes: new Map() };
+      mesclaWorkflow(x, prog.map((i) => (i?.type === "workflow_phase" ? { ...i, index: num(i.index) - de } : i?.type === "workflow_agent" && i.phaseIndex != null ? { ...i, phaseIndex: num(i.phaseIndex) - de } : i)));
+      meta.fases.forEach((f, i) => { if (!x.fases[i]) x.fases[i] = f; });
+      const q = quadro(x), estado = estadoFinal(j.status) || "completed";
+      if (!q.interrompida && estado === "completed") continue;
+      out.push({ id: x.id, runId: x.runId, tipo: x.tipo, nome: x.nome, descricao: x.detalhe, estado, resumo: corta(j.summary), tokens: x.tokens, usos: num(j.totalToolCalls), duracaoMs: num(j.durationMs), fim: tempo(j.timestamp) || Date.now(), ...q, interrompida: true });
+    }
+  } catch {}
+  return out;
+}
+// The transcript keeps a <task-notification> for every background task that
+// ended, and the tool call that started it (its description and kind).
+const TIPO_FERRAMENTA = { Bash: "local_bash", PowerShell: "local_bash", Agent: "local_agent", Task: "local_agent", Monitor: "monitor", Workflow: "local_workflow" };
+function leNotificacoes(sessao, cwd) {
+  const out = [];
+  if (!sessaoOk(sessao)) return out;
+  try {
+    const p = path.join(pastaProjeto(cwd), `${sessao}.jsonl`);
+    if (fs.statSync(p).size > (64 << 20)) return out;
+    const linhas = fs.readFileSync(p, "utf8").split("\n"), chamadas = new Map(), avisos = [];
+    const tag = (s, k) => new RegExp(`<${k}>([\\s\\S]*?)</${k}>`).exec(s)?.[1]?.trim() || "";
+    for (const l of linhas) {
+      if (l.includes('"tool_use"')) {
+        let j; try { j = JSON.parse(l); } catch { continue; }
+        if (j.type !== "assistant" || !Array.isArray(j.message?.content)) continue; // request copies replay old calls
+        for (const b of j.message.content) if (b?.type === "tool_use" && TIPO_FERRAMENTA[b.name] && !chamadas.has(b.id)) chamadas.set(b.id, { nome: b.name, entrada: b.input || {}, ts: tempo(j.timestamp) });
+      } else if (l.includes('"task-notification"') && l.includes("<task-notification>")) {
+        let j; try { j = JSON.parse(l); } catch { continue; }
+        if (j.type !== "user" || j.origin?.kind !== "task-notification") continue;
+        const c = j.message?.content, s = typeof c === "string" ? c : Array.isArray(c) ? c.map((b) => b?.text || "").join("") : "";
+        const id = tag(s, "task-id"), estado = estadoFinal(tag(s, "status"));
+        if (id && estado) avisos.push({ id, uso: tag(s, "tool-use-id"), estado, resumo: tag(s, "summary"), fim: tempo(j.timestamp) || 0 });
+      }
+    }
+    for (const a of avisos.slice(-MAX_CONCLUIDAS)) {
+      const ch = chamadas.get(a.uso), e = ch?.entrada || {};
+      out.push({ id: a.id, runId: "", tipo: TIPO_FERRAMENTA[ch?.nome] || "", nome: "", descricao: corta(e.description || e.prompt || a.resumo), estado: a.estado, resumo: corta(a.resumo), tokens: 0, usos: 0, duracaoMs: ch?.ts && a.fim ? a.fim - ch.ts : 0, fim: a.fim, nAgentes: 0 });
+    }
+  } catch {}
+  return out;
+}
 
 // ---- the run's files on disk ---------------------------------------------------------------
 function iniciaVigia(t) {

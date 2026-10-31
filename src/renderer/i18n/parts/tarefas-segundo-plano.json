@@ -16,5 +16,7 @@
   "Concluída": { "en": "Completed", "vi": "Hoàn thành" },
   "Falhou": { "en": "Failed", "vi": "Thất bại" },
   "Parada": { "en": "Stopped", "vi": "Đã dừng" },
+  "Interrompida": { "en": "Interrupted", "vi": "Bị gián đoạn" },
+  "{0}/{1} agentes terminaram": { "en": "{0}/{1} agents finished", "vi": "{0}/{1} tác tử đã xong" },
   "Ver": { "en": "View", "vi": "Xem" }
 }
