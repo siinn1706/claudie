@@ -73,6 +73,6 @@ contextBridge.exposeInMainWorld("vivo", {
   atualizacaoProcurar: () => ipcRenderer.invoke("atualizacao_procurar"),
   atualizacaoInstalar: () => ipcRenderer.invoke("atualizacao_instalar"),
   remoto: () => ipcRenderer.invoke("remoto"),
-  remotoLigar: (ligar) => ipcRenderer.invoke("remoto_ligar", ligar),
+  remotoLigar: (ligar, nome) => ipcRenderer.invoke("remoto_ligar", ligar, nome),
   aoEvento: (fn) => ipcRenderer.on("evento", (_e, ev) => fn(ev)),
 });

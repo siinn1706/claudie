@@ -350,6 +350,7 @@ aoEvento((ev) => {
     case "uso": mostraUso(ev); break;
     case "cache": mostraCache(ev); break;
     case "remoto": mostraRemoto(ev); break;
+    case "remoto_msg": fechaSegmento(); meu(ev.texto); mostraPensando(); break;
     case "sub_ferramenta": subFerramenta(ev); break;
     case "sub_ferramenta_fim": subFim(ev); break;
     case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida, ev.maior, ev.imagens); if (planoResultado(ev.id, ev.tarefa)) desenhaPlano(); break;
@@ -724,12 +725,14 @@ function telaInicial() {
 
 // ---- sessions and settings --------------------------------------------------
 let sessaoAtual = null, sessoes = [];
+const remotos = {}; // sessionId -> Remote Control state ("" for a conversation not started yet)
 const lista = $("lista");
 function marcaSessao() {
   lista.querySelectorAll(".item").forEach((d) => {
     const id = d.dataset.id;
     d.classList.toggle("on", id === sessaoAtual); d.classList.toggle("rodando", emCurso.has(id)); d.classList.toggle("aguarda", aguardando.has(id));
   });
+  desenhaRemoto();
 }
 function grupoDe(ms) {
   const d = new Date(ms), h = new Date(); h.setHours(0, 0, 0, 0);
@@ -1471,31 +1474,34 @@ somVol.oninput = () => { Som.volume(+somVol.value); mostraSom(); try { localStor
 addEventListener("pointerdown", (e) => { if (!e.target.closest(".som")) somPop.classList.remove("on"); });
 
 // ---- Remote Control ------------------------------------------------------------------
-// A switch for Claude Code's Remote Control server in this folder, with the
-// link that opens it on claude.ai/code or in the Claude app.
+// A switch for the open conversation on claude.ai/code and in the Claude app,
+// with its history, and the link that opens it there.
 const remotoPop = $("remotoPop");
-let remotoUrl = "";
-function mostraRemoto({ estado = "desligado", cwd = "", url = "", texto = "" } = {}) {
-  const pasta = cwd.split(/[\\/]/).filter(Boolean).pop() || "";
-  remotoUrl = url;
+function mostraRemoto({ sid = "", estado = "desligado", url = "", texto = "" }) {
+  if (estado === "desligado" && !texto) delete remotos[sid]; else remotos[sid] = { estado, url, texto };
+  desenhaRemoto();
+}
+function desenhaRemoto() {
+  const { estado = "desligado", url = "", texto = "" } = remotos[sessaoAtual || ""] || {};
   $("remoto").dataset.estado = estado;
   $("remotoChave").setAttribute("aria-checked", estado === "pronto" || estado === "conectando" ? "true" : "false");
-  $("remotoDesc").textContent = estado === "pronto" ? `Conectado · ${pasta}` : estado === "conectando" ? "Conectando…" : estado === "erro" ? "Não conectou" : "Desligado";
+  $("remotoDesc").textContent = estado === "pronto" ? "Conectado" : estado === "conectando" ? "Conectando…" : estado === "erro" ? "Não conectou" : "Desligado";
   $("remotoInfo").textContent = estado === "erro" && texto ? texto
-    : estado === "pronto" ? "Abra o link no navegador ou no app do Claude. As sessões criadas por lá aparecem aqui na lista de conversas."
-    : "Continue pelo claude.ai/code ou pelo app do Claude no celular, nesta pasta. O Claude roda neste computador: deixe o Claudie aberto.";
+    : estado === "pronto" ? "Esta conversa está no claude.ai/code e no app do Claude, com o histórico. O que você mandar por lá aparece aqui também."
+    : "Continue esta conversa pelo claude.ai/code ou pelo app do Claude no celular. O Claude roda neste computador: deixe o Claudie aberto.";
   $("remotoAcoes").hidden = !url;
-  $("remotoBtn").title = estado === "pronto" ? `Remote Control: conectado (${pasta})` : "Remote Control";
+  $("remotoBtn").title = estado === "pronto" ? "Remote Control: conectado" : "Remote Control";
 }
 $("remotoBtn").onclick = (e) => { e.stopPropagation(); somPop.classList.remove("on"); remotoPop.classList.toggle("on"); };
-$("remotoChave").onclick = async () => {
+$("remotoChave").onclick = () => {
   const ligado = ["pronto", "conectando"].includes($("remoto").dataset.estado);
-  mostraRemoto(await vivo.remotoLigar(!ligado));
+  vivo.remotoLigar(!ligado, $("titulo").textContent);
 };
-$("remotoAbrir").onclick = () => remotoUrl && vivo.link(remotoUrl);
-$("remotoCopiar").onclick = async () => { try { await navigator.clipboard.writeText(remotoUrl); $("remotoCopiar").textContent = "Copiado"; setTimeout(() => ($("remotoCopiar").textContent = "Copiar link"), 1500); } catch {} };
+const remotoUrl = () => remotos[sessaoAtual || ""]?.url || "";
+$("remotoAbrir").onclick = () => remotoUrl() && vivo.link(remotoUrl());
+$("remotoCopiar").onclick = async () => { try { await navigator.clipboard.writeText(remotoUrl()); $("remotoCopiar").textContent = "Copiado"; setTimeout(() => ($("remotoCopiar").textContent = "Copiar link"), 1500); } catch {} };
 addEventListener("pointerdown", (e) => { if (!e.target.closest("#remoto")) remotoPop.classList.remove("on"); });
-vivo.remoto().then(mostraRemoto);
+vivo.remoto().then((todos) => { Object.assign(remotos, todos); desenhaRemoto(); });
 try {
   const v = localStorage.getItem("somVol"); if (v) { somVol.value = v; Som.volume(+v); }
   if (localStorage.getItem("som") === "1") {

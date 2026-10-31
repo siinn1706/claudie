@@ -15,7 +15,7 @@ import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { acharClaudeExe, acharClaudeExeAsync, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
-import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida, pastaProjeto } from "./tarefas.js";
+import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const idioma = () => (IDIOMAS.includes(config?.visual?.geral?.idioma) ? config.visual.geral.idioma : IDIOMA_PADRAO);
@@ -282,7 +282,7 @@ function montaPrompt(texto, anexos = [], uuid, avisa = () => {}) {
 // The prompt of a conversation's Claude Code: every message sent to it, mid-turn
 // or as a new turn, until it is closed (Claudie quits or it has to restart).
 function caixaDeEntrada(primeira) {
-  const caixa = { fila: [primeira], fechada: false, acorda: null };
+  const caixa = { fila: primeira ? [primeira] : [], fechada: false, acorda: null };
   caixa.poe = (m) => { if (caixa.fechada) return false; caixa.fila.push(m); caixa.acorda?.(); return true; };
   caixa.fecha = () => { caixa.fechada = true; caixa.acorda?.(); };
   caixa.gerador = (async function* () {
@@ -555,6 +555,7 @@ function fimDoTurno(t, aviso) {
 const encerra = (t) => t.caixa?.fecha();
 // Closes them for good and waits (a few seconds at most) until they exit.
 const fechaEspera = (ts) => { for (const t of ts) { encerra(t); t.ac.abort(); } return Promise.race([Promise.all(ts.map((t) => t.saiu)), new Promise((ok) => setTimeout(ok, 4000))]); };
+// texto null opens the conversation's Claude Code without a message (Remote Control).
 async function turno(j, texto, anexos) {
   const viva = vivaDe(j.sessionId);
   if (viva && !viva.ativo && !viva.reiniciar && viva.cwd === j.cwd) {
@@ -585,7 +586,7 @@ async function turno(j, texto, anexos) {
   // Until the query exists the window follows no tagged stream, so a setup failure is sent untagged.
   const aviso = (x) => (t.q ? ev(x) : enviarEvento(t.j, x));
   try {
-  t.caixa = caixaDeEntrada(montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m })));
+  t.caixa = caixaDeEntrada(texto === null ? null : montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m })));
   const q = t.q = query({
     prompt: t.caixa.gerador,
     options: {
@@ -620,10 +621,17 @@ async function turno(j, texto, anexos) {
   });
   turnos.add(t);
   j.atual = t;
-  comecaTurno(t, uuid, !anexos.length && texto.startsWith("/")); comecou = true;
+  if (texto !== null) comecaTurno(t, uuid, !anexos.length && texto.startsWith("/"));
+  comecou = true;
+  if (querRemoto.has(t.sessionId)) ligaRemoto(t);
   if (desligadosMcp(t.cwd).length) q.mcpServerStatus().then((st) => aplicaDesligados(q, t.cwd, st)).catch(() => {});
   avisaTurnos();
     for await (const msg of q) {
+      // A message sent from claude.ai/code or the Claude app shows here as the person's own.
+      if (!t.ativo && msg.type === "user" && !msg.parent_tool_use_id && !msg.isReplay) {
+        const c = msg.message?.content, txt = typeof c === "string" ? c : Array.isArray(c) ? c.filter((b) => b.type === "text").map((b) => b.text).join("\n") : "";
+        if (txt.trim()) { comecaTurno(t, crypto.randomUUID(), true); ev({ tipo: "remoto_msg", texto: txt }); }
+      }
       // Claude can start a turn by itself while idle (a background task finished,
       // a message sent as the last turn ended); the window showing it follows it.
       if (!t.ativo && !msg.parent_tool_use_id && (msg.type === "assistant" || msg.type === "stream_event" && msg.event?.type === "message_start")) comecaTurno(t, crypto.randomUUID(), true);
@@ -633,7 +641,9 @@ async function turno(j, texto, anexos) {
         if (t.j.atual === t) t.j.sessionId = t.sessionId;
         ev({ tipo: "sessao", id: t.sessionId }); avisaTurnos();
       }
-      if (msg.type === "system" && msg.subtype === "thinking_tokens") {
+      if (msg.type === "system" && msg.subtype === "bridge_state") {
+        estadoRemoto(t, msg);
+      } else if (msg.type === "system" && msg.subtype === "thinking_tokens") {
         ev({ tipo: "pensando", tokens: msg.estimated_tokens });
       } else if (msg.type === "system" && msg.subtype === "init") {
         ev({ tipo: "info", modelo: msg.model, cwd: msg.cwd, modo: msg.permissionMode });
@@ -712,6 +722,8 @@ async function turno(j, texto, anexos) {
     // Claude Code closed (quit, restart, stop or crash): what it still ran died with it.
     t.caixa?.fecha();
     turnos.delete(t);
+    // The bridge went with it; it comes back when the conversation opens again.
+    if (remotos.has(t.sessionId)) avisaRemoto(t.sessionId, { estado: "desligado", url: "", texto: "" });
     if (t.j.atual === t) t.j.atual = null;
     fechaTudo(t);
     // A setup failure before the turn began still has to release the window.
@@ -1768,77 +1780,53 @@ function iniciaAtualizacoes() {
 ipcMain.handle("atualizacao", () => atualizacao);
 ipcMain.handle("atualizacao_procurar", () => { if (!["procurando", "baixando", "pronta"].includes(atualizacao.estado)) procuraAtualizacao(); return atualizacao; });
 
-// Remote Control: Claude Code's own server (`claude remote-control`) in the
-// window's folder, so claude.ai/code and the Claude app can start and drive
-// sessions on this computer. Unlike the turns, it keeps running while it is on;
-// the sessions it makes land in the conversation list like any other.
-let remoto = { estado: "desligado", cwd: "", url: "", texto: "" }, remotoProc = null;
-function avisaRemoto(mudanca) {
-  remoto = { ...remoto, ...mudanca };
-  for (const o of janelas.values()) enviarEvento(o, { tipo: "remoto", ...remoto });
+// Remote Control: the open conversation itself, history included, on
+// claude.ai/code and in the Claude app, as Claude Desktop does it. The bridge
+// lives in the conversation's Claude Code, so turning it on opens that one if
+// it is closed, and a conversation whose Claude Code reopens (a model change, a
+// folder change) connects again.
+const remotos = new Map(); // sessionId -> { estado, url, texto }
+const querRemoto = new Map(); // sessionId -> name, for the ones the person turned on
+function avisaRemoto(sid, mudanca) {
+  const r = { estado: "desligado", url: "", texto: "", ...remotos.get(sid), ...mudanca };
+  if (r.estado === "desligado" && !r.texto) remotos.delete(sid); else remotos.set(sid, r);
+  for (const o of janelas.values()) enviarEvento(o, { tipo: "remoto", sid, ...r });
 }
-// Stopping the server kills it outright, so it never closes its session and the
-// pointer it leaves behind names one the server will not have. Started again,
-// it tries to reattach to that one, fails, and serves no session at all: the
-// phone sees nothing. A pointer whose server is gone goes before each start.
-function esquecePonteiroRemoto(cwd) {
-  const arq = path.join(pastaProjeto(cwd), "bridge-pointer.json");
-  let pid = 0;
-  try { pid = JSON.parse(fs.readFileSync(arq, "utf8")).pid; } catch { return; }
-  try { if (pid) { process.kill(pid, 0); return; } } catch (e) { if (e.code === "EPERM") return; }
-  try { fs.unlinkSync(arq); } catch {}
-}
-function ligaRemoto(cwd) {
-  const exe = acharClaude();
-  if (!exe) return avisaRemoto({ estado: "erro", texto: "O Remote Control precisa do Claude Code instalado neste computador." });
-  esquecePonteiroRemoto(cwd);
-  const c =comandoClaude(exe, ["remote-control", "--name", `Claudie · ${path.basename(cwd)}`]);
-  const p = spawn(c.cmd, c.args, { cwd, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: c.env });
-  remotoProc = p;
-  avisaRemoto({ estado: "conectando", cwd, url: "", texto: "" });
-  let resto = "";
-  // The server redraws a small status screen: "Connected" (or "Ready"), the
-  // pre-created session as a terminal hyperlink, and the environment's link.
-  const le = (b) => {
-    if (remotoProc !== p) return; // output still in flight from a server that was stopped
-    const linhas = (resto + b.toString()).split(/\r?\n|\r/);
-    resto = linhas.pop();
-    for (const cru of linhas) {
-      const sessao = cru.match(/\x1b\]8;;(https:\/\/claude\.ai\/code\/session_[^\x07\x1b]+)/)?.[1];
-      const l = cru.replace(/\x1b\][^\x07]*\x07/g, "").replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").trim();
-      if (!l) continue;
-      const url = sessao || (!remoto.url.includes("/session_") && l.match(/https:\/\/claude\.ai\/code\S*/)?.[0]);
-      if (url && url !== remoto.url) avisaRemoto({ url });
-      if (/\b(Connected|Ready)\b/.test(l) && remoto.estado !== "pronto") avisaRemoto({ estado: "pronto" });
-      if (/not trusted/i.test(l)) avisaRemoto({ texto: "Esta pasta ainda não é confiável para o Claude Code. Abra o claude nela uma vez no terminal e aceite." });
-      else if (/^Error:/i.test(l)) avisaRemoto({ texto: l.replace(/^Error:\s*/i, "") });
-    }
-  };
-  p.stdout.on("data", le); p.stderr.on("data", le);
-  p.on("error", (e) => { if (remotoProc === p) { remotoProc = null; avisaRemoto({ estado: "erro", url: "", texto: String(e?.message || e) }); } });
-  p.on("exit", () => {
-    if (remotoProc !== p) return;
-    remotoProc = null;
-    avisaRemoto(remoto.texto ? { estado: "erro", url: "" } : { estado: "desligado", url: "" });
-  });
-}
-function desligaRemoto() {
-  const p = remotoProc;
-  remotoProc = null;
-  // the server starts a worker per session, so the whole tree goes
-  if (p?.pid && p.exitCode === null) {
-    if (process.platform === "win32") { try { execFileSync("taskkill", ["/pid", String(p.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" }); } catch {} }
-    else p.kill("SIGTERM");
+async function ligaRemoto(t) {
+  const sid = t.sessionId, nome = querRemoto.get(sid);
+  avisaRemoto(sid, { estado: "conectando", url: "", texto: "" });
+  try {
+    const r = await t.q.enableRemoteControl(true, nome || undefined);
+    if (querRemoto.has(sid)) avisaRemoto(sid, { url: r?.session_url || "" });
+  } catch (err) {
+    querRemoto.delete(sid);
+    avisaRemoto(sid, { estado: "erro", url: "", texto: String(err?.message || err).split(/\r?\n/)[0] });
   }
-  if (remoto.estado !== "desligado") avisaRemoto({ estado: "desligado", url: "", texto: "" });
 }
-ipcMain.handle("remoto", () => remoto);
-ipcMain.handle("remoto_ligar", (e, ligar) => {
-  if (!ligar) desligaRemoto();
-  else if (!remotoProc) ligaRemoto(J(e).cwd);
-  return remoto;
+// What the bridge reports about itself while the conversation is open.
+function estadoRemoto(t, msg) {
+  if (!querRemoto.has(t.sessionId)) return;
+  if (msg.state === "connected" || msg.state === "ready") avisaRemoto(t.sessionId, { estado: "pronto", texto: "" });
+  else if (msg.state === "failed" || msg.state === "policy_disabled") { querRemoto.delete(t.sessionId); avisaRemoto(t.sessionId, { estado: "erro", url: "", texto: msg.detail || "O Remote Control caiu." }); }
+  else avisaRemoto(t.sessionId, { estado: "conectando" });
+}
+ipcMain.handle("remoto", () => Object.fromEntries(remotos));
+ipcMain.handle("remoto_ligar", async (e, ligar, nome) => {
+  const j = J(e), sid = j.sessionId;
+  if (!sid) return void avisaRemoto("", { estado: "erro", texto: "Mande uma mensagem primeiro: o Remote Control leva esta conversa, e ela ainda não começou." });
+  if (!ligar) {
+    querRemoto.delete(sid);
+    const t = vivaDe(sid);
+    try { await t?.q.enableRemoteControl(false); } catch {}
+    return void avisaRemoto(sid, { estado: "desligado", url: "", texto: "" });
+  }
+  querRemoto.set(sid, String(nome || "").slice(0, 80));
+  const t = vivaDe(sid);
+  // A conversation open in another folder reopens here first.
+  if (t && t.cwd === j.cwd) await ligaRemoto(t);
+  else { if (t) encerra(t); turno(j, null, []); }
 });
-app.on("before-quit", () => { desligaRemoto(); for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) terminalMata(j, true); });
+app.on("before-quit", () => { for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) terminalMata(j, true); });
 
 app.whenReady().then(() => {
   if (!instanciaUnica) return;
