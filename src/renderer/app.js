@@ -190,40 +190,75 @@ const pedido = (n) => PEDIDO[n] || `usar ${rotulo(n)}`;
 
 function ferramenta(id, nome, e, fim = null) {
   if (PLANO.has(nome)) return;
-  fechaSegmento(); tiraPensando();
+  fechaRaciocinio(); fechaSegmento(); tiraPensando();
   const d = document.createElement("details");
   d.className = "ferr";
   const diff = diffDe(nome, e);
   d.innerHTML = `<summary>${iconeDa(nome)}<b data-nome="${esc(nome)}">${esc(rotulo(nome))}</b><span>${esc(resumo(nome, e) || "")}</span>${diff ? diff.contagem : ""}<i class="estado ${fim ? fim : "rodando"}">${fim === "ok" ? ICONE.ok : ""}</i></summary>${diff ? diff.html : `<pre>${esc(JSON.stringify(e, null, 2))}</pre>`}`;
-  d._nome = nome; d._entrada = e; d.dataset.nome = nome;
+  d._nome = nome; d._entrada = e; d._diff = diff; d.dataset.nome = nome;
   tiraBoas(); agrupa(d); desce();
   ferramentas.set(id, d);
 }
-// Tool cards in a row share a group; from three on, all but the latest fold
-// under one line that names them and opens the rest.
+// Everything Claude does between two pieces of text (tools and the reasoning
+// around them) folds into one quiet line, as in Claude desktop: "Ran 4 commands",
+// "Edited and read tarefas.js" with the lines changed. While a tool runs the
+// line says what it is doing; a click opens the cards.
 function agrupa(d) {
+  const soltos = [];
   let g = col.lastElementChild;
-  if (g?.classList.contains("ferr")) {
+  while (g?.classList.contains("raciocinio") && !g.classList.contains("vivo")) { soltos.unshift(g); g = g.previousElementSibling; }
+  if (!g?.classList.contains("ferr-grupo")) {
     const novo = document.createElement("div"); novo.className = "ferr-grupo";
-    novo.innerHTML = `<button class="ferr-mais">${svg('<path d="m9 6 6 6-6 6"/>')}<b></b><span></span></button>`;
+    novo.innerHTML = `<button class="ferr-mais"><b></b><em class="contagem" hidden></em>${svg('<path d="m9 6 6 6-6 6"/>')}</button><div class="ferr-lista"></div>`;
     novo.firstChild.onclick = () => novo.classList.toggle("aberto");
-    g.before(novo); novo.append(g); g = novo;
+    if (soltos.length) soltos[0].before(novo); else col.append(novo);
+    g = novo;
   }
-  if (!g?.classList.contains("ferr-grupo")) { col.append(d); return; }
-  g.append(d); rotuloGrupo(g);
+  g.lastChild.append(...soltos, d); rotuloGrupo(g);
+}
+const baseNome = (p) => String(p || "").split(/[\\/]/).pop();
+// What a group did, in one sentence: verbs in the order they first happened.
+const ATIVIDADE = { Bash: "cmd", PowerShell: "cmd", Read: "leu", Edit: "editou", MultiEdit: "editou", NotebookEdit: "editou", Write: "criou", Grep: "buscou", Glob: "buscou", ToolSearch: "buscou", WebSearch: "web", WebFetch: "web", Agent: "agente", Task: "agente", Workflow: "fluxo" };
+function fraseGrupo(cards) {
+  const por = new Map();
+  for (const c of cards) {
+    const k = ATIVIDADE[c._nome] || "outra", x = por.get(k) || { n: 0, arqs: new Set() };
+    x.n++; const f = c._entrada?.file_path || c._entrada?.notebook_path; if (f) x.arqs.add(baseNome(f));
+    por.set(k, x);
+  }
+  const arq = (x, um, varios) => (x.arqs.size === 1 ? t(um, [...x.arqs][0]) : t(varios, x.arqs.size || x.n));
+  const partes = [...por].map(([k, x]) => ({
+    cmd: () => (x.n === 1 ? t("rodou um comando") : t("rodou {0} comandos", x.n)),
+    leu: () => arq(x, "leu {0}", "leu {0} arquivos"),
+    editou: () => arq(x, "editou {0}", "editou {0} arquivos"),
+    criou: () => arq(x, "criou {0}", "criou {0} arquivos"),
+    buscou: () => t("buscou no código"),
+    web: () => t("pesquisou na web"),
+    agente: () => (x.n === 1 ? t("rodou um agente") : t("rodou {0} agentes", x.n)),
+    fluxo: () => t("rodou um fluxo de agentes"),
+    outra: () => (x.n === 1 ? t("usou uma ferramenta") : t("usou {0} ferramentas", x.n)),
+  })[k]());
+  const s = partes.join(", ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function rotuloGrupo(g) {
-  const antes = [...g.querySelectorAll(":scope > .ferr")].slice(0, -1), conta = new Map();
-  for (const c of antes) { const r = t(rotulo(c._nome)); conta.set(r, (conta.get(r) || 0) + 1); }
-  g.dataset.n = antes.length;
-  // The count sits in a node of its own so the interface language can translate it.
-  g.querySelector(".ferr-mais b").textContent = `${antes.length} ferramentas`;
-  g.querySelector(".ferr-mais span").textContent = [...conta].map(([r, n]) => (n > 1 ? `${r} ×${n}` : r)).join(", ");
+  const cards = [...g.querySelectorAll(":scope > .ferr-lista > .ferr")];
+  if (!cards.length) return;
+  const vivo = cards.findLast((c) => c.querySelector("summary .estado.rodando"));
+  let mais = 0, menos = 0;
+  for (const c of cards) { mais += c._diff?.mais || 0; menos += c._diff?.menos || 0; }
+  g.classList.toggle("vivo", !!vivo); g.classList.toggle("erro", cards.some((c) => c.querySelector("summary .estado.erro")));
+  // Running: what it is doing now (the command's own description when it has one).
+  const arq = vivo && (vivo._entrada?.file_path || vivo._entrada?.notebook_path);
+  g.querySelector(".ferr-mais b").textContent = vivo ? vivo._entrada?.description || `${t(rotulo(vivo._nome))} ${arq ? baseNome(arq) : resumo(vivo._nome, vivo._entrada) || ""}`.trim() : fraseGrupo(cards);
+  const n = g.querySelector(".ferr-mais .contagem");
+  n.hidden = !(mais || menos); n.innerHTML = `<b>+${mais}</b><s>−${menos}</s>`;
 }
 addEventListener("idioma", () => col.querySelectorAll(".ferr-grupo").forEach(rotuloGrupo));
 function ferramentaFim(id, erro, saida, maior = false, imagens = []) {
   const d = ferramentas.get(id); if (!d) return;
   const i = d.querySelector("summary .estado"); i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
+  const g = d.closest(".ferr-grupo"); if (g) rotuloGrupo(g);
   if (!(saida && d.querySelector("pre")) && !imagens.length) return;
   const res = document.createElement("div"); res.className = "ferr-saida";
   const pre = document.createElement("pre"); pre.textContent = saida;

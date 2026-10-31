@@ -8,5 +8,20 @@
   "Agente": { "en": "Agent", "vi": "Tác tử" },
   "Monitor": { "en": "Monitor", "vi": "Giám sát" },
   "Fluxo": { "en": "Workflow", "vi": "Luồng" },
-  "Tarefa": { "en": "Task", "vi": "Tác vụ" }
+  "Tarefa": { "en": "Task", "vi": "Tác vụ" },
+  "rodou um comando": { "en": "ran a command", "vi": "chạy một lệnh" },
+  "rodou {0} comandos": { "en": "ran {0} commands", "vi": "chạy {0} lệnh" },
+  "leu {0}": { "en": "read {0}", "vi": "đọc {0}" },
+  "leu {0} arquivos": { "en": "read {0} files", "vi": "đọc {0} tệp" },
+  "editou {0}": { "en": "edited {0}", "vi": "sửa {0}" },
+  "editou {0} arquivos": { "en": "edited {0} files", "vi": "sửa {0} tệp" },
+  "criou {0}": { "en": "created {0}", "vi": "tạo {0}" },
+  "criou {0} arquivos": { "en": "created {0} files", "vi": "tạo {0} tệp" },
+  "buscou no código": { "en": "searched the code", "vi": "tìm trong mã" },
+  "pesquisou na web": { "en": "searched the web", "vi": "tìm trên web" },
+  "rodou um agente": { "en": "ran an agent", "vi": "chạy một tác tử" },
+  "rodou {0} agentes": { "en": "ran {0} agents", "vi": "chạy {0} tác tử" },
+  "rodou um fluxo de agentes": { "en": "ran an agent workflow", "vi": "chạy một luồng tác tử" },
+  "usou uma ferramenta": { "en": "used a tool", "vi": "dùng một công cụ" },
+  "usou {0} ferramentas": { "en": "used {0} tools", "vi": "dùng {0} công cụ" }
 }

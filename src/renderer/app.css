@@ -1146,16 +1146,21 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .ferr .res-rot { padding: 6px 12px 0; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ui-dim); }
 .ferr .ver-tudo { margin: 0 12px 10px; }
 .ferr .ferr-saida img { display: block; max-width: calc(100% - 24px); max-height: 260px; margin: 6px 12px 10px; border-radius: 8px; border: 1px solid var(--line); cursor: var(--cur-mao, zoom-in); }
-.ferr-grupo { margin: 0 0 8px; }
-.ferr-grupo > .ferr:last-child { margin-bottom: 0; }
-.ferr-grupo:not(.aberto):not([data-n="1"]) > .ferr:not(:last-child), .ferr-grupo[data-n="1"] > .ferr-mais { display: none; }
-.ferr-mais { display: flex; align-items: center; gap: 7px; width: 100%; margin: 0 0 6px; padding: 5px 11px; border: 1px dashed var(--line); border-radius: 10px; background: none; color: var(--ui-dim); font: 12px var(--mono); text-align: left; cursor: var(--cur-mao, pointer); }
-.ferr-mais:hover { background: var(--hover); color: var(--ui-2); }
-.ferr-mais svg { width: 13px; height: 13px; flex: none; transition: transform 0.15s; }
+/* A run of tools and reasoning: one quiet line (as in Claude desktop); a click opens the cards. */
+.ferr-grupo { margin: 2px 0 12px; animation: entra 0.3s var(--ease) backwards; }
+.ferr-mais { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 3px 8px 3px 2px; border: 0; border-radius: 8px; background: none; color: var(--ui-dim); font-size: 13px; text-align: left; cursor: var(--cur-mao, pointer); }
+.ferr-mais:hover { color: var(--ui); }
+.ferr-mais b { font-weight: 400; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ferr-mais .contagem { flex: none; } .ferr-mais .contagem[hidden] { display: none; }
+.ferr-mais svg { width: 13px; height: 13px; flex: none; transition: transform 0.2s var(--ease); }
 .ferr-grupo.aberto .ferr-mais svg { transform: rotate(90deg); }
-.ferr-mais b { flex: none; font-weight: 500; }
-.ferr-mais b::after { content: " ·"; font-weight: 400; }
-.ferr-mais span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ferr-grupo.vivo .ferr-mais b { background: linear-gradient(90deg, var(--ui-dim) 0%, var(--ui) 50%, var(--ui-dim) 100%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: brilho 1.8s linear infinite; }
+.ferr-grupo.erro:not(.vivo) .ferr-mais b { color: var(--err); }
+.ferr-lista { display: none; margin: 6px 0 0 6px; padding-left: 12px; border-left: 2px solid var(--line-2); }
+.ferr-grupo.aberto .ferr-lista { display: block; animation: abre 0.25s var(--ease); }
+.ferr-lista > .ferr:last-child, .ferr-lista > .raciocinio:last-child { margin-bottom: 0; }
+.ferr-lista > .raciocinio { margin-bottom: 8px; }
+@media (prefers-reduced-motion: reduce) { .ferr-grupo.vivo .ferr-mais b { animation: none; color: var(--ui); background: none; } }
 .ferr summary .sub-n { flex: none; font: normal 11.5px var(--mono); color: var(--ui-dim); }
 .sub-lista { border-top: 1px solid var(--line); padding: 4px 6px; display: flex; flex-direction: column; gap: 1px; }
 .sub { display: flex; gap: 8px; align-items: center; padding: 3px 8px; font-size: 12.5px; min-width: 0; }

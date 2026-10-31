@@ -31,7 +31,7 @@ function diffDe(nome, e) {
     if (++n > 400) return "";
     return `<div class="l ${s === "+" ? "mais" : s === "-" ? "menos" : ""}"><i>${s === " " ? "" : s === "-" ? "−" : "+"}</i><code>${esc(l) || " "}</code></div>`;
   }).join("")).join('<div class="l corte"><i>⋯</i></div>');
-  return { html: `<div class="diff">${html}${n > 400 ? '<div class="l corte"><i>⋯</i><code>(diff longo, cortado)</code></div>' : ""}</div>`, contagem: `<em class="contagem"><b>+${mais}</b><s>−${menos}</s></em>` };
+  return { html: `<div class="diff">${html}${n > 400 ? '<div class="l corte"><i>⋯</i><code>(diff longo, cortado)</code></div>' : ""}</div>`, contagem: `<em class="contagem"><b>+${mais}</b><s>−${menos}</s></em>`, mais, menos };
 }
 
 // ---- Claude's reasoning --------------------------------------------------------------
