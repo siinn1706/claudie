@@ -1707,8 +1707,10 @@ function atalhoGlobal() {
 }
 
 // One identity for the window and its shortcuts, so a pinned shortcut and the
-// open window share one taskbar button and one icon.
-const APP_ID = "com.claudie.app";
+// open window share one taskbar button and one icon. Run from source it has an
+// identity of its own: a shortcut left by the dev Electron would otherwise lend
+// the installed app its name and icon ("Electron") on the taskbar.
+const APP_ID = app.isPackaged ? "com.claudie.app" : "com.claudie.app.dev";
 app.setAppUserModelId(APP_ID);
 // the canvases, videos and web wallpapers go straight to the GPU
 app.commandLine.appendSwitch("enable-gpu-rasterization");
