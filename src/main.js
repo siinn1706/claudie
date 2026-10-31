@@ -68,7 +68,8 @@ function query(args) {
   if (!exe && !temClaudeEmbutido()) throw new Error(claudeTentativas.length
     ? t("Não consegui iniciar o Claude Code neste computador. Tentei: {0}. Instale a versão nativa em code.claude.com/docs/en/setup (ou defina CLAUDE_CODE_PATH) e abra o Claudie de novo.", claudeTentativas.slice(0, 4).join("; "))
     : t("Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o Claudie de novo."));
-  const extra = {};
+  // SDK runs are non-interactive, where Claude Code loads Claude in Chrome only with --chrome
+  const extra = { extraArgs: { chrome: null } };
   if (exe) extra.pathToClaudeCodeExecutable = exe;
   const chave = config.entrar === "chave" ? chaveApi() : "";
   if (chave) extra.env = { ...process.env, ANTHROPIC_API_KEY: chave };
