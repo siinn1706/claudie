@@ -425,9 +425,15 @@ body.themed .acoes { width: fit-content; border-radius: 9px; background: var(--v
 .plano.on { display: block; animation: entra 0.25s var(--ease) backwards; }
 .plano-topo { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; padding: 8px 12px; cursor: var(--cur-mao, pointer); font-size: 12.5px; }
 .plano-topo b { font-weight: 600; }
-.plano-barra { flex: 1; height: 4px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
-.plano-barra i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.4s var(--ease); }
-.plano-topo small { font: 11px var(--mono); color: var(--ui-dim); }
+.plano-topo small { margin-left: auto; font: 11px var(--mono); color: var(--ui-dim); }
+.plano-agora { display: flex; align-items: center; gap: 8px; margin: -2px 0 8px 12px; font-size: 12px; color: var(--ui-dim); min-width: 0; }
+.plano-agora[hidden] { display: none; }
+.plano-agora:not([hidden]) { animation: entra 0.25s var(--ease) backwards; }
+.plano-agora svg { flex: none; width: 13px; height: 13px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; animation: gira 0.9s linear infinite; }
+.plano-agora .trilho { stroke: color-mix(in srgb, var(--accent) 25%, transparent); }
+.plano-agora span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plano-agora small { flex: none; font: 11px var(--mono); }
+@media (prefers-reduced-motion: reduce) { .plano li.in_progress svg, .plano-agora svg { animation: none; } }
 .plano ol { list-style: none; margin: 0; padding: 0 12px 10px; max-height: 150px; overflow-y: auto; font-size: 12.5px; }
 .plano.fechado ol { display: none; }
 .plano li { display: flex; align-items: flex-start; gap: 9px; padding: 3px 0; color: var(--ui-2); line-height: 1.4; }

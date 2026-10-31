@@ -346,6 +346,7 @@ function setRodando(v) {
   const b = $("enviar");
   b.classList.toggle("parar", v); b.title = v ? "Parar" : "Enviar (Enter)";
   $("enviarMais").hidden = !v;
+  planoAtividade();
   atualizaEnviar();
 }
 // Pasted text kept as a chip goes out appended to the message.
@@ -1616,12 +1617,31 @@ function desenhaPlano() {
   const itens = [...planoItens.values()], el = $("plano");
   if (!itens.length) return escondePlano();
   const feitas = itens.filter((t) => t.status === "completed").length;
-  el.innerHTML = `<button class="plano-topo" title="Mostrar ou esconder"><b>Plano</b><span class="plano-barra"><i style="width:${(feitas / itens.length) * 100}%"></i></span><small>${feitas}/${itens.length}</small></button>`
-    + `<ol>${itens.map((t) => { const st = CIRCULO[t.status] ? t.status : "pending"; return `<li class="${st}">${CIRCULO[st]}<span>${esc(st === "in_progress" && t.fazendo ? t.fazendo : t.titulo || "")}</span></li>`; }).join("")}</ol>`;
+  el.innerHTML = `<button class="plano-topo" title="Mostrar ou esconder"><b>Plano</b><small>${feitas}/${itens.length}</small></button>`
+    + `<ol>${itens.map((t) => { const st = CIRCULO[t.status] ? t.status : "pending"; return `<li class="${st}">${CIRCULO[st]}<span>${esc(t.titulo || t.fazendo || "")}</span></li>`; }).join("")}</ol>`;
   el.querySelector(".plano-topo").onclick = () => el.classList.toggle("fechado");
   el.classList.add("on");
+  planoAtividade();
 }
-function escondePlano() { $("plano").classList.remove("on"); }
+// The small line under the card: what is being done right now and for how long.
+// It exists only while a turn runs and an item is in progress; a new item starts
+// a fresh timer.
+let planoAgora = null, planoRelogio = 0;
+function planoTempo(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h ? `${h}h ${m}m` : m ? `${m}m ${s % 60}s` : `${s}s`;
+}
+function planoAtividade() {
+  const el = $("planoAgora"), atual = rodando ? [...planoItens].find(([, t]) => t.status === "in_progress") : null;
+  if (!atual) { planoAgora = null; clearInterval(planoRelogio); planoRelogio = 0; el.hidden = true; return; }
+  const [k, t] = atual, chave = k + "\n" + (t.titulo || "");
+  if (planoAgora?.chave !== chave) planoAgora = { chave, desde: Date.now() };
+  el.querySelector("span").textContent = t.fazendo || t.titulo || "";
+  const hora = () => { el.querySelector("small").textContent = planoTempo(Date.now() - planoAgora.desde); };
+  hora(); el.hidden = false;
+  if (!planoRelogio) planoRelogio = setInterval(hora, 1000);
+}
+function escondePlano() { $("plano").classList.remove("on"); planoAtividade(); }
 function limpaPlano() { planoItens = new Map(); escondePlano(); }
 
 // ---- context meter ---------------------------------------------------------------------
