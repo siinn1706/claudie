@@ -15,7 +15,7 @@ import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { acharClaudeExe, acharClaudeExeAsync, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
-import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
+import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida, pastaProjeto } from "./tarefas.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const idioma = () => (IDIOMAS.includes(config?.visual?.geral?.idioma) ? config.visual.geral.idioma : IDIOMA_PADRAO);
@@ -1777,10 +1777,22 @@ function avisaRemoto(mudanca) {
   remoto = { ...remoto, ...mudanca };
   for (const o of janelas.values()) enviarEvento(o, { tipo: "remoto", ...remoto });
 }
+// Stopping the server kills it outright, so it never closes its session and the
+// pointer it leaves behind names one the server will not have. Started again,
+// it tries to reattach to that one, fails, and serves no session at all: the
+// phone sees nothing. A pointer whose server is gone goes before each start.
+function esquecePonteiroRemoto(cwd) {
+  const arq = path.join(pastaProjeto(cwd), "bridge-pointer.json");
+  let pid = 0;
+  try { pid = JSON.parse(fs.readFileSync(arq, "utf8")).pid; } catch { return; }
+  try { if (pid) { process.kill(pid, 0); return; } } catch (e) { if (e.code === "EPERM") return; }
+  try { fs.unlinkSync(arq); } catch {}
+}
 function ligaRemoto(cwd) {
   const exe = acharClaude();
   if (!exe) return avisaRemoto({ estado: "erro", texto: "O Remote Control precisa do Claude Code instalado neste computador." });
-  const c = comandoClaude(exe, ["remote-control", "--name", `Claudie · ${path.basename(cwd)}`]);
+  esquecePonteiroRemoto(cwd);
+  const c =comandoClaude(exe, ["remote-control", "--name", `Claudie · ${path.basename(cwd)}`]);
   const p = spawn(c.cmd, c.args, { cwd, windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: c.env });
   remotoProc = p;
   avisaRemoto({ estado: "conectando", cwd, url: "", texto: "" });

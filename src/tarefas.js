@@ -324,7 +324,7 @@ export function enviaFundo(t, ja = false) { if (!ja) return agenda(t); clearTime
 // <config>/projects/<cwd, non-alphanumerics as "-">/<session>/workflows/wf_*.json
 // holds the final frame of every run. Only the interrupted ones come back (newest 20).
 const sessaoOk = (s) => /^[\w-]+$/.test(String(s));
-const pastaProjeto = (cwd) => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(process.env.USERPROFILE || process.env.HOME || "", ".claude"), "projects", String(cwd).replace(/[^a-zA-Z0-9]/g, "-"));
+export const pastaProjeto = (cwd) => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(process.env.USERPROFILE || process.env.HOME || "", ".claude"), "projects", String(cwd).replace(/[^a-zA-Z0-9]/g, "-"));
 function lePassadas(sessao, cwd) {
   const out = [];
   if (!sessaoOk(sessao)) return out;
