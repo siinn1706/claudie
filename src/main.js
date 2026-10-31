@@ -116,6 +116,7 @@ let principal = null;        // the first window: global shortcut and test hooks
 const J = (e) => janelas.get(e.sender.id);
 const pendentes = new Map(); // permission request id -> { resolve, suggestions, input, t }
 const turnos = new Set();    // every open Claude Code: { tid, j, q, ac, caixa, sessionId, cwd, ativo, ... }
+let ultimoLimite = null;     // the last rate_limit_info any Claude Code reported (its window and reset time)
 const vivaDe = (id) => id && [...turnos].find((t) => t.sessionId === id && !t.caixa?.fechada);
 const turnoDe = (id) => { const t = vivaDe(id); return t?.ativo ? t : undefined; };
 // Model, permission mode, effort and ultracode belong to each conversation
@@ -666,6 +667,13 @@ async function turno(j, texto, anexos) {
           ev({ tipo: "cache", ate: (pedidoEm || Date.now()) + t.cacheTtl * 1000, ttl: t.cacheTtl });
         }
         if (msg.error) ev({ tipo: "erro", texto: `Erro da API: ${msg.error}` });
+        // Already known to be over the limit, Claude Code answers with a synthetic
+        // message and no rate_limit_event: the limit card still has to show.
+        if (msg.error === "rate_limit" && t.limiteDito !== t.tid) {
+          t.limiteDito = t.tid;
+          const r = ultimoLimite?.resetsAt, futuro = r && (r < 1e12 ? r * 1000 : r) > Date.now();
+          ev({ tipo: "limite", info: { ...ultimoLimite, status: "rejected", resetsAt: futuro ? r : undefined } });
+        }
       } else if (msg.type === "user" && !msg.parent_tool_use_id && Array.isArray(msg.message?.content)) {
         workflowSaida(t, msg.tool_use_result);
         for (const b of msg.message.content) {
@@ -683,6 +691,8 @@ async function turno(j, texto, anexos) {
           else if (b.type === "tool_result") ev({ tipo: "sub_ferramenta_fim", pai, id: b.tool_use_id, erro: !!b.is_error });
         }
       } else if (msg.type === "rate_limit_event") {
+        ultimoLimite = msg.rate_limit_info || ultimoLimite;
+        if (msg.rate_limit_info?.status === "rejected") t.limiteDito = t.tid;
         ev({ tipo: "limite", info: msg.rate_limit_info });
       } else if (msg.type === "result") {
         ev({ tipo: "fim", ok: msg.subtype === "success" && !msg.is_error, duracao: msg.duration_ms, detalhe: msg.subtype });

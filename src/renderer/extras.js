@@ -100,9 +100,11 @@ function pergunta(ev) {
 // The subscription's usage windows: shown with the context meter, a warning
 // near the end, and when the limit is hit, an offer to carry on by itself.
 const JANELA = { five_hour: "janela de 5 horas", seven_day: "semana", seven_day_opus: "semana (Opus)", seven_day_sonnet: "semana (Sonnet)" };
-let limite = null, timerContinua = null;
-const quando = (s) => { const d = new Date(s < 1e12 ? s * 1000 : s); return d.toLocaleString(i18n.local(), { weekday: d.toDateString() === new Date().toDateString() ? undefined : "short", hour: "2-digit", minute: "2-digit" }); };
-function mostraLimite(info) {
+let limite = null, timerContinua = null, cardLimite = null;
+// A reset time in seconds, milliseconds or an ISO string, as milliseconds.
+const msDe = (s) => (typeof s === "number" ? (s < 1e12 ? s * 1000 : s) : Date.parse(s));
+const quando = (s) => { const d = new Date(msDe(s)); return d.toLocaleString(i18n.local(), { weekday: d.toDateString() === new Date().toDateString() ? undefined : "short", hour: "2-digit", minute: "2-digit" }); };
+function mostraLimite(info, alvo) {
   limite = info;
   const uso = info.utilization == null ? null : Math.round(info.utilization > 1 ? info.utilization : info.utilization * 100);
   const m = $("medidor");
@@ -110,10 +112,17 @@ function mostraLimite(info) {
   m.title = (m.title || "").split("\nPlano:")[0] + m.dataset.plano;
   if (info.status === "allowed_warning") nota(`Você já usou ${uso ?? "boa parte"}% da ${JANELA[info.rateLimitType] || "janela"} do seu plano.`);
   if (info.status === "rejected") {
-    const el = bloco("limite");
+    // One card per hit: a second report of the same limit (event and synthetic message) redraws it.
+    const el = alvo || (cardLimite?.isConnected && cardLimite === col.lastElementChild ? cardLimite : (cardLimite = bloco("limite")));
+    // No reset time in the report: the plan's usage windows know it.
+    if (!info.resetsAt) {
+      const j = usoDados?.janelas?.find((x) => x.id === (info.rateLimitType || "five_hour"));
+      if (j?.renova && msDe(j.renova) > Date.now()) info = { ...info, resetsAt: j.renova };
+      else if (!info.perguntou) vivo.uso(false).then((d) => { if (d?.janelas) usoDados = d; if (d?.janelas && el.isConnected && !el.querySelector("button")) mostraLimite({ ...info, perguntou: true }, el); }).catch(() => {});
+    }
     el.innerHTML = `<b>Você chegou no limite do plano.</b><span>${info.resetsAt ? `Libera ${quando(info.resetsAt)}.` : "Libera em breve."}</span>${info.resetsAt ? '<button class="btn forte">Continuar sozinho quando liberar</button>' : ""}`;
     el.querySelector("button")?.addEventListener("click", (e) => {
-      const ms = (info.resetsAt < 1e12 ? info.resetsAt * 1000 : info.resetsAt) - Date.now() + 60000;
+      const ms = msDe(info.resetsAt) - Date.now() + 60000;
       const conversa = sessaoAtual, titulo = $("titulo").textContent;
       clearTimeout(timerContinua);
       timerContinua = setTimeout(async () => {
