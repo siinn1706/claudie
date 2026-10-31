@@ -19,7 +19,7 @@ function desenhaTrilho() {
     const nome = c.querySelector("summary b")?.dataset.nome || "", t = document.createElement("button");
     t.className = "tile " + tipoFerr(nome) + (c.querySelector(".estado.rodando") ? " vivo" : "") + (c.querySelector(".estado.erro") ? " falhou" : "");
     t.title = `${c.querySelector("summary b")?.textContent || nome} ${c.querySelector("summary span")?.textContent || ""}`.trim();
-    t.onclick = () => { c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.remove("piscando"); void c.offsetWidth; c.classList.add("piscando"); };
+    t.onclick = () => { c.closest(".ferr-grupo")?.classList.add("aberto"); c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.remove("piscando"); void c.offsetWidth; c.classList.add("piscando"); };
     trilho.append(t);
   }
   trilho.classList.toggle("on", cards.length > 0);

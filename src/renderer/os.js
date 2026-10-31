@@ -72,8 +72,8 @@ function alteracoes() {
   const porArquivo = new Map();
   for (const c of col.querySelectorAll(".ferr")) {
     if (!/^(Edit|MultiEdit|Write)$/.test(c._nome || "") || c.querySelector(".estado.erro")) continue;
-    const f = c._entrada?.file_path || c._entrada?.notebook_path; if (!f) continue;
-    let dono = c.previousElementSibling; while (dono && !dono.classList.contains("eu")) dono = dono.previousElementSibling;
+    const f = c._entrada?.file_path || c._entrada?.notebook_path; if (!f || !diffDe(c._nome, c._entrada)) continue;
+    let dono = (c.closest(".ferr-grupo") || c).previousElementSibling; while (dono && !dono.classList.contains("eu")) dono = dono.previousElementSibling;
     (porArquivo.get(f) || porArquivo.set(f, []).get(f)).push({ card: c, dono });
   }
   return porArquivo;
@@ -120,7 +120,7 @@ function abreAlteracoes() {
     }).join("");
     cont.insertAdjacentHTML("afterbegin", `<div class="jl-resumo"><b>${mapa.size} arquivo${mapa.size > 1 ? "s" : ""}</b><em class="contagem"><b>+${mais}</b><s>−${menos}</s></em></div>`);
     const lista = [...mapa.values()];
-    cont.querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.ir.split(":").map(Number), c = lista[k][n].card; c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.remove("piscando"); void c.offsetWidth; c.classList.add("piscando"); }));
+    cont.querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.ir.split(":").map(Number), c = lista[k][n].card; c.closest(".ferr-grupo")?.classList.add("aberto"); c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.remove("piscando"); void c.offsetWidth; c.classList.add("piscando"); }));
     cont.querySelectorAll("[data-desfaz]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.desfaz.split(":").map(Number), d = lista[k][n].dono; d.scrollIntoView({ behavior: "smooth", block: "center" }); desfazDaqui(d); }));
   };
   const desenhaGit = () => {
@@ -183,7 +183,8 @@ function contaAlteracoes() {
   botaoAlt.querySelector(".badge").textContent = n || ""; botaoAlt.classList.toggle("tem", n > 0);
   janelinhas.get("alteracoes")?.redesenha?.();
 }
-new MutationObserver(() => { clearTimeout(contaAlteracoes.t); contaAlteracoes.t = setTimeout(contaAlteracoes, 200); }).observe(col, { childList: true });
+// subtree: tool cards added inside an existing .ferr-grupo also count; text deltas are ignored
+new MutationObserver((ms) => { if (!ms.some((m) => (m.target === col && m.removedNodes.length) || [...m.addedNodes].some((n) => n.nodeType === 1 && (n.matches?.(".ferr, .ferr-grupo") || n.querySelector?.(".ferr"))))) return; clearTimeout(contaAlteracoes.t); contaAlteracoes.t = setTimeout(contaAlteracoes, 200); }).observe(col, { childList: true, subtree: true });
 
 // ---- the plan in a window of its own ----------------------------------------------------
 const plano = $("plano"), lugarDoPlano = plano.parentElement, depoisDoPlano = plano.nextElementSibling;
@@ -260,7 +261,7 @@ addEventListener("contextmenu", (e) => {
   e.preventDefault(); abreRadial(e.clientX, e.clientY);
 });
 addEventListener("pointerdown", (e) => { if (!e.target.closest(".radial")) fechaRadial(); });
-addEventListener("keydown", (e) => { if (e.key === "Escape") { fechaRadial(); for (const j of janelinhas.values()) if (j.el.matches(":focus-within")) j.fecha(); } });
+addEventListener("keydown", (e) => { if (e.key === "Escape") { fechaRadial(); for (const j of janelinhas.values()) if (!j.el.classList.contains("fixa") && j.el.matches(":focus-within")) j.fecha(); } });
 
 // ---- terminal mode ------------------------------------------------------------------------------
 // "!comando" asks Claude to run that command and show the output.
@@ -279,7 +280,7 @@ trilho.addEventListener("contextmenu", (e) => {
   const t = e.target.closest(".tile"); if (!t) return;
   e.preventDefault(); e.stopPropagation();
   const cards = [...col.querySelectorAll(".ferr")].slice(-60), c = cards[[...trilho.children].indexOf(t)];
-  let dono = c?.previousElementSibling; while (dono && !dono.classList.contains("eu")) dono = dono.previousElementSibling;
+  let dono = c && (c.closest(".ferr-grupo") || c).previousElementSibling; while (dono && !dono.classList.contains("eu")) dono = dono.previousElementSibling;
   const r = t.getBoundingClientRect();
   menu.innerHTML = `<button data-a="ir">${svg('<path d="M12 5v14m-5-5 5 5 5-5"/>')}Ir até aqui</button>${dono?.dataset.uuid ? `<button data-a="volta">${svg('<path d="M9 7.5 4.5 12 9 16.5"/><path d="M5 12h9.5a5 5 0 0 1 0 10H12"/>')}Voltar os arquivos para antes daqui</button>` : ""}`;
   menu.style.left = Math.min(r.left, innerWidth - 280) + "px"; menu.style.top = r.bottom + 6 + "px"; menu.classList.add("on");

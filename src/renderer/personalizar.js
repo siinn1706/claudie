@@ -86,13 +86,8 @@ async function aplicaVisual() {
   if (c.texto) { corpo.setProperty("--ui", c.texto); corpo.setProperty("--ui-2", `color-mix(in srgb, ${c.texto} 78%, transparent)`); corpo.setProperty("--ui-dim", `color-mix(in srgb, ${c.texto} 56%, transparent)`); }
   else ["--ui", "--ui-2", "--ui-dim"].forEach((v) => corpo.removeProperty(v));
   aplicaCursor(pega("geral.cursor") && c.acento);
-  const mexeuVidro = VIS.cores && ("vidro" in VIS.cores || "opacidade" in VIS.cores);
-  if (mexeuVidro) {
-    corpo.setProperty("--vidro", rgba(c.vidro, c.opacidade)); corpo.setProperty("--panel", rgba(c.vidro, c.opacidade + 0.03));
-    corpo.setProperty("--card", rgba(c.vidro, c.opacidade + 0.06)); corpo.setProperty("--composer", rgba(c.vidro, c.opacidade + 0.1));
-  } else ["--vidro", "--panel", "--card", "--composer"].forEach((v) => corpo.removeProperty(v));
   if (VIS.cores && "desfoque" in VIS.cores) corpo.setProperty("--blur", c.desfoque + "px"); else corpo.removeProperty("--blur");
-  forcaModo();
+  forcaModo(); // also applies the glass
   aplicaDesempenho(pega("geral.desempenho"));
   window.i18n?.muda(pega("geral.idioma"));
   // background layer
@@ -122,7 +117,7 @@ async function aplicaVisual() {
   marca.querySelector("img.marca-img")?.remove(); marca.querySelector(".marca-svg").style.display = "";
   if (VIS.icone && VIS.iconeNaBarra) {
     const item = (await vivo.pessoalLista("icone")).find((x) => x.id === VIS.icone);
-    if (item) { const img = document.createElement("img"); img.className = "marca-img"; img.src = item.url; img.alt = ""; marca.prepend(img); marca.querySelector(".marca-svg").style.display = "none"; }
+    if (item) { const img = document.createElement("img"); img.className = "marca-img"; img.src = item.url; img.alt = ""; marca.querySelector("img.marca-img")?.remove(); marca.prepend(img); marca.querySelector(".marca-svg").style.display = "none"; }
   }
   // music
   musica.atualiza();
@@ -142,11 +137,19 @@ function aplicaDesempenho(modo) {
   if (!antes || antes.modo !== modo) window.mudouDesempenho?.(antes);
 }
 // Light or dark glass: automatic follows the background; the person can fix it.
+function aplicaVidro() {
+  const c = { ...PADRAO.cores, ...VIS.cores }, mexeu = VIS.cores && ("vidro" in VIS.cores || "opacidade" in VIS.cores);
+  // The light theme keeps its own glass: a custom dark glass would put dark ink on dark panes.
+  if (mexeu && !document.body.classList.contains("light")) {
+    corpo.setProperty("--vidro", rgba(c.vidro, c.opacidade)); corpo.setProperty("--panel", rgba(c.vidro, c.opacidade + 0.03));
+    corpo.setProperty("--card", rgba(c.vidro, c.opacidade + 0.06)); corpo.setProperty("--composer", rgba(c.vidro, c.opacidade + 0.1));
+  } else ["--vidro", "--panel", "--card", "--composer"].forEach((v) => corpo.removeProperty(v));
+}
 function forcaModo() {
   const modo = VIS.cores?.modo || "auto";
   const claro = modo === "auto" ? document.body.dataset.claro === "1" : modo === "claro";
   document.body.classList.toggle("light", claro && document.body.classList.contains("themed"));
-  vivo.barra(claro);
+  aplicaVidro(); vivo.barra(claro);
 }
 
 // ---- sounds for events ------------------------------------------------------------------

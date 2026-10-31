@@ -106,7 +106,7 @@
       <div class="composer glass" id="composer">
         <div class="anexos" id="anexos"></div>
         <textarea id="entrada" rows="1" placeholder="Mensagem para o Claude"></textarea>
-        <div class="composer-base">
+        <div class="composer-base" data-dica="Vai rodar no terminal">
           <button class="icone clipe" id="clipe" title="Anexar arquivos ou imagens"><svg viewBox="0 0 24 24"><path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg></button>
           <label class="chip"><svg viewBox="0 0 24 24"><path d="M12 3.5 4.5 7v5c0 4.2 3.2 7.6 7.5 8.5 4.3-.9 7.5-4.3 7.5-8.5V7z"/></svg><select id="modo">
             <option value="default">Perguntar</option>
@@ -131,6 +131,7 @@
           </select></label>
           <div class="cache" id="cache" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 10v3.5l2.5 2M9.5 3h5"/></svg><span></span></div>
           <div class="medidor" id="medidor" hidden><i><b></b></i><span></span></div>
+          <button class="enviar mais" id="enviarMais" title="Enviar agora, com o Claude trabalhando (Enter · Ctrl+X Ctrl+S)" hidden><svg viewBox="0 0 24 24"><path class="seta" d="M12 18V6m-5 5 5-5 5 5"/></svg></button>
           <button class="enviar" id="enviar" title="Enviar (Enter)"><svg viewBox="0 0 24 24"><path class="seta" d="M12 18V6m-5 5 5-5 5 5"/><rect class="quadrado" x="7.5" y="7.5" width="9" height="9" rx="1.5"/></svg></button>
         </div>
       </div>

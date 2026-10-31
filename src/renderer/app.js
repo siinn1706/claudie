@@ -35,7 +35,7 @@ const iconeDa = (nome) => (nome === "Bash" ? ICONE.terminal : /^(Read|NotebookRe
   : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudie__") ? ICONE.tema : ICONE.ferramenta);
 
 // Markdown: raw HTML in Claude's text is shown as text, never run.
-marked.use({ gfm: true, breaks: true, renderer: { html: ({ text }) => esc(text) } });
+marked.use({ gfm: true, breaks: true, renderer: { html: ({ text }) => esc(text), image: ({ href, text }) => (/^(data:image\/|blob:|file:\/\/\/(?!\/))/i.test(href || "") || (href && /^(?![a-z][a-z0-9+.-]*:)(?![\\\/]{2})/i.test(href)) || /^[a-z]:[\/](?![\/])/i.test(href || "")) ? `<img src="${esc(href)}" alt="${esc(text)}">` : esc(text) } });
 const md = (s) => marked.parse(s || "");
 // Code blocks get a header with their language and a copy button.
 function decora(el) {
@@ -69,6 +69,10 @@ function despacha(ev) {
   if (ev.tid) {
     if (abrindo) { abrindo.push(ev); return; }
     if (turnoVisto === "novo" && ev.tipo === "inicio") turnoVisto = ev.tid;
+    // A turn Claude starts by itself in the conversation on screen (its Claude
+    // Code stays open between turns), and background tasks reported between turns.
+    if (!turnoVisto && ev.tipo === "inicio" && ev.sid && ev.sid === sessaoAtual) { turnoVisto = ev.tid; turnoN = 0; setRodando(true); }
+    if (ev.tipo === "fundo" && ev.sessaoId && ev.sessaoId === sessaoAtual) return repassa(ev);
     if (ev.tid !== turnoVisto) return emSegundoPlano(ev);
     if (ev.n <= turnoN) return;
   }
@@ -192,9 +196,31 @@ function ferramenta(id, nome, e, fim = null) {
   const diff = diffDe(nome, e);
   d.innerHTML = `<summary>${iconeDa(nome)}<b data-nome="${esc(nome)}">${esc(rotulo(nome))}</b><span>${esc(resumo(nome, e) || "")}</span>${diff ? diff.contagem : ""}<i class="estado ${fim ? fim : "rodando"}">${fim === "ok" ? ICONE.ok : ""}</i></summary>${diff ? diff.html : `<pre>${esc(JSON.stringify(e, null, 2))}</pre>`}`;
   d._nome = nome; d._entrada = e; d.dataset.nome = nome;
-  tiraBoas(); col.append(d); desce();
+  tiraBoas(); agrupa(d); desce();
   ferramentas.set(id, d);
 }
+// Tool cards in a row share a group; from three on, all but the latest fold
+// under one line that names them and opens the rest.
+function agrupa(d) {
+  let g = col.lastElementChild;
+  if (g?.classList.contains("ferr")) {
+    const novo = document.createElement("div"); novo.className = "ferr-grupo";
+    novo.innerHTML = `<button class="ferr-mais">${svg('<path d="m9 6 6 6-6 6"/>')}<b></b><span></span></button>`;
+    novo.firstChild.onclick = () => novo.classList.toggle("aberto");
+    g.before(novo); novo.append(g); g = novo;
+  }
+  if (!g?.classList.contains("ferr-grupo")) { col.append(d); return; }
+  g.append(d); rotuloGrupo(g);
+}
+function rotuloGrupo(g) {
+  const antes = [...g.querySelectorAll(":scope > .ferr")].slice(0, -1), conta = new Map();
+  for (const c of antes) { const r = t(rotulo(c._nome)); conta.set(r, (conta.get(r) || 0) + 1); }
+  g.dataset.n = antes.length;
+  // The count sits in a node of its own so the interface language can translate it.
+  g.querySelector(".ferr-mais b").textContent = `${antes.length} ferramentas`;
+  g.querySelector(".ferr-mais span").textContent = [...conta].map(([r, n]) => (n > 1 ? `${r} ×${n}` : r)).join(", ");
+}
+addEventListener("idioma", () => col.querySelectorAll(".ferr-grupo").forEach(rotuloGrupo));
 function ferramentaFim(id, erro, saida, maior = false, imagens = []) {
   const d = ferramentas.get(id); if (!d) return;
   const i = d.querySelector("summary .estado"); i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
@@ -244,7 +270,8 @@ function permissao(ev) {
   const el = bloco("perm");
   el.dataset.id = ev.id;
   const diff = diffDe(ev.ferramenta, ev.entrada);
-  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}</pre>`}<input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que fazer em vez disso" />`;
+  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}${JSON.stringify(ev.entrada, null, 2).length > 3000 ? `
+… (+${JSON.stringify(ev.entrada, null, 2).length - 3000} caracteres ocultos)` : ""}</pre>`}<input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que fazer em vez disso" />`;
   const linha = document.createElement("div"); linha.className = "b";
   const fb = el.querySelector(".perm-fb");
   const botao = (rot, dec, cls) => {
@@ -302,6 +329,7 @@ aoEvento((ev) => {
     case "aplicar_arte": aplicaChave(ev.chave); break;
     case "sessao": sessaoAtual = ev.id; marcaSessao(); break;
     case "info": break;
+    case "aviso": aviso(window.t(ev.texto)); break;
     case "fim": if (!ev.ok && ev.detalhe !== "success") aviso(`Parou: ${ev.detalhe}`, true); break;
     case "erro": tiraPensando(); aviso(ev.texto, true); window.somEvento?.("erro"); break;
     case "atualizacao": mostraAtualizacao(ev); break;
@@ -317,6 +345,7 @@ function setRodando(v) {
   rodando = v;
   const b = $("enviar");
   b.classList.toggle("parar", v); b.title = v ? "Parar" : "Enviar (Enter)";
+  $("enviarMais").hidden = !v;
   atualizaEnviar();
 }
 // Pasted text kept as a chip goes out appended to the message.
@@ -328,7 +357,7 @@ function juntaColados(t, junto) {
   };
 }
 const geral = () => (typeof visualAtual === "function" ? visualAtual().geral || {} : {});
-const atualizaEnviar = () => { $("enviar").disabled = !rodando && !entrada.value.trim() && !anexos.length; };
+const atualizaEnviar = () => { const vazio = !entrada.value.trim() && !anexos.length; $("enviar").disabled = !rodando && vazio; $("enviarMais").disabled = vazio; };
 
 async function envia(textoForcado) {
   const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null ? anexos : [];
@@ -344,10 +373,14 @@ async function envia(textoForcado) {
   if (t === "/import") { limpa(); importaMotion(); return; }
   if (t === "/customize") { limpa(); abrePersonal(); return; }
   if (t === "/new") { novaConversa(); limpa(); return; }
+  // With Claude working, the message goes into the running turn, as in Claude
+  // Code; what it cannot take (slash commands, a turn about to end) waits in line.
   if (rodando) {
-    fila.push({ t, junto: [...junto] }); limpa();
+    limpa();
     if (junto === anexos) { anexos = []; desenhaAnexos(); }
-    desenhaFila(); return;
+    const { texto: final, enviados } = juntaColados(t, junto);
+    if (await vivo.injetar(final, enviados)) { fechaSegmento(); meu(t, junto); window.somEvento?.("enviar"); return; }
+    fila.push({ t, junto: [...junto] }); desenhaFila(); proximaDaFila(); return;
   }
   limpa(); fechaPicker();
   if (!sessaoAtual) { const titulo = t || junto.map((x) => x.nome).join(", "); $("titulo").textContent = titulo.length > 60 ? titulo.slice(0, 60) + "…" : titulo; }
@@ -362,7 +395,11 @@ async function envia(textoForcado) {
     atualizaEnviar(); nota("Não deu pra enviar agora.", true);
   }
 }
+let ctrlX = 0;
 entrada.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.key === "x" || e.key === "X") && !entrada.value.slice(entrada.selectionStart, entrada.selectionEnd)) { e.preventDefault(); ctrlX = Date.now(); return; }
+  if (e.ctrlKey && (e.key === "s" || e.key === "S") && Date.now() - ctrlX < 1500) { e.preventDefault(); e.stopPropagation(); ctrlX = 0; envia(); return; }
+  if (!["Control", "Shift", "Alt", "Meta"].includes(e.key)) ctrlX = 0;
   if (mencoesEl.classList.contains("on")) {
     // with nothing to pick (still searching) the keys fall through, so Enter still sends
     if (mencVis.length && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); mencSel = (mencSel + (e.key === "ArrowDown" ? 1 : -1) + mencVis.length) % mencVis.length; mostraMencoes(); return; }
@@ -509,9 +546,31 @@ function desenhaAnexos() {
 }
 // The picture preview: full size over the window; a click or Esc closes it.
 const lightbox = $("lightbox"), lightboxImg = $("lightboxImg");
-function abreImagem(url, nome) { fechaEscolhas(); lightboxImg.src = url; lightboxImg.alt = nome || ""; lightbox.classList.add("on"); }
+// The whole image fits the window; the wheel zooms around the cursor, dragging
+// pans, double-click fits it again and a plain click closes.
+let zoom = { s: 1, x: 0, y: 0 }, arrasto = null;
+const aplicaZoom = () => { lightboxImg.style.transform = `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.s})`; lightbox.classList.toggle("ampliada", zoom.s !== 1); };
+function abreImagem(url, nome) { fechaEscolhas(); lightboxImg.src = url; lightboxImg.alt = nome || ""; zoom = { s: 1, x: 0, y: 0 }; aplicaZoom(); lightbox.classList.add("on"); }
 function fechaImagem() { if (!lightbox.classList.contains("on")) return false; lightbox.classList.remove("on"); lightboxImg.removeAttribute("src"); return true; }
-lightbox.onclick = fechaImagem;
+lightbox.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const s = Math.min(20, Math.max(0.2, zoom.s * Math.exp(-e.deltaY * 0.0015))), r = lightbox.getBoundingClientRect();
+  const mx = e.clientX - r.left - r.width / 2, my = e.clientY - r.top - r.height / 2;
+  zoom = { s, x: mx - (mx - zoom.x) * s / zoom.s, y: my - (my - zoom.y) * s / zoom.s }; aplicaZoom();
+}, { passive: false });
+lightbox.addEventListener("pointerdown", (e) => { if (e.button) return; arrasto = { px: e.clientX, py: e.clientY, x: zoom.x, y: zoom.y, moveu: false }; lightbox.setPointerCapture(e.pointerId); });
+lightbox.addEventListener("pointermove", (e) => {
+  if (!arrasto) return;
+  const dx = e.clientX - arrasto.px, dy = e.clientY - arrasto.py;
+  if (!arrasto.moveu && Math.hypot(dx, dy) < 4) return;
+  arrasto.moveu = true; lightbox.classList.add("arrastando");
+  zoom.x = arrasto.x + dx; zoom.y = arrasto.y + dy; aplicaZoom();
+});
+lightbox.addEventListener("pointerup", (e) => {
+  const a = arrasto; arrasto = null; lightbox.classList.remove("arrastando");
+  if (a && !a.moveu && document.elementFromPoint(e.clientX, e.clientY) !== lightboxImg) fechaImagem();
+});
+lightbox.addEventListener("dblclick", (e) => { if (document.elementFromPoint(e.clientX, e.clientY) !== lightboxImg) return; zoom = { s: 1, x: 0, y: 0 }; aplicaZoom(); });
 addEventListener("keydown", (e) => { if (e.key === "Escape" && fechaImagem()) e.stopImmediatePropagation(); }, true);
 function anexaCaminho(caminho) {
   if (!caminho || anexos.some((a) => a.caminho === caminho)) return;
@@ -530,7 +589,7 @@ async function anexaArquivos(lista) {
   desenhaAnexos(); entrada.focus();
 }
 $("clipe").onclick = async () => { for (const c of await vivo.anexar()) anexaCaminho(c); desenhaAnexos(); entrada.focus(); };
-entrada.addEventListener("paste", (e) => { const l = [...(e.clipboardData?.files || [])]; if (l.length) { e.preventDefault(); anexaArquivos(l); } });
+entrada.addEventListener("paste", (e) => { const l = [...(e.clipboardData?.files || [])]; if (l.length && !e.clipboardData.getData("text/plain")) { e.preventDefault(); anexaArquivos(l); } });
 // Dropping anywhere on the window attaches; an ASCII Motion file (or a JSON
 // dropped on the "Meus" tab) is imported as a background instead.
 let arrastos = 0;
@@ -564,6 +623,7 @@ function nota(texto, erro = false) {
   timerNota = setTimeout(() => banner.classList.remove("on", "erro"), 4200);
 }
 $("enviar").onclick = () => (rodando ? vivo.parar() : envia());
+$("enviarMais").onclick = () => envia();
 
 // ---- updates ----------------------------------------------------------------------------
 // A new version downloads by itself; once it is ready a small card waits at the
@@ -591,7 +651,7 @@ vivo.atualizacao().then(mostraAtualizacao);
 async function abreLinkDaConversa(a) {
   const h = a.getAttribute("href") || "";
   if (/^https?:/i.test(h)) return vivo.link(a.href);
-  if (!h || h[0] === "#" || /^[a-z][a-z0-9+.-]+:/i.test(h) && !/^file:/i.test(h)) return;
+  if (!h || h[0] === "#" || /^[a-z][a-z0-9+.-]+:(?!\d)/i.test(h) && !/^file:/i.test(h)) return;
   const r = await vivo.abrirLink(h);
   if (r?.imagem) abreImagem(r.imagem, r.nome);
   else if (r?.erro === "fora") nota("Não deu pra abrir: o arquivo está fora das pastas desta conversa.", true);
@@ -705,11 +765,13 @@ function desenhaLista() {
     for (const s of resto) { const p = s.projeto || "Sem pasta"; (porProjeto.get(p) || porProjeto.set(p, []).get(p)).push(s); }
     for (const [nome, deles] of [...porProjeto].sort((a, b) => b[1][0].quando - a[1][0].quando)) {
       const chave = "p:" + nome;
-      const h = document.createElement("button");
+      const h = document.createElement("div"), cwd = deles[0].cwd || "";
       h.className = "grupo pasta projeto" + (fechados.has(chave) ? " fechada" : "");
-      h.title = deles[0].cwd || "";
-      h.innerHTML = `${svg('<path d="m9 6 6 6-6 6"/>')}<span>${esc(nome)}</span><small>${deles.length}</small>`;
+      h.title = cwd; h.tabIndex = 0; h.setAttribute("role", "button"); h.setAttribute("aria-expanded", String(!fechados.has(chave)));
+      h.onkeydown = (e) => { if (e.target === h && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); h.click(); } };
+      h.innerHTML = `${svg('<path d="m9 6 6 6-6 6"/>')}<span>${esc(nome)}</span><small>${deles.length}</small>${cwd ? `<button class="icone nova-aqui" title="Nova conversa neste projeto">${svg('<path d="M12 5v14M5 12h14"/>')}</button>` : ""}`;
       h.onclick = () => { fechados.has(chave) ? fechados.delete(chave) : fechados.add(chave); guarda("gruposFechados", [...fechados]); desenhaLista(); };
+      h.querySelector(".nova-aqui")?.addEventListener("click", (e) => { e.stopPropagation(); novaNoProjeto(cwd); });
       lista.append(h);
       if (!fechados.has(chave)) deles.forEach((s) => itemLista(s, filtro));
     }
@@ -891,8 +953,14 @@ async function novaConversa() {
   ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true; entrada.focus();
 }
 $("nova").onclick = novaConversa;
-$("pasta").onclick = async () => { if (rodando) { nota("Espere o Claude terminar para trocar de pasta."); return; } const p = await vivo.pasta(); if (p) { mostraPasta(p); novaConversa(); carregaSessoes(); todosComandos = buscandoComandos = null; } };
-const mostraPasta = (p) => { $("pastaNome").textContent = p.split(/[\\/]/).pop() || p; $("pasta").title = p; const b = col.querySelector(".boas b"); if (b) b.textContent = $("pastaNome").textContent; };
+$("pasta").onclick = async () => { const p = await vivo.pasta(); if (p) { mostraPasta(p); novaConversa(); carregaSessoes(); todosComandos = buscandoComandos = null; } };
+async function novaNoProjeto(cwd) {
+  const p = await vivo.novaEm(cwd);
+  if (!p) return nota("Não achei a pasta deste projeto.", true);
+  mostraPasta(p); todosComandos = buscandoComandos = null; await novaConversa(); carregaSessoes();
+  setTimeout(() => { window.mostraRamo?.(); window.atualizaInfo?.(); }, 600);
+}
+const mostraPasta = (p) => { $("pastaNome").textContent = p.split(/[\\/]/).pop() || p; $("pasta").title = p; const b = col.querySelector(".boas-pasta span"); if (b) b.textContent = $("pastaNome").textContent; };
 // Choices belong to this conversation; what a running turn cannot take applies from the next message.
 const guardaEscolha = (m) => vivo.config(m).then((r) => { if (rodando && r?.depois?.length) nota("Vale a partir da próxima mensagem."); });
 const mostraEscolhas = (c) => { $("modo").value = c.modo || "default"; $("modelo").value = c.model || ""; $("esforco").value = c.esforco || ""; ultracode = !!c.ultracode; atualizaEscolhas(); };
@@ -1154,7 +1222,7 @@ async function mostraArte(chave) {
   if (atual >= 0) mostra(-1);
   arteAtual = chave; exibida = chave; nomeExibido = info.nome; somExibido = info.som;
   if (info.tipo === "midia") { Arte.parar(); mostraMidia(info); document.body.classList.add("midia"); document.body.classList.toggle("midia-movel", !!(info.video || info.web)); }
-  else { document.body.classList.remove("midia", "midia-movel"); tiraMidia(); if (info.tipo === "magia") await Arte.magia(info.slug, { cobre: info.cobre }); else Arte.motion(info.anim); }
+  else { document.body.classList.remove("midia", "midia-movel"); tiraMidia(); if (info.tipo === "magia") { try { await Arte.magia(info.slug, { cobre: info.cobre }); } catch { if (arteAtual === chave) { arteAtual = null; exibida = ""; } return false; } if (arteAtual !== chave) return true; } else Arte.motion(info.anim); }
   document.body.classList.add("themed", "arte"); document.body.classList.toggle("light", info.claro); document.body.dataset.claro = info.claro ? "1" : "";
   vivo.barra(info.claro); window.forcaModo?.(); Som.tema(info.som); mostraSom(); marcaExibida();
   return true;
@@ -1291,7 +1359,7 @@ function cartaoBib(p) {
   cv._desenha = () => arteOk.then(() => Arte.miniMagia(p.slug, cv, { cobre })).catch(() => d.classList.add("falhou"));
   aparece.observe(cv);
   let para = null;
-  d.onmouseenter = () => { arteOk.then(() => Arte.vivaMagia(p.slug, cv, { cobre })).then((f) => { if (d.matches(":hover")) para = f; else f(); }); };
+  d.onmouseenter = () => { arteOk.then(() => Arte.vivaMagia(p.slug, cv, { cobre })).then((f) => { if (d.matches(":hover")) { para?.(); para = f; } else f(); }); };
   d.onmouseleave = () => { para?.(); para = null; };
   d.onclick = () => { aplicaChave(chave); Som.clique(SOM_CAT[p.cat]); };
   return d;
@@ -1443,7 +1511,7 @@ const loop = (ms) => {
     for (const key of [...big.hover.keys()]) if (!dentro.has(key) && t - big.hover.get(key) > 2.5) big.hover.delete(key);
   }
   relogioMini += dt;
-  if (relogioMini > 0.08) { relogioMini = 0; for (const m of miniaturas) if (m.cv.isConnected && m.cv.offsetParent) m.r.frame(THEMES[m.i], t, 0.08, null); }
+  if (relogioMini > 0.08) { relogioMini = 0; for (let n = miniaturas.length; n--;) if (!miniaturas[n].cv.isConnected) miniaturas.splice(n, 1); for (const m of miniaturas) if (m.cv.isConnected && m.cv.offsetParent) m.r.frame(THEMES[m.i], t, 0.08, null); }
 };
 requestAnimationFrame(loop);
 
@@ -1488,7 +1556,7 @@ creditos.addEventListener("click", (e) => {
 const fila = [], filas = new Map();
 // Leaving a conversation keeps its queue for when you come back.
 function trocaFila(id) {
-  if (fila.length) filas.set(sessaoAtual, fila.splice(0));
+  if (fila.length) { if (sessaoAtual) filas.set(sessaoAtual, fila.splice(0)); else fila.length = 0; }
   fila.push(...(filas.get(id) || [])); filas.delete(id); desenhaFila();
 }
 function desenhaFila() {
@@ -1608,7 +1676,7 @@ function avisaSistema(titulo, corpo) {
 
 // ---- shortcuts ---------------------------------------------------------------------------
 function abreAtalhos() {
-  const A = [["Enter", "Enviar (com o Claude trabalhando, entra na fila)"], ["Shift + Enter", "Nova linha"], ["/", "Comandos do app e do Claude Code"], ["Ctrl + N", "Nova conversa"], ["Ctrl + Shift + N", "Nova janela"], ["Ctrl + K", "Buscar nas conversas"],
+  const A = [["Enter", "Enviar (com o Claude trabalhando, entra na resposta em andamento)"], ["Ctrl + X, Ctrl + S", "Enviar agora"], ["Shift + Enter", "Nova linha"], ["/", "Comandos do app e do Claude Code"], ["Ctrl + N", "Nova conversa"], ["Ctrl + Shift + N", "Nova janela"], ["Ctrl + K", "Buscar nas conversas"],
     ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Fechar menus e painéis"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"]];
   creditosCaixa.innerHTML = `<div class="cred-topo"><span class="marca"><b>Atalhos</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <section class="atalhos">${A.map(([k, d]) => `<div><kbd>${esc(k)}</kbd><span>${esc(d)}</span></div>`).join("")}</section>`;

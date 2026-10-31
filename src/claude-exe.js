@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 
 const arquivo = (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } };
 const SCRIPT = /\.m?js$/i;
@@ -62,26 +62,51 @@ const naoRuim = (exe, env) => {
 const ondeEstaClaude = (platform) => {
   try { return execFileSync(platform === "win32" ? "where" : "which", ["claude"], { encoding: "utf8", windowsHide: true }).split(/\r?\n/).map((x) => x.trim()).filter(Boolean); } catch { return []; }
 };
+// Same two probes without blocking the main thread.
+const naoRuimAsync = (exe, env) => new Promise((ok) => {
+  const c = comandoClaude(exe, ["--version"], env);
+  execFile(c.cmd, c.args, { env: c.env, timeout: 10000, windowsHide: true }, (e) => ok(!e || e.killed === true));
+});
+const ondeEstaClaudeAsync = (platform) => new Promise((ok) => {
+  execFile(platform === "win32" ? "where" : "which", ["claude"], { encoding: "utf8", windowsHide: true }, (e, out) => ok(e ? [] : String(out).split(/\r?\n/).map((x) => x.trim()).filter(Boolean)));
+});
 
-// Returns { exe, tentativas }: exe is null when nothing starts (the SDK's own copy may still do).
-export function acharClaudeExe({ env = process.env, platform = process.platform, arch = process.arch, home = os.homedir(), appdata = env.APPDATA || "", onde = ondeEstaClaude, verifica = naoRuim } = {}) {
+// The search itself, as a generator: it yields {onde} / {verifica} questions and the
+// sync and async drivers below answer them, so both share one set of rules.
+function* busca({ env, platform, arch, home, appdata }) {
   const nativo = platform === "win32" ? "claude.exe" : "claude";
-  const brutos = [env.CLAUDE_CODE_PATH, path.join(home, ".local", "bin", nativo), ...onde(platform)];
+  const brutos = [env.CLAUDE_CODE_PATH, path.join(home, ".local", "bin", nativo), ...(yield { onde: platform })];
   const vistos = new Set(), tentativas = [];
-  const prova = (exe) => {
+  const prova = function* (exe) {
     const k = platform === "win32" ? exe.toLowerCase() : exe;
     if (vistos.has(k)) return false;
     vistos.add(k);
-    if (verifica(exe, env)) return true;
+    if (yield { verifica: exe }) return true;
     tentativas.push(exe); return false;
   };
+  const primeiro = function* (lista) { for (const e of lista) if (yield* prova(e)) return e; return null; };
   for (const c of brutos.filter(Boolean)) {
     const lista = lancaveis(c, platform, arch);
     if (!lista.length) { if (arquivo(c)) tentativas.push(c); continue; }
-    const ok = lista.find(prova);
+    const ok = yield* primeiro(lista);
     if (ok) return { exe: ok, tentativas };
   }
   const globais = [appdata && pacoteEm(path.join(appdata, "npm")), platform !== "win32" && "/usr/local/lib/node_modules/@anthropic-ai/claude-code"].filter(Boolean);
-  for (const g of globais) { const ok = doPacote(g, platform, arch).find(prova); if (ok) return { exe: ok, tentativas }; }
+  for (const g of globais) { const ok = yield* primeiro(doPacote(g, platform, arch)); if (ok) return { exe: ok, tentativas }; }
   return { exe: null, tentativas };
+}
+const opcoes = ({ env = process.env, platform = process.platform, arch = process.arch, home = os.homedir(), appdata = env.APPDATA || "" } = {}) => ({ env, platform, arch, home, appdata });
+
+// Returns { exe, tentativas }: exe is null when nothing starts (the SDK's own copy may still do).
+export function acharClaudeExe({ onde = ondeEstaClaude, verifica = naoRuim, ...resto } = {}) {
+  const o = opcoes(resto), g = busca(o);
+  let r = g.next();
+  while (!r.done) r = g.next("onde" in r.value ? onde(r.value.onde) : verifica(r.value.verifica, o.env));
+  return r.value;
+}
+export async function acharClaudeExeAsync({ onde = ondeEstaClaudeAsync, verifica = naoRuimAsync, ...resto } = {}) {
+  const o = opcoes(resto), g = busca(o);
+  let r = g.next();
+  while (!r.done) r = g.next("onde" in r.value ? await onde(r.value.onde) : await verifica(r.value.verifica, o.env));
+  return r.value;
 }

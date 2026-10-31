@@ -20,7 +20,7 @@ botaoTerm.innerHTML = svg('<rect x="3" y="4.5" width="18" height="15" rx="3"/><p
 $("infoBtn").before(botaoTerm);
 
 const TERM_MAX = 200000;
-let termTexto = "", termInicioUltimo = 0, termPasta = "", termHist = le("termHist", []), termPos = -1, termRascunho = "";
+let termCarry = "", termQuadro = 0, termTexto = "", termInicioUltimo = 0, termPasta = "", termHist = le("termHist", []), termPos = -1, termRascunho = "";
 // ANSI escapes (colours, cursor moves, titles) are dropped; a carriage return
 // inside a line keeps only what came after it, like a progress bar redrawing.
 const SEM_ANSI = /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-Z\\-_]/g;
@@ -30,10 +30,11 @@ function termDesenha() {
   termSaida.textContent = termTexto;
   if (perto) termSaida.scrollTop = termSaida.scrollHeight;
 }
+const termAgenda = () => { if (!termQuadro) termQuadro = requestAnimationFrame(() => { termQuadro = 0; termDesenha(); }); };
 function termAcrescenta(t) {
   termTexto += t;
   if (termTexto.length > TERM_MAX) { const corte = termTexto.length - TERM_MAX * 0.75; termTexto = termTexto.slice(corte); termInicioUltimo = Math.max(0, termInicioUltimo - corte); }
-  termDesenha();
+  termAgenda();
 }
 function alternaTerm(v = termEl.hidden) {
   termEl.hidden = !v; botaoTerm.classList.toggle("on", v);
@@ -74,6 +75,12 @@ termEl.querySelector('[data-a="manda"]').onclick = () => {
 };
 aoEvento((ev) => {
   if (ev.tipo !== "terminal") return;
-  if (ev.texto) termAcrescenta(limpaSaida(ev.texto));
+  // hold back a trailing lone \r or a cut-off escape sequence until the next chunk completes it
+  let t = termCarry + (ev.texto || ""); termCarry = "";
+  if (!ev.fim) {
+    const e = t.lastIndexOf("\x1b"), resto = t.endsWith("\r") ? "\r" : e >= 0 && t.length - e < 200 && !/^(\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[@-Z\\-_])/.test(t.slice(e)) ? t.slice(e) : "";
+    if (resto) { termCarry = resto; t = t.slice(0, -resto.length); }
+  }
+  if (t) termAcrescenta(limpaSaida(t));
   if (ev.fim) termAcrescenta(window.t("[o terminal foi encerrado; o próximo comando abre outro]") + "\n");
 });

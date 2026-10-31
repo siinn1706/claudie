@@ -65,7 +65,7 @@ const MCP_ESTADO = { connected: "conectado", failed: "falhou", "needs-auth": "pr
 const MCP_ESCOPO = { user: "todos os projetos", project: "compartilhado no projeto", local: "só neste projeto", claudeai: "claude.ai", managed: "da organização", plugin: "plugin", dynamic: "temporário" };
 function mcpLinha(x) {
   const claudeai = x.escopo === "claudeai" || x.nome.startsWith("claude.ai "), ocupado = mcpOcupado === x.nome;
-  const meta = [x.embutido ? "" : MCP_ESCOPO[x.escopo] || x.escopo, x.ferramentas == null ? "" : x.ferramentas === 1 ? "1 ferramenta" : window.t("{0} ferramentas", x.ferramentas)].filter(Boolean).join(" · ");
+  const meta = [x.embutido ? "" : window.t(MCP_ESCOPO[x.escopo] || x.escopo), x.ferramentas == null ? "" : x.ferramentas === 1 ? window.t("1 ferramenta") : window.t("{0} ferramentas", x.ferramentas)].filter(Boolean).join(" · ");
   const bt = (a, txt, cls = "") => `<button class="mcp-bt ${cls}" data-mcp="${a}" data-nome="${esc(x.nome)}" data-escopo="${esc(x.escopo)}"${ocupado ? " disabled" : ""}>${txt}</button>`;
   let acoes = "";
   if (claudeai) acoes = `<button class="mcp-bt" data-mcp-link="https://claude.ai/settings/connectors">Gerenciar no claude.ai</button>`;
@@ -142,8 +142,10 @@ function desenhaInfo() {
   h += secao("saidas", "Saídas", arquivos.length ? String(arquivos.length) : "", arquivos.length
     ? arquivos.map((f) => `<div class="saida"><button class="clicavel" data-abre="${esc(f)}" title="${esc(f)}">${svg('<path d="m9 8-4 4 4 4M15 8l4 4-4 4"/>')}<span>${esc(f.split(/[\\/]/).pop())}</span></button><button class="icone" data-mostra="${esc(f)}" title="Mostrar na pasta">${ICONE.pasta}</button></div>`).join("")
     : `<p class="info-vazio">Nenhum arquivo mudado nesta conversa.</p>`);
+  const ae = document.activeElement, fc = ae && info.contains(ae) ? ae.dataset?.f : null, ini = fc ? ae.selectionStart : 0, fim = fc ? ae.selectionEnd : 0;
   info.innerHTML = h;
   mcpLiga();
+  if (fc) { const n = info.querySelector(`[data-f="${fc}"]`); if (n) { n.focus(); try { n.setSelectionRange(ini, fim); } catch {} } }
   info.querySelector('[data-a="pr-abrir"]')?.addEventListener("click", () => vivo.link(prDados.pr.url));
   info.querySelector('[data-a="pr-criar"]')?.addEventListener("click", prCria);
   info.querySelectorAll(".info-cab").forEach((b) => (b.onclick = () => { const s = b.parentElement, id = s.dataset.sec; s.classList.toggle("aberta"); s.classList.contains("aberta") ? abertas.add(id) : abertas.delete(id); guarda("infoAbertas", [...abertas]); }));
@@ -204,17 +206,18 @@ botaoWt.onclick = () => {
   inp.onblur = () => cria(false);
 };
 // After a conversation is deleted, offers to remove its worktree too.
+const dentro = (c, t) => c === t || c.startsWith(t + "/");
 const normaCaminho = (c) => String(c || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 async function oferecePodarWorktree(s) {
   if (!s.cwd) return;
   const w = await vivo.worktreeInfo(s.cwd).catch(() => null);
   if (!w?.git || !w.ligado) return;
   const topo = normaCaminho(w.topo);
-  if (sessoes.some((x) => x.id !== s.id && normaCaminho(x.cwd).startsWith(topo))) return;
+  if (sessoes.some((x) => x.id !== s.id && dentro(normaCaminho(x.cwd), topo))) return;
   if (!confirm(window.t("Remover também o worktree desta conversa?\n{0}\nO ramo continua no git; mudanças ainda não salvas impedem a remoção.", w.topo))) return;
   const r = await vivo.worktreeRemover(s.cwd).catch((e) => ({ erro: String(e?.message || e) }));
   if (r.erro) { nota(r.erro, true); return; }
-  if (normaCaminho($("pasta").title).startsWith(topo)) mostraPasta(r.cwd);
+  if (dentro(normaCaminho($("pasta").title), topo)) mostraPasta(r.cwd);
   nota("Worktree removido."); carregaSessoes(); mostraRamo();
 }
 mostraRamo();

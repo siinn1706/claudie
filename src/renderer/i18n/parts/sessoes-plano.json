@@ -11,6 +11,10 @@
     "en": "Ultracode on",
     "vi": "Đang bật Ultracode"
   },
+  "O ultracode precisa de Dynamic Workflows, que o Claude Code não liberou nesta conta ou versão. Esta conversa segue sem ele.": {
+    "en": "Ultracode needs Dynamic Workflows, which Claude Code hasn't made available for this account or version. This conversation continues without it.",
+    "vi": "Ultracode cần Dynamic Workflows, nhưng Claude Code chưa mở tính năng này cho tài khoản hoặc phiên bản này. Cuộc trò chuyện tiếp tục mà không có ultracode."
+  },
   "Fluxo de agentes": {
     "en": "Agent workflow",
     "vi": "Luồng agent"

@@ -22,8 +22,8 @@ function cansaco() {
   return Math.max(0, Math.min(1, j.uso / 100));
 }
 
-async function atualizaUso() {
-  usoPedido ??= vivo.uso().then((d) => { usoDados = d?.erro ? usoDados : d; usoPedido = null; mostraUso_(); return d; }).catch(() => (usoPedido = null));
+async function atualizaUso(fundo) {
+  usoPedido ??= vivo.uso(fundo === true).then((d) => { usoDados = d?.erro ? usoDados : d; usoPedido = null; mostraUso_(); return d; }).catch(() => (usoPedido = null));
   return usoPedido;
 }
 function mostraUso_() {
@@ -142,7 +142,7 @@ function animaAcademia(cv) {
 }
 
 setInterval(() => { if (janelinhas.has("uso") && janelinhas.get("uso").el.classList.contains("on")) atualizaUso(); }, 60000);
-setInterval(atualizaUso, 5 * 60000);
+setInterval(() => atualizaUso(true), 5 * 60000);
 aoEvento((ev) => { if (ev.tipo === "parado") setTimeout(atualizaUso, 1500); if (ev.tipo === "limite" && ev.info?.status === "rejected") { usoDados ??= { disponivel: true, janelas: [] }; atualizaUso(); } });
-setTimeout(atualizaUso, 2500);
+setTimeout(() => atualizaUso(true), 2500);
 ACOES_RADIAL.splice(5, 0, ["Uso", svg('<rect x="3" y="7" width="4" height="10" rx="1"/><rect x="10" y="7" width="4" height="10" rx="1"/><rect x="17" y="7" width="4" height="10" rx="1"/>'), () => abreUso()]);

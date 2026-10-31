@@ -92,7 +92,7 @@ function abreTarefas() {
   desenhaTarefas();
 }
 addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && tfSheet && document.activeElement === document.body && !document.querySelector(".personal.on, .lightbox.on")) tfSheet.j.fecha();
+  if (e.key === "Escape" && tfSheet && !tfSheet.j.el.classList.contains("fixa") && document.activeElement === document.body && !document.querySelector(".personal.on, .lightbox.on")) tfSheet.j.fecha();
 });
 
 function desenhaTarefas() {

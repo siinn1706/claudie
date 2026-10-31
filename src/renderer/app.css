@@ -320,7 +320,7 @@ body:not(.themed) .comandos { background: #262523; }
 .tira svg { width: 11px; height: 11px; color: #fff; stroke-width: 2.2; }
 .tira:hover, .tira.certeza { background: var(--err); }
 .msg-anexos { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
-.msg-anexos img { height: 120px; max-width: 220px; object-fit: cover; border-radius: 10px; display: block; }
+.msg-anexos img { max-height: 220px; max-width: min(320px, 100%); object-fit: contain; border-radius: 10px; display: block; }
 .arq { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 7px; background: var(--code); font-size: 12px; color: var(--ui-2); }
 .arq svg { width: 13px; height: 13px; }
 .soltar { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; background: rgba(10, 10, 9, 0.45); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity 0.18s; }
@@ -445,7 +445,7 @@ body.themed .acoes { width: fit-content; border-radius: 9px; background: var(--v
 .medidor i { width: 44px; height: 4px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
 .medidor b { display: block; height: 100%; background: var(--ui-2); border-radius: 4px; transition: width 0.5s var(--ease); }
 .medidor.alto b { background: var(--err); } .medidor.alto { color: var(--err); }
-.medidor:not([hidden]) + .enviar { margin-left: 0; }
+.medidor:not([hidden]) ~ .enviar { margin-left: 0; }
 .cache { margin-left: auto; margin-right: 8px; display: flex; align-items: center; gap: 5px; font: 11px var(--mono); font-variant-numeric: tabular-nums; color: var(--ui-dim); cursor: var(--cur-seta, default); }
 .cache[hidden] { display: none; }
 .cache svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -835,7 +835,7 @@ canvas.clawd-grande { display: block; margin: -6px auto 2px; cursor: var(--cur-m
 .composer.modo-comando, .composer.modo-terminal { border-style: solid; }
 .composer.modo-comando::before, .composer.modo-terminal::before { content: none; }
 .composer.modo-terminal { border-color: color-mix(in srgb, var(--ok) 55%, var(--line-2)); }
-.composer.modo-terminal .composer-base::after { content: "Vai rodar no terminal"; order: -1; font-size: 12px; color: var(--ui-dim); margin-right: 8px; }
+.composer.modo-terminal .composer-base::after { content: attr(data-dica); order: -1; font-size: 12px; color: var(--ui-dim); margin-right: 8px; }
 body[data-claude="esperando"] .composer { animation: none; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
 
 /* activity rail: neutral marks; edits in the accent, failures in red */
@@ -1128,7 +1128,10 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 /* The picture preview. */
 .lightbox { position: fixed; inset: 0; z-index: 48; display: grid; place-items: center; padding: 32px; background: rgba(8, 8, 7, 0.82); opacity: 0; pointer-events: none; transition: opacity 0.18s; cursor: zoom-out; }
 .lightbox.on { opacity: 1; pointer-events: auto; }
-.lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
+.lightbox { overflow: hidden; touch-action: none; }
+.lightbox img { max-width: calc(100vw - 64px); max-height: calc(100vh - 64px); object-fit: contain; border-radius: 10px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); cursor: zoom-in; user-select: none; -webkit-user-drag: none; transform-origin: center; }
+.lightbox.ampliada img { cursor: grab; }
+.lightbox.arrastando, .lightbox.arrastando img { cursor: grabbing; }
 .anexo.img, .msg-anexos img { cursor: zoom-in; }
 
 /* Tool output, subagent activity and background work */
@@ -1137,6 +1140,16 @@ textarea, input:not([type=range], [type=color], [type=checkbox], [type=radio], [
 .ferr .res-rot { padding: 6px 12px 0; font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ui-dim); }
 .ferr .ver-tudo { margin: 0 12px 10px; }
 .ferr .ferr-saida img { display: block; max-width: calc(100% - 24px); max-height: 260px; margin: 6px 12px 10px; border-radius: 8px; border: 1px solid var(--line); cursor: var(--cur-mao, zoom-in); }
+.ferr-grupo { margin: 0 0 8px; }
+.ferr-grupo > .ferr:last-child { margin-bottom: 0; }
+.ferr-grupo:not(.aberto):not([data-n="1"]) > .ferr:not(:last-child), .ferr-grupo[data-n="1"] > .ferr-mais { display: none; }
+.ferr-mais { display: flex; align-items: center; gap: 7px; width: 100%; margin: 0 0 6px; padding: 5px 11px; border: 1px dashed var(--line); border-radius: 10px; background: none; color: var(--ui-dim); font: 12px var(--mono); text-align: left; cursor: var(--cur-mao, pointer); }
+.ferr-mais:hover { background: var(--hover); color: var(--ui-2); }
+.ferr-mais svg { width: 13px; height: 13px; flex: none; transition: transform 0.15s; }
+.ferr-grupo.aberto .ferr-mais svg { transform: rotate(90deg); }
+.ferr-mais b { flex: none; font-weight: 500; }
+.ferr-mais b::after { content: " ·"; font-weight: 400; }
+.ferr-mais span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ferr summary .sub-n { flex: none; font: normal 11.5px var(--mono); color: var(--ui-dim); }
 .sub-lista { border-top: 1px solid var(--line); padding: 4px 6px; display: flex; flex-direction: column; gap: 1px; }
 .sub { display: flex; gap: 8px; align-items: center; padding: 3px 8px; font-size: 12.5px; min-width: 0; }
@@ -1294,3 +1307,21 @@ body.themed.light .escolha-pop.previa .esf-col.acesa i { background: color-mix(i
 body.themed.light .esf-barra { background: linear-gradient(to right, var(--accent) var(--p), var(--tinta-3) var(--p)); }
 body.themed.light .pz-linha input[type=text], body.themed.light .pz-linha select, body.themed.light .pz-busca, body.themed.light .pz-amostra, body.themed.light .pz-som select, body.themed.light .pz-icone-prev, body.themed.light .pz-chave input { background: var(--tinta-1); }
 body.themed.light .colado-texto { background: var(--tinta-1); color: var(--ui); border-color: var(--menu-borda); }
+
+/* Projects in the sidebar: the name reads above its conversations, and a +
+   on hover starts a new one right in that folder. */
+.grupo.pasta.projeto { margin-top: 14px; padding: 5px 4px 5px 6px; }
+.grupo.pasta.projeto span { font-size: 15px; font-weight: 600; color: var(--ui); }
+.grupo.pasta.projeto svg { width: 13px; height: 13px; }
+.grupo.pasta.projeto small { font-size: 11.5px; }
+.grupo.pasta.projeto .nova-aqui { flex: none; width: 24px; height: 24px; margin-left: 2px; opacity: 0; }
+.grupo.pasta.projeto .nova-aqui svg { width: 14px; height: 14px; transform: none; }
+.grupo.pasta.projeto:hover .nova-aqui, .grupo.pasta.projeto .nova-aqui:focus-visible { opacity: 1; }
+.grupo.pasta.projeto .nova-aqui:hover { background: var(--active); color: var(--ui); }
+/* While Claude works: send into the running turn, next to stop. */
+.enviar[hidden] { display: none; }
+.enviar.mais:not([hidden]) + #enviar { margin-left: 6px; }
+
+/* "pinned" tag is generated in JS, so it follows the document language set by i18n */
+html:lang(en) .janelinha.fixa header b::after { content: "pinned"; }
+html:lang(vi) .janelinha.fixa header b::after { content: "đã ghim"; }
