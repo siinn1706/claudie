@@ -13,7 +13,7 @@
 
   // inverso: translated text → Portuguese, for text the app copies out of a
   // node that was already translated (menus built from option labels…).
-  const exatos = new Map(), inverso = new Map(), padroes = [];
+  const exatos = new Map(), inverso = new Map(), padroes = [], modelos = new Map();
   const escapa = (s) => s.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
   for (const [pt, tr] of Object.entries(dicionario)) {
     if (!/\{\d+\}/.test(pt)) {
@@ -25,6 +25,7 @@
     // much text, so there the values must be numbers.
     const curto = /^\{\d+\}/.test(pt) && pt.replace(/\{\d+\}/g, "").replace(/[^\p{L}]/gu, "").length <= 6;
     const ordem = [];
+    modelos.set(pt, tr);
     const re = new RegExp("^" + escapa(pt).replace(/\{(\d+)\}/g, (_, i) => (ordem.push(+i), curto ? "(\\d[\\d.,]*)" : "(.+?)")) + "$", "su");
     padroes.push({ re, ordem, tr });
   }
@@ -55,9 +56,12 @@
   }
 
   // ---- the DOM ------------------------------------------------------------------------
-  const ATRIBUTOS = ["title", "placeholder", "aria-label", "alt"];
+  const ATRIBUTOS = ["title", "placeholder", "aria-label", "alt", "data-dica"];
+  // User data (session titles, folder and project names, snippets) must show as typed; the placeholders "Sem pasta" and "Sem título" are UI labels.
+  const DADOS = ".item > span, .item > small, .item .proj, #pastaNome, .boas-pasta span, .grupo.pasta > span";
   const TEXTOS = new WeakMap(), ATRS = new WeakMap(); // node → { pt, escrito }
   const deixa = (el) => !!el.closest("pre, code, textarea, script, style, [contenteditable], [data-sem-traducao]")
+    || (!!el.closest(DADOS) && !["Sem pasta", "Sem título"].includes(el.textContent.trim()))
     || (!!el.closest(".msg, .raciocinio") && !el.closest("button, summary"));
 
   function lembra(mapa, chave, atual) {
@@ -106,7 +110,7 @@
   // t("texto pronto") translates a finished string; t("{0} às {1}", a, b) fills a key with values.
   window.t = (pt, ...valores) => {
     if (!valores.length) return traduz(pt);
-    return preenche((idioma !== "pt" && exatos.get(pt)?.[idioma]) || pt, valores);
+    return preenche((idioma !== "pt" && modelos.get(pt)?.[idioma]) || pt, valores);
   };
   window.i18n = {
     idioma: () => idioma,

@@ -1,4 +1,5 @@
 {
+  "Vai rodar no terminal": { "en": "Runs in the terminal", "vi": "Sẽ chạy trong terminal" },
   "código": { "en": "code", "vi": "mã" },
   "Copiar": { "en": "Copy", "vi": "Sao chép" },
   "Copiado": { "en": "Copied", "vi": "Đã sao chép" },
@@ -253,5 +254,10 @@
   "Colar imagem como anexo": { "en": "Paste image as attachment", "vi": "Dán hình ảnh làm tệp đính kèm" },
   "Fechar menus e painéis": { "en": "Close menus and panels", "vi": "Đóng menu và bảng" },
   "Esta lista": { "en": "This list", "vi": "Danh sách này" },
-  "Mostrar o Claudie de qualquer lugar": { "en": "Show Claudie from anywhere", "vi": "Hiện Claudie từ bất kỳ đâu" }
+  "Mostrar o Claudie de qualquer lugar": { "en": "Show Claudie from anywhere", "vi": "Hiện Claudie từ bất kỳ đâu" },
+  "Enviar agora, com o Claude trabalhando (Enter · Ctrl+X Ctrl+S)": { "en": "Send now, while Claude works (Enter · Ctrl+X Ctrl+S)", "vi": "Gửi ngay khi Claude đang làm (Enter · Ctrl+X Ctrl+S)" },
+  "Nova conversa neste projeto": { "en": "New conversation in this project", "vi": "Cuộc trò chuyện mới trong dự án này" },
+  "Não achei a pasta deste projeto.": { "en": "Couldn't find this project's folder.", "vi": "Không tìm thấy thư mục của dự án này." },
+  "Enviar (com o Claude trabalhando, entra na resposta em andamento)": { "en": "Send (while Claude works, it goes into the running reply)", "vi": "Gửi (khi Claude đang làm, tin nhắn vào ngay lượt đang chạy)" },
+  "Enviar agora": { "en": "Send now", "vi": "Gửi ngay" }
 }
