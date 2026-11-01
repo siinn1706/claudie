@@ -29,10 +29,11 @@ const ICONE = {
   pasta: svg('<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>'),
   janela: svg('<rect x="3.5" y="5.5" width="13" height="13" rx="2"/><path d="M8.5 5.5V4.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-1"/>'),
   duplicar: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>'),
+  tela: svg('<rect x="3.5" y="4.5" width="17" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/>'),
 };
 const horaAgora = () => new Date().toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
 const iconeDa = (nome) => (nome === "Bash" ? ICONE.terminal : /^(Read|NotebookRead)$/.test(nome) ? ICONE.arquivo : /^(Write|Edit|MultiEdit|NotebookEdit)$/.test(nome) ? ICONE.editar
-  : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudie__") ? ICONE.tema : ICONE.ferramenta);
+  : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudie__") ? ICONE.tema : nome.startsWith("mcp__computer-use__") ? ICONE.tela : ICONE.ferramenta);
 
 // Markdown: raw HTML in Claude's text is shown as text, never run.
 marked.use({ gfm: true, breaks: true, renderer: { html: ({ text }) => esc(text), image: ({ href, text }) => (/^(data:image\/|blob:|file:\/\/\/(?!\/))/i.test(href || "") || (href && /^(?![a-z][a-z0-9+.-]*:)(?![\\\/]{2})/i.test(href)) || /^[a-z]:[\/](?![\/])/i.test(href || "")) ? `<img src="${esc(href)}" alt="${esc(text)}">` : esc(text) } });
@@ -178,14 +179,19 @@ function resumo(nome, e = {}) {
   if (nome === "WebSearch") return e.query;
   if (nome === "mcp__claudie__buscar_fundo") return [e.busca, e.categoria].filter(Boolean).join(" · ");
   if (/fundo$/.test(nome)) return PECAS.get(e.peca)?.nome || e.peca;
+  if (nome === "mcp__computer-use__app") return e.app;
+  if (nome.startsWith("mcp__computer-use__")) return e.text || (e.coordinate || e.region ? `[${(e.coordinate || e.region).join(", ")}]` : "");
   if (nome.startsWith("mcp__claudie__")) return nomeTema(e.tema);
   return Object.values(e).find((x) => typeof x === "string") || "";
 }
 const ROTULO = { Bash: "Comando", Read: "Leu", Write: "Criou", Edit: "Editou", MultiEdit: "Editou", Glob: "Procurou arquivos", Grep: "Buscou", WebFetch: "Abriu página", WebSearch: "Pesquisou", ToolSearch: "Buscou ferramenta", TodoWrite: "Lista de tarefas", Task: "Subagente", Workflow: "Fluxo de agentes", mcp__claudie__sugerir_tema: "Sugeriu tema", mcp__claudie__aplicar_tema: "Aplicou tema",
-  mcp__claudie__buscar_fundo: "Buscou fundos", mcp__claudie__sugerir_fundo: "Sugeriu fundo", mcp__claudie__aplicar_fundo: "Aplicou fundo" };
+  mcp__claudie__buscar_fundo: "Buscou fundos", mcp__claudie__sugerir_fundo: "Sugeriu fundo", mcp__claudie__aplicar_fundo: "Aplicou fundo",
+  "mcp__computer-use__screenshot": "Captura de tela", "mcp__computer-use__zoom": "Zoom na tela", "mcp__computer-use__cursor_position": "Posição do mouse", "mcp__computer-use__wait": "Esperou", "mcp__computer-use__left_click": "Clicou", "mcp__computer-use__right_click": "Clicou com o direito",
+  "mcp__computer-use__middle_click": "Clicou com o meio", "mcp__computer-use__double_click": "Duplo clique", "mcp__computer-use__triple_click": "Clique triplo", "mcp__computer-use__left_click_drag": "Arrastou", "mcp__computer-use__mouse_move": "Moveu o mouse",
+  "mcp__computer-use__scroll": "Rolou", "mcp__computer-use__type": "Digitou", "mcp__computer-use__key": "Apertou tecla", "mcp__computer-use__hold_key": "Segurou tecla", "mcp__computer-use__app": "Controle de app" };
 const rotulo = (n) => ROTULO[n] || n.replace(/^mcp__([^_]+)__/, "$1 · ");
 // What a permission card asks for, in the infinitive.
-const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente", Workflow: "iniciar um fluxo de vários agentes" };
+const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente", Workflow: "iniciar um fluxo de vários agentes", "mcp__computer-use__app": "controlar o aplicativo" };
 const pedido = (n) => PEDIDO[n] || `usar ${rotulo(n)}`;
 
 function ferramenta(id, nome, e, fim = null) {
@@ -366,6 +372,7 @@ aoEvento((ev) => {
     case "sessao": sessaoAtual = ev.id; marcaSessao(); break;
     case "info": break;
     case "aviso": aviso(window.t(ev.texto)); break;
+    case "computador": mostraComputador(ev); break;
     case "fim": if (!ev.ok && ev.detalhe !== "success") aviso(`Parou: ${ev.detalhe}`, true); break;
     case "erro": tiraPensando(); aviso(ev.texto, true); window.somEvento?.("erro"); break;
     case "atualizacao": mostraAtualizacao(ev); break;
@@ -1001,8 +1008,8 @@ async function novaNoProjeto(cwd) {
 const mostraPasta = (p) => { $("pastaNome").textContent = p.split(/[\\/]/).pop() || p; $("pasta").title = p; const b = col.querySelector(".boas-pasta span"); if (b) b.textContent = $("pastaNome").textContent; };
 // Choices belong to this conversation; what a running turn cannot take applies from the next message.
 const guardaEscolha = (m) => vivo.config(m).then((r) => { if (rodando && r?.depois?.length) nota("Vale a partir da próxima mensagem."); });
-let modoPendente = null;
-const mostraEscolhas = (c) => { if (c.modo === modoPendente) modoPendente = null; $("modo").value = c.modo || "default"; $("modelo").value = c.model || ""; $("esforco").value = c.esforco || ""; ultracode = !!c.ultracode; atualizaEscolhas(); };
+let modoPendente = null, computador = false;
+const mostraEscolhas = (c) => { if (c.modo === modoPendente) modoPendente = null; $("modo").value = c.modo || "default"; $("modelo").value = c.model || ""; $("esforco").value = c.esforco || ""; ultracode = !!c.ultracode; computador = !!c.computador; atualizaEscolhas(); };
 $("modelo").onchange = () => guardaEscolha({ model: $("modelo").value });
 $("modo").onchange = () => { modoPendente = null; guardaEscolha({ modo: $("modo").value }); };
 $("esforco").onchange = () => guardaEscolha({ esforco: $("esforco").value });
@@ -1070,6 +1077,11 @@ const menuEscolha = (id) => (pop, sel, escolhe) => {
   const info = ESCOLHAS[id], icones = id === "modo" ? ICONES_MODO : null;
   pop.innerHTML = `<div class="pop-titulo">${info.titulo}</div>` + [...sel.options].map((o) => `<button class="opcao${o.value === sel.value ? " on" : ""}${icones ? " com-icone" : ""}" data-v="${esc(o.value)}">${icones ? `<span class="op-icone">${icones[o.value] || ""}</span>` : ""}<b>${esc(o.textContent)}</b><small>${esc(info.itens[o.value] || "")}</small>${ICONE.ok}</button>`).join("");
   pop.querySelectorAll(".opcao").forEach((b) => (b.onclick = () => { escolhe(b.dataset.v); fechaEscolhas(); if (!document.activeElement || document.activeElement === document.body) entrada.focus(); }));
+  if (id === "modo") {
+    // Computer control belongs to this conversation, like Ultracode; it reopens the conversation's Claude Code.
+    pop.insertAdjacentHTML("beforeend", `<div class="esf-ultra"><div><b>Controle do computador</b><small>O Claude vê a tela e usa o mouse e o teclado, só no Windows. Cada app pede a sua aprovação.</small></div><button class="chave" role="switch" aria-checked="${computador}" title="Ligar ou desligar"><i></i></button></div>`);
+    pop.querySelector(".esf-ultra .chave").onclick = () => { computador = !computador; guardaEscolha({ computador }); atualizaEscolhas(); };
+  }
 };
 montaEscolha("modo", menuEscolha("modo"), (s) => s.selectedOptions[0]?.textContent || "", (s) => ICONES_MODO[s.value] || ICONES_MODO.default);
 montaEscolha("modelo", menuEscolha("modelo"), (s) => s.selectedOptions[0]?.textContent || "");
@@ -1743,6 +1755,16 @@ function mostraUso({ contexto, janela, saida }) {
   el.querySelector("b").style.width = p + "%";
   el.querySelector("span").textContent = `${p}%`;
   el.title = `Contexto: ${milhar(contexto)} de ${milhar(janela)} tokens (${p}%).\nÚltima resposta: ${milhar(saida)} tokens escritos.${p >= 80 ? "\nEstá enchendo: /compact resume a conversa." : ""}`;
+}
+
+// ---- computer control ------------------------------------------------------------------
+// Shown while any conversation has an action running (Esc is a global stop key just then).
+const computadorAtivos = new Map(); // tid -> stop key name
+function mostraComputador({ ativo, tecla, tid }) {
+  if (ativo) computadorAtivos.set(tid, tecla || ""); else computadorAtivos.delete(tid);
+  const el = $("computadorAtivo"), teclas = [...computadorAtivos.values()].filter(Boolean);
+  el.hidden = !computadorAtivos.size;
+  if (computadorAtivos.size) el.querySelector("span").textContent = teclas.length ? window.t("Claude está usando o computador, aperte {0} para parar", teclas[0]) : window.t("Claude está usando o computador (sem tecla de parada)");
 }
 
 // ---- prompt cache ----------------------------------------------------------------------

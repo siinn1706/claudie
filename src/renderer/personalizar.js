@@ -232,6 +232,8 @@ async function desenhaAba() {
       ${chaveT("geral.novidades", "Novidades do Claude e da Anthropic", "Uma busca rápida na web por dia (gasta bem pouco do plano)")}
       ${chaveT("geral.reage", "Papel de parede reage ao Claude", "Ondas e ritmo mudam enquanto ele pensa, trabalha ou espera você")}
       ${chaveT("geral.notificacoes", "Notificações do Windows", "Quando ele termina ou precisa de você com a janela em segundo plano")}
+      <h3 class="pz-sub">Controle do computador</h3>
+      <label class="pz-linha"><span>Apps bloqueados<small>Nomes dos programas separados por vírgula. O Claude nunca age sobre eles, e gerenciadores de senha já vêm bloqueados.</small></span><input type="text" data-k="geral.computerBloqueio" maxlength="500" placeholder="banco.exe, app.exe" /></label>
       <h3 class="pz-sub">Atualizações</h3>
       <div class="pz-linha"><span>Claudie <b class="pz-versao"></b><small class="pz-atualiza-txt"></small></span><button class="btn" data-atualiza hidden></button></div>
       <h3 class="pz-sub">Conta</h3>

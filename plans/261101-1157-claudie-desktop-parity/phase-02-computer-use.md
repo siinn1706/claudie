@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Computer use MVP"
-status: pending
+status: completed
 priority: P1
 effort: "2-3 days"
 dependencies: ["01"]
@@ -63,21 +63,21 @@ Let Claude see the primary display and drive the mouse and keyboard on Windows t
 - `src/renderer/clawd.js` (modify): verb "usando o computador…" for these tools.
 - `src/renderer/personalizar.js` (modify): `input[data-k="geral.computerBloqueio"]` (comma-separated blocked apps, label and help text keys in `computador.json`) in the General tab; `main.js` `visual_salvar` mirrors it into `config.computerUse.bloqueados`.
 - `src/renderer/index.html` / `style.css` (modify only if the banner/switch need markup/styles not covered by existing classes).
-- `package.json` (modify): `koffi` in `dependencies`; `build.asarUnpack: ["node_modules/koffi/**"]`.
+- `package.json` (modify): `koffi` in `dependencies`; `build.asarUnpack: ["node_modules/koffi/**", "node_modules/@koromix/koffi-*/**"]` (koffi resolved to 3.x, whose native binary ships in the separate `@koromix/koffi-win32-x64` package).
 - `README.md` (modify): Features entry.
 
 ## Tasks & Steps
 
-1. [ ] `npm install koffi` (record the resolved 2.x version); add `build.asarUnpack`.
-2. [ ] Write the Win32 layer in `src/computador.js`; throwaway smoke script (in scratchpad, not committed) importing it: foreground exe name, `GetCursorPos`/`SetCursorPos` round trip, `WindowFromPoint`.
-3. [ ] Add `capturaTela`, `mapa`, `paraTela`, `zoom` and the 300 ms settle + trailing screenshot.
-4. [ ] Add the gate wrapper (plan-mode limit, cursor/drag targets, blocklist, tiers, token-based elevation, per-app card with signal, re-check before input).
-5. [ ] Add the tools with zod schemas and `servidorComputadorPara`; export `FERRAMENTAS_COMPUTADOR`, `PROMPT_COMPUTADOR`.
-6. [ ] Add `ativaControle`/`liberaControle`/`pararTudo`/`liberaTudo` with the counter, per-action wrapping, Escape unregister during Escape injection, and the fallback key.
-7. [ ] `main.js`: extract `pedePermissao`; wire config key, `systemPrompt.append`, `mcpServers`, `allowedTools`, cleanup hooks, `embutido`/`mcp_acao`.
-8. [ ] Renderer: mode-popover switch, labels/icons/summary, banner, clawd verb, blocklist field; `mostraEscolhas` and the `config` event carry `computador`.
-9. [ ] i18n: add every new key (banner/notice with `{0}`, blocklist field label and help, refusal texts) to `computador.json` with en and vi; `JSON.parse` it.
-10. [ ] README section; run all checks in Verification; one commit `feat(computer-use): add per-conversation computer control`.
+1. [x] `npm install koffi` (resolved 3.3.6); add `build.asarUnpack`.
+2. [x] Write the Win32 layer in `src/computador.js`; throwaway smoke script (in scratchpad, not committed) importing it: foreground exe name, `GetCursorPos`/`SetCursorPos` round trip, `WindowFromPoint`.
+3. [x] Add `capturaTela`, `mapa`, `paraTela`, `zoom` and the 300 ms settle + trailing screenshot.
+4. [x] Add the gate wrapper (plan-mode limit, cursor/drag targets, blocklist, tiers, token-based elevation, per-app card with signal, re-check before input).
+5. [x] Add the tools with zod schemas and `servidorComputadorPara`; export `FERRAMENTAS_COMPUTADOR`, `PROMPT_COMPUTADOR`.
+6. [x] Add `ativaControle`/`liberaControle`/`pararTudo`/`liberaTudo` with the counter, per-action wrapping, Escape unregister during Escape injection, and the fallback key.
+7. [x] `main.js`: extract `pedePermissao`; wire config key, `systemPrompt.append`, `mcpServers`, `allowedTools`, cleanup hooks, `embutido`/`mcp_acao`.
+8. [x] Renderer: mode-popover switch, labels/icons/summary, banner, clawd verb, blocklist field; `mostraEscolhas` and the `config` event carry `computador`.
+9. [x] i18n: add every new key (banner/notice with `{0}`, blocklist field label and help, refusal texts) to `computador.json` with en and vi; `JSON.parse` it.
+10. [x] README section; run all checks in Verification; one commit `feat(computer-use): add per-conversation computer control`.
 
 ## Security & Safety
 
@@ -131,4 +131,6 @@ Let Claude see the primary display and drive the mouse and keyboard on Windows t
 
 Applied: first-screenshot deadlock (own app allowed for read-only tools), Escape injection unregister, per-action Esc scope (matches decisions.md), cursor/drag targets, token-based elevation and secure-desktop errors, per-conversation default (verified in main.js: the no-session-id path of `mudaConfig` does `Object.assign(config, m)`), plan-mode limit, UWP/system-surface/super-key restrictions, stuck input plus generation/abort signal, card cancellation signal, coordinate mapping, remote/scheduled refusal, `computer-use` name rejection (verified: `mcp_acao` and `mcp_adicionar` guard only `claudie`; `embutido` already covers `source === "sdk"`), i18n parameter and lazy koffi, own-exe entry.
 Partly applied: screenshots of blocked windows beside the foreground app are documented instead of blacked out (the finding allowed either); full-path comparison only where cheap.
-Rejected: none.
+Review round: Esc and abort now cover calls waiting on a card (generation is taken after approval, and each call is abortable from the start); an action that moves input is refused when no stop key (Esc or Ctrl+Alt+Esc) could be registered, and the banner names the real key; `hold_key` refuses Esc and Ctrl+Alt+Esc injection unhooks the fallback key; unknown-key text is a translation key with an argument; shell, editor and system-config apps join the click-only list and more password managers join the blocklist; the self-started idle turn is flagged as remote; the banner follows a set of active conversations; the koffi native package is unpacked (verified: `electron-builder --win dir` puts `koffi.node` in `app.asar.unpacked` and koffi loads from the packed app).
+Rejected: scale from the real thumbnail size (the thumbnail always covers the whole display, so physical pixels per image pixel is the display's physical width over the image width whatever the thumbnail size); a remote message arriving during an active local turn cannot be told apart from the local echo, so it is not flagged; scheduled and quick-entry turns do not exist in main.js; a native confirmation for the computer switch (the per-app card is the gate); skipping Esc and protection for screenshots (the capture must exclude Claudie's windows, and the action is brief); protecting windows created mid-action.
+Limits: apps outside the lists default to full control (the lists cover shells, terminals, editors, registry and system tools, and common password managers); click accuracy at 125% and 150% scaling and the live Esc card flow were not exercised on this machine at those scales.

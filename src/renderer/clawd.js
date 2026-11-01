@@ -78,7 +78,7 @@ const Clawd = (() => {
     if (e === "parado") { estado = "parado"; if (detail.terminou) { pulo = performance.now(); fala(sorteia(FALAS.pronto), 2200); } else fala(""); return; }
     estado = e;
     if (e === "erro") { tremor = performance.now(); fala(FALAS.erro[0], 1800); }
-    else if (e === "ferramenta") fala(VERBO[detail.nome] || (detail.nome?.startsWith("mcp__claudie__") ? "mexendo no visual…" : "trabalhando…"));
+    else if (e === "ferramenta") fala(VERBO[detail.nome] || (detail.nome?.startsWith("mcp__claudie__") ? "mexendo no visual…" : detail.nome?.startsWith("mcp__computer-use__") ? "usando o computador…" : "trabalhando…"));
     else fala(sorteia(FALAS[e] || ["…"]));
   });
   addEventListener("mousemove", (e) => (mouseX = e.clientX));

@@ -15,6 +15,7 @@ import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { acharClaudeExe, acharClaudeExeAsync, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
+import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo } from "./computador.js";
 import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -120,21 +121,22 @@ const turnos = new Set();    // every open Claude Code: { tid, j, q, ac, caixa, 
 let ultimoLimite = null;     // the last rate_limit_info any Claude Code reported (its window and reset time)
 const vivaDe = (id) => id && [...turnos].find((t) => t.sessionId === id && !t.caixa?.fechada);
 const turnoDe = (id) => { const t = vivaDe(id); return t?.ativo ? t : undefined; };
-// Model, permission mode, effort and ultracode belong to each conversation
+// Model, permission mode, effort, ultracode and computer control belong to each conversation
 // (config.porSessao); the top-level values are only what a new one starts with.
 const MODOS = ["default", "acceptEdits", "plan", "auto", "bypassPermissions"];
 const BYPASS = "bypassPermissions";
 const ROTULO_MODO = { default: "Perguntar", acceptEdits: "Aceitar edições", plan: "Modo plano", auto: "Automático", bypassPermissions: "Ignorar permissões" };
 // The default for new conversations is never bypass, even if a hand-edited config says so.
 const cfgSessao = (id) => {
-  const x = { model: config.model || "", modo: config.modo === BYPASS ? "default" : config.modo || "default", esforco: config.esforco || "", ultracode: !!config.ultracode, ...(id && config.porSessao?.[id]) };
+  const x = { model: config.model || "", modo: config.modo === BYPASS ? "default" : config.modo || "default", esforco: config.esforco || "", ultracode: !!config.ultracode, computador: false, ...(id && config.porSessao?.[id]) };
   return { ...x, modo: MODOS.includes(x.modo) ? x.modo : "default" };
 };
 // Bypass of a conversation that has no session yet lives on the window, never in config.
-const cfgJ = (j) => ({ ...cfgSessao(j?.sessionId), ...(!j?.sessionId && j?.modoBypass ? { modo: BYPASS } : {}) });
-// Forgets the conversation a window held (and a bypass chosen for it).
-const limpaConversa = (j) => { j.sessionId = null; j.atual = null; j.modoBypass = false; };
-const guardaCfg = (id, c) => { (config.porSessao ||= {})[id] = { model: c.model || "", modo: c.modo || "default", esforco: c.esforco || "", ultracode: !!c.ultracode }; };
+// Computer control chosen before the first message waits on the window too (the global default stays off).
+const cfgJ = (j) => ({ ...cfgSessao(j?.sessionId), ...(!j?.sessionId && j?.modoBypass ? { modo: BYPASS } : {}), ...(!j?.sessionId && j?.computadorPendente ? { computador: true } : {}) });
+// Forgets the conversation a window held (and a bypass or computer control chosen for it).
+const limpaConversa = (j) => { j.sessionId = null; j.atual = null; j.modoBypass = false; j.computadorPendente = false; };
+const guardaCfg = (id, c) => { (config.porSessao ||= {})[id] = { model: c.model || "", modo: c.modo || "default", esforco: c.esforco || "", ultracode: !!c.ultracode, computador: !!c.computador }; };
 // Pushes a change into a running turn; what the CLI refuses waits for the next message.
 async function aplicaNoTurno(t, m) {
   const falhou = [];
@@ -149,6 +151,8 @@ async function aplicaNoTurno(t, m) {
   if ("esforco" in m) await tenta("esforco", () => t.q.applyFlagSettings({ effortLevel: m.esforco || null }));
   // A Claude Code started without Dynamic Workflows can't take ultracode live; it reopens with them on.
   if ("ultracode" in m) await tenta("ultracode", () => { if (m.ultracode && !t.workflows) throw new Error(); return t.q.applyFlagSettings({ ultracode: !!m.ultracode }); });
+  // The computer-use server is part of what a Claude Code opens with: it reopens.
+  if ("computador" in m) await tenta("computador", () => { throw new Error(); });
   return falhou;
 }
 const AVISO_SEM_WORKFLOWS = "O ultracode precisa de Dynamic Workflows, que o Claude Code não liberou nesta conta ou versão. Esta conversa segue sem ele.";
@@ -552,6 +556,7 @@ function comecaTurno(t, uuid, comando) {
 }
 // The turn is over; the conversation's Claude Code stays open for the next one.
 function fimDoTurno(t, aviso) {
+  liberaControle(t);
   // A turn that ends (or a process that dies while idle) must not leave cards waiting for an answer.
   for (const id of [...t.pendentes.keys()]) {
     pendentes.get(id)?.resolve({ behavior: "deny", message: "Cancelado." }); pendentes.delete(id);
@@ -570,12 +575,30 @@ function fimDoTurno(t, aviso) {
 const encerra = (t) => t.caixa?.fecha();
 // Closes them for good and waits (a few seconds at most) until they exit.
 const fechaEspera = (ts) => { for (const t of ts) { encerra(t); t.ac.abort(); } return Promise.race([Promise.all(ts.map((t) => t.saiu)), new Promise((ok) => setTimeout(ok, 4000))]); };
+// A card in the conversation's window that waits for the person's answer (or asks a question). Used by
+// canUseTool and by the computer-use gate, whose tools are allowed in advance and so never reach it.
+function pedePermissao(t, toolName, input, { signal, suggestions, decisionReason } = {}) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve({ behavior: "deny", message: "Cancelado." });
+    if (!t.ativo) comecaTurno(t, crypto.randomUUID(), true);
+    const id = crypto.randomUUID();
+    pendentes.set(id, { resolve, suggestions, input, t, toolName });
+    // Claude asking the person something: the choices become a form.
+    const pedido = toolName === "AskUserQuestion" ? { tipo: "pergunta", id, perguntas: input.questions || [] }
+      : { tipo: "permissao", id, ferramenta: toolName, entrada: input, motivo: decisionReason ?? null, temSempre: !!suggestions?.length };
+    t.pendentes.set(id, pedido); t.ev(pedido); avisaTurnos();
+    signal?.addEventListener("abort", () => {
+      if (pendentes.delete(id)) { t.pendentes.delete(id); resolve({ behavior: "deny", message: "Cancelado." }); t.ev({ tipo: "permissao_fim", id }); avisaTurnos(); }
+    });
+  });
+}
+const depsComputador = { pedePermissao, enviarEvento, config: () => config, janelas, tr };
 // texto null opens the conversation's Claude Code without a message (Remote Control).
 async function turno(j, texto, anexos) {
   const viva = vivaDe(j.sessionId);
   if (viva && !viva.ativo && !viva.reiniciar && viva.cwd === j.cwd) {
     const uuid = crypto.randomUUID();
-    viva.j = j; j.atual = viva;
+    viva.j = j; j.atual = viva; viva.remoto = false;
     comecaTurno(viva, uuid, !anexos.length && texto.startsWith("/"));
     viva.caixa.poe(montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m })));
     return;
@@ -620,21 +643,10 @@ async function turno(j, texto, anexos) {
       thinking: geral.raciocinio === false ? undefined : { type: "adaptive", display: "summarized" },
       includePartialMessages: true,
       abortController: ac,
-      systemPrompt: { type: "preset", preset: "claude_code" },
-      mcpServers: { claudie: servidorTemasPara(t) },
-      allowedTools: [...FERRAMENTAS_TEMA, ...FERRAMENTAS_PLANO],
-      canUseTool: (toolName, input, { signal, suggestions, decisionReason }) => new Promise((resolve) => {
-        if (!t.ativo) comecaTurno(t, crypto.randomUUID(), true);
-        const id = crypto.randomUUID();
-        pendentes.set(id, { resolve, suggestions, input, t, toolName });
-        // Claude asking the person something: the choices become a form.
-        const pedido = toolName === "AskUserQuestion" ? { tipo: "pergunta", id, perguntas: input.questions || [] }
-          : { tipo: "permissao", id, ferramenta: toolName, entrada: input, motivo: decisionReason ?? null, temSempre: !!suggestions?.length };
-        t.pendentes.set(id, pedido); ev(pedido); avisaTurnos();
-        signal.addEventListener("abort", () => {
-          if (pendentes.delete(id)) { t.pendentes.delete(id); resolve({ behavior: "deny", message: "Cancelado." }); ev({ tipo: "permissao_fim", id }); avisaTurnos(); }
-        });
-      }),
+      systemPrompt: { type: "preset", preset: "claude_code", ...(t.cfg.computador ? { append: PROMPT_COMPUTADOR } : {}) },
+      mcpServers: { claudie: servidorTemasPara(t), ...(t.cfg.computador ? { "computer-use": servidorComputadorPara(t, depsComputador) } : {}) },
+      allowedTools: [...FERRAMENTAS_TEMA, ...FERRAMENTAS_PLANO, ...(t.cfg.computador ? FERRAMENTAS_COMPUTADOR : [])],
+      canUseTool: (toolName, input, opcoes) => pedePermissao(t, toolName, input, opcoes),
     },
   });
   turnos.add(t);
@@ -648,15 +660,15 @@ async function turno(j, texto, anexos) {
       // A message sent from claude.ai/code or the Claude app shows here as the person's own.
       if (!t.ativo && msg.type === "user" && !msg.parent_tool_use_id && !msg.isReplay) {
         const c = msg.message?.content, txt = typeof c === "string" ? c : Array.isArray(c) ? c.filter((b) => b.type === "text").map((b) => b.text).join("\n") : "";
-        if (txt.trim()) { comecaTurno(t, crypto.randomUUID(), true); ev({ tipo: "remoto_msg", texto: txt }); }
+        if (txt.trim()) { comecaTurno(t, crypto.randomUUID(), true); t.remoto = true; ev({ tipo: "remoto_msg", texto: txt }); }
       }
       // Claude can start a turn by itself while idle (a background task finished,
       // a message sent as the last turn ended); the window showing it follows it.
-      if (!t.ativo && !msg.parent_tool_use_id && (msg.type === "assistant" || msg.type === "stream_event" && msg.event?.type === "message_start")) comecaTurno(t, crypto.randomUUID(), true);
+      if (!t.ativo && !msg.parent_tool_use_id && (msg.type === "assistant" || msg.type === "stream_event" && msg.event?.type === "message_start")) { comecaTurno(t, crypto.randomUUID(), true); t.remoto = true; }
       if (msg.session_id && msg.session_id !== t.sessionId) {
         t.sessionId = msg.session_id;
         if (novo && !config.porSessao?.[t.sessionId]) { guardaCfg(t.sessionId, t.cfg); salvarConfig(); }
-        if (t.j.atual === t) { t.j.sessionId = t.sessionId; t.j.modoBypass = false; }
+        if (t.j.atual === t) { t.j.sessionId = t.sessionId; t.j.modoBypass = false; t.j.computadorPendente = false; }
         ev({ tipo: "sessao", id: t.sessionId }); avisaTurnos();
       }
       if (msg.type === "system" && msg.subtype === "bridge_state") {
@@ -751,6 +763,7 @@ async function turno(j, texto, anexos) {
   } finally {
     // Claude Code closed (quit, restart, stop or crash): what it still ran died with it.
     t.caixa?.fecha();
+    liberaControle(t);
     turnos.delete(t);
     // The bridge went with it; it comes back when the conversation opens again.
     if (remotos.has(t.sessionId)) avisaRemoto(t.sessionId, { estado: "desligado", url: "", texto: "" });
@@ -1066,7 +1079,7 @@ const ESCOPOS_MCP = ["user", "project", "local"];
 const reabreConversas = () => { for (const t of turnos) if (t.ativo) t.reiniciar = true; else encerra(t); };
 ipcMain.handle("mcp_acao", async (e, { acao, nome, escopo }) => {
   const j = J(e);
-  if (typeof nome !== "string" || !nome || nome.startsWith("claude.ai ") || nome === "claudie") return { erro: "Esse conector não pode ser mudado aqui." };
+  if (typeof nome !== "string" || !nome || nome.startsWith("claude.ai ") || nome === "claudie" || nome === "computer-use") return { erro: "Esse conector não pode ser mudado aqui." };
   try {
     if (acao === "remover") {
       if (!ESCOPOS_MCP.includes(escopo)) return { erro: "Esse conector não vem de um arquivo de configuração." };
@@ -1124,7 +1137,7 @@ ipcMain.handle("painel", async (e) => {
     return {
       ambiente: { ...ambiente, modelo: contexto?.model || ambiente.modelo },
       contexto: contexto && { total: contexto.totalTokens, max: contexto.maxTokens, pct: contexto.percentage, categorias: (contexto.categories || []).map((c) => ({ nome: c.name, tokens: c.tokens, cor: c.color, tipo: c.kind || (c.isDeferred ? "deferred" : "used") })), memoria: (contexto.memoryFiles || []).map((m) => ({ caminho: m.path, tokens: m.tokens })) },
-      conectores: (conectores || []).map((c) => ({ nome: c.name, estado: c.status, erro: c.error || "", escopo: c.scope || c.source || "", ferramentas: c.tools?.length ?? null, tipo: c.config?.type || "", embutido: c.source === "sdk" || c.name === "claudie" })),
+      conectores: (conectores || []).map((c) => ({ nome: c.name, estado: c.status, erro: c.error || "", escopo: c.scope || c.source || "", ferramentas: c.tools?.length ?? null, tipo: c.config?.type || "", embutido: c.source === "sdk" || c.name === "claudie" || c.name === "computer-use" })),
       rodando: !!(j.atual?.ativo || turnoDe(j.sessionId)),
     };
   } catch (err) { return { ambiente, erro: String(err?.message || err) }; }
@@ -1365,7 +1378,7 @@ ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {
   try {
     const dir = cwd && fs.existsSync(cwd) ? cwd : j.cwd;
     const r = await forkSession(origem, { dir, upToMessageId: uuid || undefined, title: titulo || undefined });
-    guardaCfg(r.sessionId, { ...cfgSessao(origem), modo: cfgSessao(origem).modo === BYPASS ? "default" : cfgSessao(origem).modo }); salvarConfig();
+    guardaCfg(r.sessionId, { ...cfgSessao(origem), modo: cfgSessao(origem).modo === BYPASS ? "default" : cfgSessao(origem).modo, computador: false }); salvarConfig();
     j.cwd = dir; j.sessionId = r.sessionId; j.modoBypass = false;
     return { id: r.sessionId, titulo: titulo || "Ramo", cwd: dir };
   } catch (e) { console.log("[ramificar]", e?.message || e); return null; }
@@ -1565,18 +1578,19 @@ ipcMain.handle("term_enviar", (e, linha) => {
 });
 ipcMain.handle("term_parar", (e) => { const j = J(e); if (!j) return false; terminalMata(j); terminalLiga(j); return true; });
 
-// A change of model, mode, effort or ultracode goes to the conversation it was made in (or, in a new
+// A change of model, mode, effort, ultracode or computer control goes to the conversation it was made in (or, in a new
 // one, to the defaults) and into the turns running there; the rest of config is shared.
 async function mudaConfig(j, mudanca, id = j.sessionId) {
   const m = {};
-  for (const k of ["model", "modo", "esforco", "ultracode"]) if (k in mudanca) m[k] = k === "ultracode" ? !!mudanca[k] : String(mudanca[k] || "");
+  for (const k of ["model", "modo", "esforco", "ultracode", "computador"]) if (k in mudanca) m[k] = k === "ultracode" || k === "computador" ? !!mudanca[k] : String(mudanca[k] || "");
   if (m.modo && !MODOS.includes(m.modo)) delete m.modo;
   const turnosAfetados = [...turnos].filter((t) => t.q && !t.caixa?.fechada && ((id && t.sessionId === id) || (!id && t === j.atual)));
   if (id) guardaCfg(id, { ...cfgSessao(id), ...m });
   else {
     // A conversation not yet started can be in bypass, but the default for new ones never is.
     if ("modo" in m) j.modoBypass = m.modo === BYPASS;
-    const { modo, ...resto } = m;
+    if ("computador" in m) j.computadorPendente = m.computador;
+    const { modo, computador, ...resto } = m;
     Object.assign(config, resto, modo && modo !== BYPASS ? { modo } : {});
   }
   for (const t of turnosAfetados) t.cfg = { ...t.cfg, ...m };
@@ -1598,7 +1612,7 @@ async function confirmaBypass(j) {
   return r.response === 1;
 }
 ipcMain.handle("config", async (e, mudanca) => {
-  const { model, modo, esforco, ultracode, ...resto } = mudanca || {}, j = J(e);
+  const { model, modo, esforco, ultracode, computador, ...resto } = mudanca || {}, j = J(e);
   if (modo === BYPASS && cfgJ(j).modo !== BYPASS) {
     const devolve = () => ({ ...config, ...cfgJ(j), depois: [] });
     if (j.confirmandoBypass) return devolve();
@@ -1607,7 +1621,7 @@ ipcMain.handle("config", async (e, mudanca) => {
     if (!ok || j.sessionId !== id) { avisaConfig(); return devolve(); }
   }
   if (Object.keys(resto).length) { config = { ...config, ...resto }; salvarConfig(); }
-  const depois = await mudaConfig(j, Object.fromEntries(Object.entries({ model, modo, esforco, ultracode }).filter(([, v]) => v !== undefined)));
+  const depois = await mudaConfig(j, Object.fromEntries(Object.entries({ model, modo, esforco, ultracode, computador }).filter(([, v]) => v !== undefined)));
   return { ...config, ...cfgJ(j), depois };
 });
 // Each window shows the choices of the conversation it holds.
@@ -1618,7 +1632,10 @@ ipcMain.handle("visual", () => config.visual || {});
 ipcMain.on("i18n", (e) => { e.returnValue = { idioma: idioma(), dicionario: DICIONARIO }; });
 ipcMain.handle("visual_salvar", (_e, visual) => {
   const antes = config.visual || {};
-  config.visual = visual && typeof visual === "object" ? visual : {}; salvarConfig();
+  config.visual = visual && typeof visual === "object" ? visual : {};
+  // Apps Claude may never control by computer use: the comma-separated field of Customize, as lowercased names.
+  config.computerUse = { ...config.computerUse, bloqueados: String(config.visual.geral?.computerBloqueio || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean) };
+  salvarConfig();
   if (antes.icone !== config.visual.icone) aplicaIcone();
   if (config.visual.nome) for (const o of janelas.values()) o.win.setTitle(config.visual.nome);
   for (const o of janelas.values()) if (o !== J(_e)) enviarEvento(o, { tipo: "visual", visual: config.visual });
@@ -1878,7 +1895,7 @@ ipcMain.handle("remoto_ligar", async (e, ligar, nome) => {
   if (t && t.cwd === j.cwd) await ligaRemoto(t);
   else { if (t) encerra(t); turno(j, null, []); }
 });
-app.on("before-quit", () => { for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) terminalMata(j, true); });
+app.on("before-quit", () => { liberaTudo(); for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) terminalMata(j, true); });
 
 app.whenReady().then(() => {
   if (!instanciaUnica) return;
