@@ -87,6 +87,7 @@ if (!window.vivo) {
     janelaNova: async () => {},
     painel: async () => ({ ambiente: { computador: "MEU-PC", pasta: "C:\Users\voce\projetos\exemplo", ramo: "main", modelo: "claude-opus-5-5" }, contexto: { total: 98000, max: 1000000, pct: 9.8, categorias: [{ nome: "Messages", tokens: 52000, tipo: "used" }, { nome: "System tools", tokens: 25500, tipo: "used" }, { nome: "MCP tools", tokens: 9000, tipo: "used" }, { nome: "System prompt", tokens: 9800, tipo: "used" }, { nome: "Skills", tokens: 1700, tipo: "used" }, { nome: "Free space", tokens: 869000, tipo: "free" }, { nome: "MCP tools (deferred)", tokens: 330000, tipo: "deferred" }] }, conectores: [{ nome: "claudie", estado: "connected" }, { nome: "outframe-assets", estado: "connected" }, { nome: "vercel", estado: "needs-auth" }] }),
     abrirArquivo: async () => true,
+    artefatoLer: async () => ({ erro: "leitura" }),
     arquivos: async () => [],
     saida: async () => null,
     gitAlteracoes: async () => ({ git: false }),

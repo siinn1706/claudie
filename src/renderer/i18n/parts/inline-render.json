@@ -1,0 +1,8 @@
+{
+  "Visualizar": {"en": "Preview", "vi": "Xem trước"},
+  "Artefatos da conversa": {"en": "Conversation artifacts", "vi": "Tạo phẩm của cuộc trò chuyện"},
+  "Nenhum artefato nesta conversa ainda.": {"en": "No artifacts in this conversation yet.", "vi": "Chưa có tạo phẩm nào trong cuộc trò chuyện này."},
+  "Não deu pra ler o arquivo.": {"en": "Couldn't read the file.", "vi": "Không đọc được tệp."},
+  "Não deu pra desenhar o diagrama.": {"en": "Couldn't draw the diagram.", "vi": "Không vẽ được sơ đồ."},
+  "Cópia do que o Claude escreveu, não lida do disco.": {"en": "Copy of what Claude wrote, not read from disk.", "vi": "Bản sao nội dung Claude đã ghi, không đọc từ đĩa."}
+}

@@ -53,6 +53,7 @@ The source code stays in Portuguese. [`src/renderer/i18n/i18n.js`](src/renderer/
 - Reasoning appears in a collapsible block, each tool becomes a block on the top rail (click to jump to it; right-click to restore files to before that point), edits show as +/− diffs, and the wallpaper reacts (ripples, rhythm).
 - Claude's plan (TodoWrite or the Task* tools) stays pinned above the input and returns when you reopen the conversation. The meter next to the send button shows how much context is used, and the clock beside it counts down until the prompt cache expires (5 min or 1 h, whichever the API recorded); sending before then reuses the cached context.
 - **Tool output**: cards show the start of the result and "Show all" loads the rest; images returned by a tool appear in the card (click to enlarge). Reopened conversations restore cards with their result and status. A subagent's (Task/Agent) activity is listed inside its card with a tool count.
+- **Inline previews** of mermaid, svg and html code blocks (Code/Preview toggle, sandboxed, no scripts) and an Artifacts window (header button) listing the html, svg and markdown files Claude wrote in the conversation.
 - **Background tasks**: commands, agents, monitors and ultracode workflows show in an "In the background" strip above the input. The strip and the counter next to the input ("2 tasks") open a "Background tasks" window like Claude Desktop's. "Running" shows a card per task with elapsed time, tokens and tools; a workflow shows its phases (done/total, one square per agent, and an agent table with tokens and duration when expanded), and every task has a stop button (workflows ask for a second click). "Completed" keeps the last 100 per conversation while the app is open, with status (Completed, Failed, Stopped), duration and summary. Phases come from the workflow script's `meta`; agents and tokens are read (read-only) from what Claude Code writes to disk. Esc closes.
 - **Notifications**: with the window in the background, you're notified when Claude finishes or needs approval.
 
@@ -136,6 +137,6 @@ Claude Code's mascot is everywhere. On launch it assembles from tiles; on the ho
 
 ## License and credits
 
-[MIT](LICENSE). Copyright (c) 2026 Nguyễn Văn Nam for Claudie, and Copyright (c) 2026 Luis Roberto for the original Claudinho code it builds on; both notices stay in the license, as MIT requires. Library animations come from the [ascii-magic-art](https://www.ascii-magic.com/ascii) package (MIT). The Claude Agent SDK belongs to Anthropic and follows its terms.
+[MIT](LICENSE). Copyright (c) 2026 Nguyễn Văn Nam for Claudie, and Copyright (c) 2026 Luis Roberto for the original Claudinho code it builds on; both notices stay in the license, as MIT requires. Diagrams are drawn with [Mermaid](https://mermaid.js.org) (MIT, vendored in `src/renderer/vendor`). Library animations come from the [ascii-magic-art](https://www.ascii-magic.com/ascii) package (MIT). The Claude Agent SDK belongs to Anthropic and follows its terms.
 
 An independent fan project, not affiliated with or endorsed by Anthropic. Claude, Claude Code and Clawd are trademarks of Anthropic.

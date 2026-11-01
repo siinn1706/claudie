@@ -1177,6 +1177,23 @@ ipcMain.handle("novidades", async () => {
 });
 // Files Claude changed open in their own app, or show in their folder.
 ipcMain.handle("abrir_arquivo", (_e, caminho, naPasta) => abreArquivo(caminho, naPasta));
+// Text of an html/svg/markdown file Claude wrote, for the Artifacts window. Read-only, same
+// roots as "abrir_arquivo", plain preview types only and a size cap.
+ipcMain.handle("artefato_ler", (e, caminho) => {
+  if (typeof caminho !== "string" || !caminho) return { erro: "fora" };
+  const j = J(e), base = j?.atual?.cwd || j?.cwd || config.cwd;
+  const abs = path.resolve(base, caminho), real = caminhoRealSeguro(abs);
+  const TIPO = /\.(html?|svg|md|markdown)$/i;
+  // a file that no longer exists has no real path: inside an allowed folder it is a failed read
+  if (!real) return { erro: dentroDeRaizPermitida(abs) && TIPO.test(abs) ? "leitura" : "fora" };
+  if (!dentroDeRaizPermitida(real)) return { erro: "fora" };
+  if (!TIPO.test(real)) return { erro: "tipo" };
+  try {
+    const st = fs.statSync(real);
+    if (!st.isFile() || st.size > 2 * 1024 * 1024) return { erro: "grande" };
+    return { texto: fs.readFileSync(real, "utf8"), nome: path.basename(real) };
+  } catch { return { erro: "leitura" }; }
+});
 // A file named in a reply (relative to the conversation's folder, absolute, file:// or
 // percent-encoded by the markdown). Images come back as a URL for the preview; the rest
 // opens as "abrir_arquivo" would. Same roots, so a link can't reach outside the folders.

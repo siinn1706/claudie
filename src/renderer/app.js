@@ -39,14 +39,20 @@ const iconeDa = (nome) => (nome === "Bash" ? ICONE.terminal : /^(Read|NotebookRe
 marked.use({ gfm: true, breaks: true, renderer: { html: ({ text }) => esc(text), image: ({ href, text }) => (/^(data:image\/|blob:|file:\/\/\/(?!\/))/i.test(href || "") || (href && /^(?![a-z][a-z0-9+.-]*:)(?![\\\/]{2})/i.test(href)) || /^[a-z]:[\/](?![\/])/i.test(href || "")) ? `<img src="${esc(href)}" alt="${esc(text)}">` : esc(text) } });
 const md = (s) => marked.parse(s || "");
 // Code blocks get a header with their language and a copy button.
-function decora(el) {
+// With final set (the block is complete, not mid-stream) mermaid, svg and html blocks also get a Code/Preview toggle.
+const PREVIA_LANG = /^(mermaid|svg|html?)$/, PREVIA_MAX = 500 * 1024;
+function decora(el, final = false) {
   for (const pre of el.querySelectorAll("pre")) {
-    if (pre.parentElement.classList.contains("codigo")) continue;
+    let caixa = pre.parentElement;
     const code = pre.querySelector("code"), lang = (code?.className.match(/language-(\S+)/) || [])[1] || "código";
-    const caixa = document.createElement("div"); caixa.className = "codigo";
-    caixa.innerHTML = `<div class="codigo-topo"><span>${esc(lang)}</span><button>${ICONE.copiar}<span>Copiar</span></button></div>`;
-    pre.replaceWith(caixa); caixa.append(pre);
-    caixa.querySelector("button").onclick = (e) => copia(pre.innerText, e.currentTarget);
+    if (!caixa.classList.contains("codigo")) {
+      caixa = document.createElement("div"); caixa.className = "codigo";
+      caixa.innerHTML = `<div class="codigo-topo"><span>${esc(lang)}</span><button>${ICONE.copiar}<span>Copiar</span></button></div>`;
+      pre.replaceWith(caixa); caixa.append(pre);
+      caixa.querySelector("button").onclick = (e) => copia(pre.innerText, e.currentTarget);
+    }
+    const fonte = code?.textContent || "";
+    if (final && window.montaPrevia && !caixa.dataset.vis && PREVIA_LANG.test(lang) && fonte.length <= PREVIA_MAX) { caixa.dataset.vis = "1"; window.montaPrevia?.(caixa, lang, fonte); }
   }
 }
 function copia(texto, botao) {
@@ -124,7 +130,7 @@ function tiraPensando() { pensando?.remove(); pensando = null; }
 function fechaSegmento() {
   if (!segmento) return;
   segmento.classList.remove("cursor");
-  segmento.querySelector(".corpo").innerHTML = md(bufferTexto); decora(segmento);
+  segmento.querySelector(".corpo").innerHTML = md(bufferTexto); decora(segmento, true);
   acoesResposta(segmento, bufferTexto, horaAgora());
   window.camadas?.(segmento);
   segmento = null; bufferTexto = "";
@@ -331,7 +337,7 @@ function cartaoPlano(ev) {
   const el = bloco("perm plano-card");
   el.dataset.id = ev.id;
   el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude montou um plano e quer <b>começar a executar</b></span></div><div class="corpo plano-md">${md(ev.entrada.plan)}</div><input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que ajustar no plano" />`;
-  decora(el);
+  decora(el, true);
   const fb = el.querySelector(".perm-fb"), linha = document.createElement("div"); linha.className = "b";
   const fecha = (ok, texto) => { el.className = "resolvido"; el.innerHTML = `${ok ? ICONE.ok : ICONE.erro}<span>${texto}</span>`; mostraPensando(); };
   const botao = (rot, cls, fn) => { const b = document.createElement("button"); b.textContent = rot; b.className = "btn" + (cls ? " " + cls : ""); b.onclick = fn; linha.append(b); return b; };
@@ -973,7 +979,7 @@ async function abreSessao(id, titulo) {
   turnoVisto = t?.tid || null; turnoN = t?.n || 0; setRodando(!!t);
   for (const m of r.hist) {
     if (m.papel === "eu") { meu(m.texto, (m.fotos || []).map((url) => ({ nome: "imagem", url })), m.imagens || 0, ""); if (m.uuid) [...col.querySelectorAll(".msg.eu")].pop().dataset.uuid = m.uuid; }
-    else if (m.papel === "claude") { const el = bloco("msg claude", `<div class="corpo">${md(m.texto)}</div>`); decora(el); if (m.uuid) el.dataset.uuid = m.uuid; acoesResposta(el, m.texto, ""); window.camadas?.(el); }
+    else if (m.papel === "claude") { const el = bloco("msg claude", `<div class="corpo">${md(m.texto)}</div>`); decora(el, true); if (m.uuid) el.dataset.uuid = m.uuid; acoesResposta(el, m.texto, ""); window.camadas?.(el); }
     else if (m.papel === "resultado") { ferramentaFim(m.id, m.erro, m.saida + (m.maior ? "…" : "")); planoResultado(m.id, m.tarefa); }
     else { const id = m.id || crypto.randomUUID(); ferramenta(id, m.nome, m.entrada, "ok"); planoUsa(id, m.nome, m.entrada); }
   }
@@ -1642,7 +1648,7 @@ async function abreCreditos() {
     <section><h3>Suas animações <small>${meus.length}</small></h3>
       <p>${meus.length ? meus.map((m) => esc(m.nome)).join(" · ") + ". " : "Nenhuma ainda. "}Feitas por você no ${link("https://www.ascii-motion.com", "ASCII Motion")}, editor de animações ASCII de Cameron Foxly (código aberto, MIT).</p></section>
     <section><h3>Por baixo</h3>
-      <p>${link("https://github.com/anthropics/claude-agent-sdk-typescript", "Claude Agent SDK")} (Anthropic) · ${link("https://www.electronjs.org", "Electron")} (MIT) · ${link("https://marked.js.org", "marked")} (MIT) · ${link("https://zod.dev", "Zod")} (MIT) · fontes ${link("https://rsms.me/inter/", "Inter")} e ${link("https://vercel.com/font", "Geist Mono")} (SIL Open Font License).</p></section>`;
+      <p>${link("https://github.com/anthropics/claude-agent-sdk-typescript", "Claude Agent SDK")} (Anthropic) · ${link("https://www.electronjs.org", "Electron")} (MIT) · ${link("https://marked.js.org", "marked")} (MIT) · ${link("https://mermaid.js.org", "Mermaid")} (MIT) · ${link("https://zod.dev", "Zod")} (MIT) · fontes ${link("https://rsms.me/inter/", "Inter")} e ${link("https://vercel.com/font", "Geist Mono")} (SIL Open Font License).</p></section>`;
   creditosCaixa.querySelector("#fechaCreditos").onclick = fechaCreditos;
   creditos.classList.add("on");
 }

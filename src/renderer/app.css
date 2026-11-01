@@ -152,6 +152,10 @@ main { position: relative; overflow: hidden; }
 .codigo-topo svg, .acoes svg { width: 14px; height: 14px; }
 .codigo pre { margin: 0; padding: 12px 14px; overflow-x: auto; font: 12.5px/1.6 var(--mono); }
 .codigo pre code { background: none; padding: 0; }
+.codigo-vis { margin-left: auto; }
+.codigo-previa { display: block; width: 100%; height: 320px; border: 0; background: #fff; }
+.codigo-previa[hidden], .codigo pre[hidden] { display: none; }
+.codigo-erro { padding: 6px 12px; font-size: 12px; color: var(--ui-dim); border-top: 1px solid var(--line); }
 .acoes { display: flex; gap: 2px; margin-top: 6px; opacity: 0; transition: opacity 0.15s; }
 .msg.claude:hover .acoes { opacity: 1; }
 .cursor::after { content: ""; display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; background: var(--accent); border-radius: 1px; animation: pisca 1s steps(1) infinite; }
@@ -734,10 +738,10 @@ body:not(.themed) .janelinha { background: #232221; }
 .mud .diff { max-height: 200px; border-top: 0; }
 .mud-b { display: flex; gap: 6px; padding: 6px 8px; }
 .mud-b .btn { padding: 4px 10px; font-size: 12px; }
-.alt-btn { position: relative; }
-.alt-btn .badge { position: absolute; top: 2px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--accent); color: #fff; font: normal 9.5px/14px var(--mono); text-align: center; display: none; }
-.alt-btn.tem .badge { display: block; }
-.alt-btn:not(.tem) { opacity: 0.55; }
+.alt-btn, .art-btn { position: relative; }
+.alt-btn .badge, .art-btn .badge { position: absolute; top: 2px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--accent); color: #fff; font: normal 9.5px/14px var(--mono); text-align: center; display: none; }
+.alt-btn.tem .badge, .art-btn.tem .badge { display: block; }
+.alt-btn:not(.tem), .art-btn:not(.tem) { opacity: 0.55; }
 .plano-topo .solta { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; color: var(--ui-dim); }
 .plano-topo .solta:hover { background: var(--hover); color: var(--ui); }
 .plano-topo .solta svg { width: 13px; height: 13px; }
@@ -864,7 +868,7 @@ body[data-claude="esperando"] .composer { animation: none; box-shadow: 0 10px 30
 /* smaller things */
 .ferr.piscando, .msg.eu.piscando { animation-duration: 0.8s; }
 .radial button span { font-size: 11px; }
-.alt-btn .badge { font-family: var(--fonte); font-weight: 600; }
+.alt-btn .badge, .art-btn .badge { font-family: var(--fonte); font-weight: 600; }
 .sugestoes button { border-radius: 10px; }
 .escopo button[data-todas] { font-weight: 500; }
 
@@ -1364,3 +1368,19 @@ html:lang(vi) .janelinha.fixa header b::after { content: "đã ghim"; }
 .prep-linha input:focus { outline: none; border-color: var(--accent); }
 .prep .btn.leve { background: none; border-color: transparent; color: var(--ui-dim); justify-self: start; padding-left: 0; }
 @media (prefers-reduced-motion: reduce) { .prep-fundo { animation: none; } .prep-passo[data-estado="rodando"] .prep-ic { animation: none; } }
+
+/* Artifacts window */
+.jl-corpo.art { display: flex; min-height: 0; padding: 0; }
+.art-lista { flex: 0 0 170px; display: flex; flex-direction: column; gap: 2px; padding: 8px; overflow-y: auto; border-right: 1px solid var(--line); }
+.art-item { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--ui); text-align: left; padding: 6px 8px; border-radius: 8px; font-size: 12.5px; cursor: var(--cur-mao, pointer); }
+.art-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.art-item em { font: normal 10px var(--mono); color: var(--ui-dim); text-transform: uppercase; }
+.art-item:hover, .art-item.sel { background: var(--hover); }
+.art-previa { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.art-barra { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.art-barra b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.art-nota { margin: 0; padding: 5px 10px; font-size: 11.5px; color: var(--ui-dim); border-bottom: 1px solid var(--line); }
+.art-vista { flex: 1; min-height: 0; display: flex; }
+.art-vista .codigo-previa { height: auto; flex: 1; }
+.art-codigo { flex: 1; margin: 0; padding: 10px 12px; overflow: auto; font: 12px/1.55 var(--mono); background: var(--code); color: var(--ui); white-space: pre-wrap; word-break: break-word; }
+.art-previa > .jl-vazio, .art-lista > .jl-vazio { margin: 12px; }

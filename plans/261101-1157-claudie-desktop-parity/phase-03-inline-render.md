@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Inline mermaid/svg/html and Artifacts window"
-status: pending
+status: completed
 priority: P2
 effort: "1 day"
 dependencies: []
@@ -94,16 +94,16 @@ Preload: `artefatoLer: (c) => ipcRenderer.invoke("artefato_ler", c)`.
 
 ## Tasks & Steps
 
-1. [ ] Create branch work on `feat/desktop-parity` (phases 01-02 may not be committed first; phase order does not matter for this phase's files).
-2. [ ] Vendor mermaid: fetch `dist/mermaid.min.js` from a scratch npm install, copy to `src/renderer/vendor/`, write the vendor README with the exact version.
-3. [ ] Add `artefato_ler` in `main.js` and `artefatoLer` in `preload.cjs`; `node --check` both.
-4. [ ] Write `artefatos.js` (helpers, `montaPrevia`, artifacts scan, window, button, observer + `aoEvento`, `ABRE_JANELINHA.artefatos`). Add the `artefatoLer` stub in `simulador.js`.
-5. [ ] Change `decora` in `app.js`: add `final` param, toggle button, `dataset.vis` guard, default tab per language, 500 KB cap; update the three call sites that must pass `true`; keep streaming call unchanged.
-6. [ ] Add CSS for toggle button, iframe (width 100%, height ~320 px, white background, no border) and artifacts window; verify in light and dark.
-7. [ ] Add script tag in `index.html` after `os.js`.
-8. [ ] Create `inline-render.json` with the missing keys only: `Visualizar`, `Artefatos da conversa`, `Nenhum artefato nesta conversa ainda.`, `Não deu pra ler o arquivo.`, `Não deu pra desenhar o diagrama.`, `Cópia do que o Claude escreveu, não lida do disco.`. `Código` (personalizar.json) and `Abrir arquivo` (alteracoes-git.json) already exist; grep to confirm before adding. Toggle labels sit in a `button`, so the DOM scanner translates them; `.codigo-erro` uses `t()`.
-9. [ ] Add the about-box mermaid credit and the README feature line.
-10. [ ] Run Verification; fix issues; commit `feat(render): preview mermaid, svg and html fences and add an artifacts window`.
+1. [x] Create branch work on `feat/desktop-parity` (phases 01-02 may not be committed first; phase order does not matter for this phase's files).
+2. [x] Vendor mermaid: fetch `dist/mermaid.min.js` from a scratch npm install, copy to `src/renderer/vendor/`, write the vendor README with the exact version.
+3. [x] Add `artefato_ler` in `main.js` and `artefatoLer` in `preload.cjs`; `node --check` both.
+4. [x] Write `artefatos.js` (helpers, `montaPrevia`, artifacts scan, window, button, observer + `aoEvento`, `ABRE_JANELINHA.artefatos`). Add the `artefatoLer` stub in `simulador.js`.
+5. [x] Change `decora` in `app.js`: add `final` param, toggle button, `dataset.vis` guard, default tab per language, 500 KB cap; update the three call sites that must pass `true`; keep streaming call unchanged.
+6. [x] Add CSS for toggle button, iframe (width 100%, height ~320 px, white background, no border) and artifacts window; verify in light and dark.
+7. [x] Add script tag in `index.html` after `os.js`.
+8. [x] Create `inline-render.json` with the missing keys only: `Visualizar`, `Artefatos da conversa`, `Nenhum artefato nesta conversa ainda.`, `Não deu pra ler o arquivo.`, `Não deu pra desenhar o diagrama.`, `Cópia do que o Claude escreveu, não lida do disco.`. `Código` (personalizar.json) and `Abrir arquivo` (alteracoes-git.json) already exist; grep to confirm before adding. Toggle labels sit in a `button`, so the DOM scanner translates them; `.codigo-erro` uses `t()`.
+9. [x] Add the about-box mermaid credit and the README feature line.
+10. [x] Run Verification; fix issues; commit `feat(render): preview mermaid, svg and html fences and add an artifacts window`.
 
 ## Security & Safety
 
