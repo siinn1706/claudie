@@ -89,7 +89,7 @@ async function montaApps(cfg, comJanelas) {
   const menu = await atalhosDoMenuIniciar(), porExe = new Map();
   const poe = (exe, nome, caminho, aberto) => {
     const n = norm(exe);
-    if (!exe || n === proprio || bl.has(n) || n === "applicationframehost" || n === "textinputhost" || n === "shellexperiencehost") return;
+    if (!exe || n === proprio || n === "claudie" || bl.has(n) || n === "applicationframehost" || n === "textinputhost" || n === "shellexperiencehost") return;
     const antes = porExe.get(exe);
     if (antes) { antes.aberto ||= aberto; return; }
     porExe.set(exe, { nome, exe, caminho, aberto });
