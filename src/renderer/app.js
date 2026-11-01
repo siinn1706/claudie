@@ -30,6 +30,7 @@ const ICONE = {
   janela: svg('<rect x="3.5" y="5.5" width="13" height="13" rx="2"/><path d="M8.5 5.5V4.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-1"/>'),
   duplicar: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>'),
   tela: svg('<rect x="3.5" y="4.5" width="17" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/>'),
+  regiao: svg('<path d="M4.5 9V6.5a2 2 0 0 1 2-2H9M15 4.5h2.5a2 2 0 0 1 2 2V9M19.5 15v2.5a2 2 0 0 1-2 2H15M9 19.5H6.5a2 2 0 0 1-2-2V15"/>'),
 };
 const horaAgora = () => new Date().toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
 const iconeDa = (nome) => (nome === "Bash" ? ICONE.terminal : /^(Read|NotebookRead)$/.test(nome) ? ICONE.arquivo : /^(Write|Edit|MultiEdit|NotebookEdit)$/.test(nome) ? ICONE.editar
@@ -437,6 +438,7 @@ aoEvento((ev) => {
     case "aplicar_arte": aplicaChave(ev.chave); break;
     case "sessao": sessaoAtual = ev.id; marcaSessao(); break;
     case "info": break;
+    case "entrada_rapida": filaRapida = filaRapida.then(() => entradaRapida(ev)).catch(() => {}); break;
     case "aviso": aviso(window.t(ev.texto)); break;
     case "computador": mostraComputador(ev); break;
     case "fim": if (!ev.ok && ev.detalhe !== "success") aviso(`Parou: ${ev.detalhe}`, true); break;
@@ -470,8 +472,9 @@ function juntaColados(t, junto) {
 const geral = () => (typeof visualAtual === "function" ? visualAtual().geral || {} : {});
 const atualizaEnviar = () => { const vazio = !entrada.value.trim() && !anexos.length; $("enviar").disabled = !rodando && vazio; $("enviarMais").disabled = vazio; };
 
-async function envia(textoForcado) {
-  const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null ? anexos : [];
+// textoForcado sends that text instead of the composer's (its attachments only with comAnexos).
+async function envia(textoForcado, comAnexos) {
+  const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null || comAnexos ? anexos : [];
   if (!t && !junto.length) return false;
   const limpa = () => { if (textoForcado == null) { entrada.value = ""; ajustaAltura(); } fechaComandos(); fechaMencoes(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
   if (t === "/theme") { abrePicker("claudie"); limpa(); return true; }
@@ -503,7 +506,8 @@ async function envia(textoForcado) {
   setRodando(true); turnoVisto = "novo"; turnoN = 0;
   if (!(await vivo.enviar(final, enviados))) {
     setRodando(false); turnoVisto = null; bolha?.remove();
-    if (textoForcado == null) { entrada.value = t; ajustaAltura(); if (eram) { anexos = eram; desenhaAnexos(); } }
+    if (textoForcado == null) { entrada.value = t; ajustaAltura(); }
+    if (eram) { anexos = eram; desenhaAnexos(); }
     atualizaEnviar(); nota("Não deu pra enviar agora.", true);
     return false;
   }
@@ -514,6 +518,18 @@ async function enviaComentarios() {
   const lista = rascunhos.filter((d) => d.conv === convRascunho);
   if (!lista.length) return;
   if (await envia(formataComentarios(lista))) limpaRascunhos(lista);
+}
+// Quick Entry and claudie:// links: a message from outside the window, into a new conversation or this one. What
+// was typed in the composer is put back afterwards.
+let filaRapida = Promise.resolve();
+async function entradaRapida(ev) {
+  if (ev.cwd) { mostraPasta(ev.cwd); todosComandos = buscandoComandos = null; carregaSessoes(); }
+  if (ev.nova) await novaConversa();
+  if (!ev.texto && !(ev.anexos || []).length) return;
+  const rascunho = { texto: entrada.value, anexos };
+  anexos = (ev.anexos || []).map((a) => ({ ...a, url: "data:" + a.mime + ";base64," + a.dados }));
+  try { await envia(ev.texto || "", true); }
+  finally { entrada.value = rascunho.texto; anexos = rascunho.anexos; desenhaAnexos(); ajustaAltura(); }
 }
 // Ctrl+Enter sends the comments from the empty composer or from nowhere in particular;
 // any other field keeps its own Enter.
@@ -717,7 +733,41 @@ async function anexaArquivos(lista) {
   }
   desenhaAnexos(); entrada.focus();
 }
-$("clipe").onclick = async () => { for (const c of await vivo.anexar()) anexaCaminho(c); desenhaAnexos(); entrada.focus(); };
+// The paperclip opens two choices: files, or a screenshot (a screen, a window or a region).
+const clipeMenu = $("clipeMenu"), capturaPicker = $("capturaPicker");
+$("clipe").onclick = () => abreEscolha(clipeMenu);
+$("clipeArquivos").onclick = async () => { fechaEscolhas(); for (const c of await vivo.anexar()) anexaCaminho(c); desenhaAnexos(); entrada.focus(); };
+$("clipeCaptura").onclick = async () => { await vivo.capturaGesto(); abreCapturas(); };
+function anexaCaptura(r) {
+  if (!r) return false;
+  anexos.push({ nome: r.nome, dados: r.dados, mime: r.mime, url: "data:" + r.mime + ";base64," + r.dados });
+  desenhaAnexos(); entrada.focus();
+  return true;
+}
+// Region first, then the screens and windows with a small picture each.
+async function abreCapturas() {
+  capturaPicker.innerHTML = `<div class="pop-titulo"><span>Captura de tela</span></div><div class="captura-grade"><div class="captura-aviso">Procurando telas e janelas…</div></div>`;
+  abreEscolha(capturaPicker);
+  const lista = await vivo.capturaFontes();
+  if (popAberto !== capturaPicker) return;
+  const grade = capturaPicker.querySelector(".captura-grade");
+  grade.innerHTML = "";
+  const regiao = document.createElement("button");
+  regiao.type = "button"; regiao.className = "captura-tile regiao";
+  regiao.innerHTML = `${ICONE.regiao}<span>Selecionar região</span>`;
+  regiao.onclick = async () => { fechaEscolhas(); await vivo.capturaGesto(); anexaCaptura(await vivo.capturaRegiao()); };
+  grade.append(regiao);
+  if (!lista) { const a = document.createElement("div"); a.className = "captura-aviso"; a.textContent = "Não deu pra listar as telas e janelas."; grade.append(a); return; }
+  for (const f of lista) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "captura-tile"; b.title = f.nome;
+    if (f.thumb) { const img = document.createElement("img"); img.src = f.thumb; img.alt = ""; b.append(img); } else b.insertAdjacentHTML("beforeend", ICONE.tela);
+    const n = document.createElement("span"); n.setAttribute("data-sem-traducao", ""); n.textContent = f.nome;
+    b.append(n);
+    b.onclick = async () => { fechaEscolhas(); if (!anexaCaptura(await vivo.capturaFonte(f.id))) nota("Não deu pra capturar essa janela.", true); };
+    grade.append(b);
+  }
+}
 entrada.addEventListener("paste", (e) => { const l = [...(e.clipboardData?.files || [])]; if (l.length && !e.clipboardData.getData("text/plain")) { e.preventDefault(); anexaArquivos(l); } });
 // Dropping anywhere on the window attaches; an ASCII Motion file (or a JSON
 // dropped on the "Meus" tab) is imported as a background instead.
@@ -1138,10 +1188,11 @@ const caixaSelects = document.createElement("div");
 caixaSelects.hidden = true; document.body.append(caixaSelects);
 const seta = svg('<path d="m8 10 4 4 4-4"/>');
 let popAberto = null;
-const fechaEscolhas = () => { popAberto?.classList.remove("on"); popAberto?.previousElementSibling?.setAttribute("aria-expanded", "false"); popAberto = null; };
+const gatilhoDe = (pop) => pop?.closest(".escolha")?.querySelector(":scope > button");
+const fechaEscolhas = () => { popAberto?.classList.remove("on"); gatilhoDe(popAberto)?.setAttribute("aria-expanded", "false"); popAberto = null; };
 function abreEscolha(pop) {
   const ja = popAberto === pop; fechaEscolhas(); if (ja) return;
-  pop.classList.add("on"); pop.previousElementSibling.setAttribute("aria-expanded", "true"); popAberto = pop;
+  pop.classList.add("on"); gatilhoDe(pop).setAttribute("aria-expanded", "true"); popAberto = pop;
 }
 const escolhas = [], botoesEscolha = {};
 function montaEscolha(id, desenhaPop, rotulo, iconeDe) {
@@ -1900,9 +1951,13 @@ function avisaSistema(titulo, corpo) {
 }
 
 // ---- shortcuts ---------------------------------------------------------------------------
+// The Quick Entry shortcut as written for people ("Ctrl + Alt + Espaço"); empty when it is off.
+let entradaRapidaAtalho = "";
+window.rotuloAtalho = (acel) => String(acel).split("+").map((k) => ({ Control: "Ctrl", Space: window.t("Espaço") })[k] || k).join(" + ");
+window.mostraAtalhoRapida = (c) => { entradaRapidaAtalho = c?.ligada ? window.rotuloAtalho(c.atalho) : ""; };
 function abreAtalhos() {
   const A = [["Enter", "Enviar (com o Claude trabalhando, entra na resposta em andamento)"], ["Ctrl + X, Ctrl + S", "Enviar agora"], ["Shift + Enter", "Nova linha"], ["/", "Comandos do app e do Claude Code"], ["Ctrl + N", "Nova conversa"], ["Ctrl + Shift + N", "Nova janela"], ["Ctrl + K", "Buscar nas conversas"],
-    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Ctrl + Shift + B", "Mostrar ou fechar o navegador"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Interromper a resposta (se nada estiver aberto, fecha menus e painéis)"], ["Ctrl + Shift + M", "Alternar o modo de permissão"], ["Ctrl + Shift + I", "Escolher o modelo"], ["Ctrl + Shift + E", "Escolher o esforço"], ["Ctrl + Shift + P", "Escolher as permissões"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"]];
+    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Ctrl + Shift + B", "Mostrar ou fechar o navegador"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Interromper a resposta (se nada estiver aberto, fecha menus e painéis)"], ["Ctrl + Shift + M", "Alternar o modo de permissão"], ["Ctrl + Shift + I", "Escolher o modelo"], ["Ctrl + Shift + E", "Escolher o esforço"], ["Ctrl + Shift + P", "Escolher as permissões"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"], ...(entradaRapidaAtalho ? [[entradaRapidaAtalho, "Entrada rápida: enviar uma mensagem ao Claude de qualquer lugar"]] : [])];
   creditosCaixa.innerHTML = `<div class="cred-topo"><span class="marca"><b>Atalhos</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <section class="atalhos">${A.map(([k, d]) => `<div><kbd>${esc(k)}</kbd><span>${esc(d)}</span></div>`).join("")}</section>`;
   creditosCaixa.querySelector("#fechaCreditos").onclick = fechaCreditos;
@@ -1917,6 +1972,7 @@ $("atalhosBtn").onclick = abreAtalhos;
   const e = await vivo.estado();
   mostraPasta(e.cwd);
   mostraEscolhas(e);
+  window.mostraAtalhoRapida(e.entradaRapida);
   let salvo = ""; try { salvo = localStorage.getItem("tema") || ""; } catch {}
   if (salvo.includes(":")) aplicaChave(salvo); else if (idx(salvo) >= 0) aplica(idx(salvo));
   vivo.motionLista().then((l) => ($("meusN").textContent = l.length));
@@ -1928,10 +1984,12 @@ $("atalhosBtn").onclick = abreAtalhos;
     await carregaSessoes();
     if (sessao) await abreSessao(sessao, sessoes.find((x) => x.id === sessao)?.titulo || "Conversa");
     entrada.focus();
+    vivo.janelaPronta();
   } else {
     carregaSessoes();
     boasVindas(() => {
       document.body.classList.remove("entrando"); entrada.focus();
+      vivo.janelaPronta();
       // Once per launch: a reload of this window doesn't ask again.
       if (!sessionStorage.getItem("claudeChecado")) { sessionStorage.setItem("claudeChecado", "1"); preparaClaude(); }
     });

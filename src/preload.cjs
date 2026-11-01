@@ -101,5 +101,11 @@ contextBridge.exposeInMainWorld("vivo", {
   agendadaParar: (id) => ipcRenderer.invoke("agendada_parar", id),
   agendadaHistorico: (id) => ipcRenderer.invoke("agendada_historico", id),
   agendadaProxima: (repete) => ipcRenderer.invoke("agendada_proxima", repete),
+  janelaPronta: () => ipcRenderer.invoke("janela_pronta"),
+  capturaGesto: () => ipcRenderer.invoke("captura_gesto"),
+  capturaFontes: () => ipcRenderer.invoke("captura_fontes"),
+  capturaFonte: (id) => ipcRenderer.invoke("captura_fonte", id),
+  capturaRegiao: () => ipcRenderer.invoke("captura_regiao"),
+  rapidaAtalho: (mudanca) => ipcRenderer.invoke("rapida_atalho", mudanca),
   aoEvento: (fn) => ipcRenderer.on("evento", (_e, ev) => fn(ev)),
 });

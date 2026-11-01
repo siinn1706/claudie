@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src data:" />
+<title>Claudie</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; cursor: crosshair; user-select: none; font: 13px "Segoe UI", system-ui, sans-serif; }
+  #escuro { position: fixed; left: 0; top: 0; width: 0; height: 0; box-sizing: border-box; border: 0 solid rgba(0, 0, 0, 0.45); }
+  #caixa { position: fixed; display: none; box-sizing: border-box; border: 1.5px solid #d97757; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+  #medida { position: fixed; display: none; padding: 3px 8px; border-radius: 8px; background: rgba(20, 19, 18, 0.88); color: #f2efe9; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #dica { position: fixed; left: 50%; top: 24px; transform: translateX(-50%); padding: 8px 16px; border-radius: 999px; background: rgba(20, 19, 18, 0.88); color: #f2efe9; pointer-events: none; }
+  #base { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); }
+</style>
+</head>
+<body>
+<div id="base"></div>
+<div id="caixa"></div>
+<div id="medida"></div>
+<div id="dica">Arraste para escolher a região. Esc cancela.</div>
+<script src="renderer/i18n/i18n.js"></script>
+<script src="captura-regiao.js"></script>
+</body>
+</html>

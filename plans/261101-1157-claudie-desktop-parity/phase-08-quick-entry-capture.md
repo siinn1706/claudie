@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: "Quick Entry, claudie:// links, screen capture"
-status: pending
+status: completed
 priority: P3
 effort: "2d"
 dependencies: ["05"]
@@ -116,16 +116,16 @@ The composer is touched only when there is something to send, and a draft in the
 
 ## Tasks & Steps
 
-1. [ ] Confirm on branch `feat/desktop-parity` and verify phase 05 exists: the `close` interception, hide-to-tray and `janelas` semantics are present in `src/main.js`. If not, stop and report; do not assume them. Re-read `criarJanela`, the single-instance block and `whenReady` as phase 05 left them.
-2. [ ] Add `defineCwd(j, cwd)`; make `nova_em` use it.
-3. [ ] Add `ultimaFocada`, `j.pronta`/`j.fila`, `despachaParaJanela`, IPC `janela_pronta`; reset `j.pronta` on `did-start-loading`; call `vivo.janelaPronta()` in the `boasVindas` callback and in the `sessao || e.janelas > 1` branch, and expose it in `preload.cjs`.
-4. [ ] Write `src/captura.js` and the overlay files; wire IPC `captura_gesto`, `captura_fontes`, `captura_fonte`, `captura_regiao`, `captura_rect`, `captura_cancela` with the `capturando` flag and `finally` restore.
-5. [ ] Replace the `#clipe` handler with the two-item popover; build the picker; push results into `anexos`; register the picker with `popAberto` and the Escape handler.
-6. [ ] Write the Quick Entry window files, `criaRapida/mostraRapida/escondeRapida/alterna`, `rapida_enviar`, `rapida_capturar`, navigation lockdown and `i18n` in `preload-rapida.cjs`; add the `entrada_rapida` renderer case.
-7. [ ] Add `registraRapida`, `rapida_atalho` with validation and rollback; add the Customize recorder row, the on/off switch (`rapidaAtalho({ligada})`) and the Ctrl+/ entry.
-8. [ ] Add `registraProtocolo`, `linkDoArgv`, `tratarLink`, `validaCwd`; update `second-instance`, `open-url`, cold-start `linkPendente` flush; add `protocols` to `package.json`.
-9. [ ] Add the `closed` cleanup for the Quick Entry window and overlay; after closing the last window confirm with `Get-Process electron` that nothing is left.
-10. [ ] Fill `entrada-rapida.json` (pt/en/vi) for every new string; run all checks below.
+1. [x] Confirm on branch `feat/desktop-parity` and verify phase 05 exists: the `close` interception, hide-to-tray and `janelas` semantics are present in `src/main.js`. If not, stop and report; do not assume them. Re-read `criarJanela`, the single-instance block and `whenReady` as phase 05 left them.
+2. [x] Add `defineCwd(j, cwd)`; make `nova_em` use it.
+3. [x] Add `ultimaFocada`, `j.pronta`/`j.fila`, `despachaParaJanela`, IPC `janela_pronta`; reset `j.pronta` on `did-start-loading`; call `vivo.janelaPronta()` in the `boasVindas` callback and in the `sessao || e.janelas > 1` branch, and expose it in `preload.cjs`.
+4. [x] Write `src/captura.js` and the overlay files; wire IPC `captura_gesto`, `captura_fontes`, `captura_fonte`, `captura_regiao`, `captura_rect`, `captura_cancela` with the `capturando` flag and `finally` restore.
+5. [x] Replace the `#clipe` handler with the two-item popover; build the picker; push results into `anexos`; register the picker with `popAberto` and the Escape handler.
+6. [x] Write the Quick Entry window files, `criaRapida/mostraRapida/escondeRapida/alterna`, `rapida_enviar`, `rapida_capturar`, navigation lockdown and `i18n` in `preload-rapida.cjs`; add the `entrada_rapida` renderer case.
+7. [x] Add `registraRapida`, `rapida_atalho` with validation and rollback; add the Customize recorder row, the on/off switch (`rapidaAtalho({ligada})`) and the Ctrl+/ entry.
+8. [x] Add `registraProtocolo`, `linkDoArgv`, `tratarLink`, `validaCwd`; update `second-instance`, `open-url`, cold-start `linkPendente` flush; add `protocols` to `package.json`.
+9. [x] Add the `closed` cleanup for the Quick Entry window and overlay; after closing the last window confirm with `Get-Process electron` that nothing is left.
+10. [x] Fill `entrada-rapida.json` (pt/en/vi) for every new string; run all checks below.
 11. [ ] Update README; commit `feat(quick-entry): add quick entry window, claudie links and screen capture` on `feat/desktop-parity` (no push, no AI reference, no plan or phase IDs).
 
 ## Security & Safety

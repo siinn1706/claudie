@@ -366,6 +366,18 @@ body.themed .acoes { width: fit-content; border-radius: 9px; background: var(--v
 .opcao small { display: block; color: #9a978f; font-size: 12px; line-height: 1.4; margin-top: 1px; }
 .opcao svg { position: absolute; right: 10px; top: 10px; width: 15px; height: 15px; color: var(--accent); opacity: 0; }
 .opcao.on svg { opacity: 1; }
+/* Paperclip: the two choices, and the screenshot picker */
+.clipe-caixa { display: flex; }
+.escolha-pop.clipe-menu { width: 270px; }
+.escolha-pop.captura-pop { width: 420px; max-height: min(60vh, 420px); overflow-y: auto; }
+.captura-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; padding: 2px 4px 6px; }
+.captura-tile { display: flex; flex-direction: column; gap: 5px; align-items: stretch; padding: 5px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04); color: inherit; font: inherit; font-size: 11.5px; text-align: left; cursor: var(--cur-mao, pointer); transition: background 0.12s, border-color 0.12s; }
+.captura-tile:hover, .captura-tile:focus-visible { background: rgba(255, 255, 255, 0.09); border-color: color-mix(in srgb, var(--accent) 55%, transparent); outline: 0; }
+.captura-tile img, .captura-tile > svg { width: 100%; height: 66px; object-fit: contain; border-radius: 6px; background: rgba(0, 0, 0, 0.35); }
+.captura-tile > svg { padding: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; box-sizing: border-box; color: #8b8880; }
+.captura-tile span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c9c6bf; }
+.captura-tile.regiao > svg { color: var(--accent); }
+.captura-aviso { grid-column: 1 / -1; padding: 8px; font-size: 12.5px; color: #9a978f; }
 .esf-nome { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--accent-2); }
 .esf-barra { -webkit-appearance: none; appearance: none; width: calc(100% - 16px); margin: 6px 8px 4px; height: 6px; border-radius: 6px; cursor: var(--cur-mao, pointer);
   background: linear-gradient(to right, var(--accent) var(--p), rgba(255, 255, 255, 0.12) var(--p)); }
@@ -522,6 +534,9 @@ body.leve.themed.light { --panel: rgba(250, 250, 250, 0.9) !important; --vidro: 
 .pz-linha input[type=color]::-webkit-color-swatch-wrapper { padding: 3px; } .pz-linha input[type=color]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .pz-linha input[type=text], .pz-linha select { width: 230px; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line-2); background: #262523; color: var(--ui); outline: 0; font-size: 13px; }
 .pz-linha input[type=text]:focus, .pz-linha select:focus { border-color: color-mix(in srgb, var(--accent) 50%, var(--line-2)); }
+.pz-rapida-erro { margin: 6px 0 0; font-size: 12.5px; color: #ef6a60; }
+.pz-linha input[readonly] { cursor: var(--cur-mao, pointer); }
+.pz-linha input:disabled { opacity: 0.5; }
 .pz-seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); }
 .pz-seg button { border: 0; background: transparent; color: var(--ui-2); padding: 5px 12px; border-radius: 8px; font-size: 12.5px; cursor: var(--cur-mao, pointer); }
 .pz-seg button.on { background: rgba(255, 255, 255, 0.1); color: var(--ui); }

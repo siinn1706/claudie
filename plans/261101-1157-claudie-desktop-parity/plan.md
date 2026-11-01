@@ -36,7 +36,7 @@ Claudie gains the eight highest-value Claude Desktop capabilities it lacks, each
 | 05 | [Scheduled tasks, tray, keep-awake](phase-05-scheduler-tray.md) | P2 | none | completed |
 | 06 | [Customize: plugins, skills, MCP logs, connector catalog and auth](phase-06-customize-ecosystem.md) | P2 | none | completed |
 | 07 | [Inline diff comments and review card](phase-07-diff-review.md) | P2 | none | completed |
-| 08 | [Quick Entry, claudie:// links, screen capture](phase-08-quick-entry-capture.md) | P3 | 05 | pending |
+| 08 | [Quick Entry, claudie:// links, screen capture](phase-08-quick-entry-capture.md) | P3 | 05 | completed |
 
 ## Acceptance criteria (whole plan)
 

@@ -3,7 +3,7 @@
 // messages are forwarded to the window as small events, and tool permission
 // requests wait for the person's answer in the window.
 
-import { app, BrowserWindow, Menu, Tray, Notification, powerSaveBlocker, powerMonitor, ipcMain, dialog, shell, globalShortcut, nativeImage, protocol, net, safeStorage, session, WebContentsView } from "electron";
+import { app, BrowserWindow, Menu, Tray, Notification, powerSaveBlocker, powerMonitor, ipcMain, dialog, shell, globalShortcut, nativeImage, protocol, net, safeStorage, session, WebContentsView, screen } from "electron";
 import { query as querySdk, listSessions, getSessionMessages, renameSession, deleteSession, forkSession, createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import atualizador from "electron-updater";
@@ -19,6 +19,7 @@ import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, libe
 import { iniciaNavegador, FERRAMENTAS_NAVEGADOR, PROMPT_NAVEGADOR } from "./navegador.js";
 import { iniciaAgenda, traduzErro, validaRepete, proximaExecucao } from "./agendadas.js";
 import { nomeMcpValido, idPluginValido, fonteMercadoValida, lerSkills, criarSkill, apagarSkill, caminhoSkill, pastaDeSkills, catalogo, ansi, redige, ringLog } from "./extensoes.js";
+import { iniciaCaptura } from "./captura.js";
 import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -135,7 +136,7 @@ function buscaMagia(busca = "", categoria = "") {
 }
 
 const PADROES = { model: "claude-opus-5-5", modo: "auto", esforco: "medium" };
-let config = { cwd: path.join(app.getPath("home"), "projetos"), ...PADROES, ultracode: false, padroes: 0 };
+let config = { cwd: path.join(app.getPath("home"), "projetos"), ...PADROES, ultracode: false, padroes: 0, entradaRapida: { atalho: "Control+Alt+Space", ligada: true } };
 // Each window holds its own conversation: the session it shows and that
 // conversation's Claude Code, if one is open (atual; atual.ativo while a turn
 // runs). Every conversation sent to keeps its Claude Code open until Claudie
@@ -942,6 +943,9 @@ function criarJanela(sessao) {
   const j = { win, sessionId: null, atual: null, cwd: (!principal && process.env.VIVO_PASTA) || config.cwd }, id = win.webContents.id;
   janelas.set(id, j);
   if (!principal) principal = j;
+  // events for the renderer wait until it has finished starting (a reload starts it again)
+  win.webContents.on("did-start-navigation", (d) => { if (d.isMainFrame && !d.isSameDocument) j.pronta = false; });
+  win.on("focus", () => { ultimaFocada = j; });
   // The last window hides to the tray while something still has to run; a hidden window keeps its turns.
   win.on("close", (ev) => {
     if (sairDeVez || !ultimaVisivel(j) || !deveFicarNaBandeja()) return;
@@ -960,6 +964,9 @@ function criarJanela(sessao) {
     navegadorFecha(j);
     for (const p of filhosMcp) if (p.janela === j) matarArvore(p);
     if (principal === j) principal = janelas.values().next().value || null;
+    if (ultimaFocada === j) ultimaFocada = null;
+    // A hidden Quick Entry or overlay would keep the process alive after the last window.
+    if (!janelas.size) { rapida?.destroy(); rapida = null; captura.fechaOverlay(); if (!deveFicarNaBandeja()) app.quit(); }
   });
   win.loadFile(path.join(here, "renderer", "index.html"), sessao ? { query: { sessao } } : undefined);
   aplicaIcone();
@@ -1010,7 +1017,7 @@ function ocupadaPorAgenda(j, id) {
   return true;
 }
 
-ipcMain.handle("estado", (e) => ({ ...config, ...cfgJ(J(e)), cwd: J(e).cwd, sessionId: J(e).sessionId, rodando: !!J(e).atual?.ativo, temas: TEMAS, janelas: janelas.size }));
+ipcMain.handle("estado", (e) => ({ ...config, ...cfgJ(J(e)), cwd: J(e).cwd, sessionId: J(e).sessionId, rodando: !!J(e).atual?.ativo, temas: TEMAS, janelas: janelas.size, entradaRapida: cfgRapida(), rapidaErro }));
 ipcMain.handle("enviar", (e, texto, anexos) => {
   const j = J(e);
   if (j.atual?.ativo || (turnoDe(j.sessionId) && !emOutra(j, j.sessionId))) return false;
@@ -1796,14 +1803,17 @@ ipcMain.handle("pasta", async (e, soEscolher) => {
   // A turn running here keeps its own folder and goes on in the background.
   config.cwd = j.cwd = r.filePaths[0]; limpaConversa(j); salvarConfig(); return j.cwd;
 });
-// A new conversation straight in a project from the sidebar, no folder dialog.
-ipcMain.handle("nova_em", (e, cwd) => {
-  const j = J(e);
-  if (!cwd || !fs.existsSync(cwd)) return null;
-  config.cwd = j.cwd = cwd; limpaConversa(j); salvarConfig();
+// A new conversation in a folder of this window. From the sidebar (global) the folder also becomes the
+// default for new windows; a folder that came from a link (not global) is checked strictly and never saved.
+function defineCwd(j, cwd, { global = true } = {}) {
+  if (global ? !cwd || !fs.existsSync(cwd) : !validaCwd(cwd)) return null;
+  j.cwd = cwd; limpaConversa(j);
+  if (global) { config.cwd = cwd; salvarConfig(); }
   enviarEvento(j, { tipo: "config", ...cfgJ(j) });
   return j.cwd;
-});
+}
+// A new conversation straight in a project from the sidebar, no folder dialog.
+ipcMain.handle("nova_em", (e, cwd) => defineCwd(J(e), cwd));
 // Worktrees: a new conversation on its own branch in its own folder. It goes
 // under <repo>/.claude/worktrees when the project already uses that, else next
 // to the repo in <repo>-worktrees. Git runs with argument arrays only.
@@ -2255,6 +2265,256 @@ function atalhoGlobal() {
   });
 }
 
+// ---- Quick Entry, claudie:// links and screen capture ---------------------------------------------------------
+// Quick Entry is a small frameless window on its own shortcut: a line of text (and pictures) that goes to the
+// last window used, as a new conversation or into its current one. Its IPC and the capture overlay's are never
+// resolved through J(e): the sender and its page are checked instead.
+let rapida = null, rapidaErro = "", rapidaGraca = 0, acelRapida = null, ultimaFocada = null;
+let capturaGesto = 0, fontesPermitidas = null, linkPendente = null, abrindoLink = false;
+const filaLinks = [];
+const ARQ_RAPIDA = path.join(here, "rapida.html");
+const URL_RAPIDA = pathToFileURL(ARQ_RAPIDA).href.toLowerCase();
+// config.json is hand-editable: a bad shortcut falls back to the default and only an explicit false turns it off.
+const cfgRapida = () => {
+  const c = config.entradaRapida || {};
+  return { atalho: (typeof c.atalho === "string" && normalizaAtalho(c.atalho).acel) || "Control+Alt+Space", ligada: c.ligada !== false };
+};
+const captura = iniciaCaptura({ pasta: here, preload: path.join(here, "preload-rapida.cjs"), trava: travaNavegacao });
+
+// These pages never navigate (a dropped file would otherwise replace them) and open no windows.
+function travaNavegacao(w) {
+  const bloqueia = (e) => e.preventDefault();
+  w.webContents.on("will-navigate", bloqueia);
+  w.webContents.on("will-frame-navigate", bloqueia);
+  w.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+}
+const daRapida = (e) => !!rapida && !rapida.isDestroyed() && e.sender === rapida.webContents && String(e.senderFrame?.url || "").toLowerCase() === URL_RAPIDA;
+// The window a Quick Entry message or a link goes to: the last one used, else the main one, else a new one.
+function alvo() {
+  if (ultimaFocada && !ultimaFocada.fechada) return ultimaFocada;
+  if (principal && !principal.fechada) return principal;
+  return [...janelas.values()][0] || criarJanela();
+}
+const mostraAlvo = (j) => { if (j.win.isDestroyed()) return; if (j.win.isMinimized()) j.win.restore(); j.win.show(); j.win.focus(); };
+// Events for a window's page wait in line until it has said it is ready (after the intro).
+function despachaParaJanela(j, ev) {
+  if (j.pronta) enviarEvento(j, ev); else { (j.fila ||= []).push(ev); if (j.fila.length > 20) j.fila.shift(); }
+}
+ipcMain.handle("janela_pronta", (e) => {
+  const j = J(e); if (!j) return;
+  j.pronta = true;
+  for (const ev of j.fila?.splice(0) || []) enviarEvento(j, ev);
+  if (j === principal && linkPendente) { const l = linkPendente; linkPendente = null; tratarLink(l); }
+});
+const todasJanelas = () => [...janelas.values()].map((j) => j.win).concat(rapida ? [rapida] : []);
+
+function criaRapida() {
+  const w = new BrowserWindow({
+    width: 640, height: 168, frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true, resizable: false, show: false, hasShadow: false,
+    webPreferences: { preload: path.join(here, "preload-rapida.cjs"), sandbox: true, contextIsolation: true },
+  });
+  w.setAlwaysOnTop(true, "screen-saver");
+  travaNavegacao(w);
+  // Focus can flicker right after it opens, and the screen picker takes it on purpose: neither hides it.
+  w.on("blur", () => { if (Date.now() < rapidaGraca || captura.ocupado()) return; escondeRapida(); });
+  w.on("closed", () => { if (rapida === w) rapida = null; });
+  w.loadFile(ARQ_RAPIDA);
+  return w;
+}
+function escondeRapida() { if (rapida && !rapida.isDestroyed() && rapida.isVisible()) rapida.hide(); }
+function mostraRapida() {
+  if (!rapida || rapida.isDestroyed()) rapida = criaRapida();
+  const a = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea, [largura] = rapida.getSize();
+  rapida.setPosition(Math.round(a.x + (a.width - largura) / 2), Math.round(a.y + a.height * 0.28));
+  rapidaGraca = Date.now() + 200;
+  rapida.show(); rapida.focus();
+  const abre = () => { if (rapida && !rapida.isDestroyed()) rapida.webContents.send("rapida:abre", { novaPadrao: true }); };
+  if (rapida.webContents.isLoading()) rapida.webContents.once("did-finish-load", abre); else abre();
+}
+function alternaRapida() {
+  if (captura.ocupado()) return;
+  if (rapida && !rapida.isDestroyed() && rapida.isVisible()) escondeRapida(); else mostraRapida();
+}
+// Back from a capture started in Quick Entry: shown and focused again, with the usual grace against the focus flicker.
+function voltaRapida() {
+  if (!rapida || rapida.isDestroyed()) return;
+  rapidaGraca = Date.now() + 200; rapida.show(); rapida.focus();
+}
+
+const TECLAS_ATALHO = ["Space", "Tab", "Enter", "Up", "Down", "Left", "Right", "Home", "End", "PageUp", "PageDown", "Insert", "Delete"];
+const RE_ATALHO = /^((Control|Ctrl|Alt|Shift|Super|CommandOrControl)\+)+([A-Z0-9]|F\d{1,2}|Space|Tab|Enter|Up|Down|Left|Right|Home|End|PageUp|PageDown|Insert|Delete)$/i;
+const ATALHO_GLOBAL = "Control+Shift+Space";
+// Modifiers in one canonical order and the key spelled the Electron way; the shortcut needs Control, Alt or Super
+// (Shift alone would swallow a letter) and cannot be the one that shows the window.
+function normalizaAtalho(bruto) {
+  const s = String(bruto || "").trim();
+  if (!RE_ATALHO.test(s)) return { erro: t("Atalho inválido. Use modificadores e uma tecla, como Ctrl+Alt+Espaço.") };
+  const partes = s.split("+"), tecla = partes.pop();
+  const mods = new Set(partes.map((m) => { m = m.toLowerCase(); return /^(ctrl|control|commandorcontrol)$/.test(m) ? "Control" : m === "alt" ? "Alt" : m === "shift" ? "Shift" : "Super"; }));
+  if (!["Control", "Alt", "Super"].some((m) => mods.has(m))) return { erro: t("Inclua Ctrl, Alt ou a tecla Windows no atalho.") };
+  const f = /^f(\d{1,2})$/i.exec(tecla);
+  if (f && (+f[1] < 1 || +f[1] > 24)) return { erro: t("Atalho inválido. Use modificadores e uma tecla, como Ctrl+Alt+Espaço.") };
+  const nome = f ? "F" + +f[1] : TECLAS_ATALHO.find((k) => k.toLowerCase() === tecla.toLowerCase()) || tecla.toUpperCase();
+  const acel = [...["Control", "Alt", "Shift", "Super"].filter((m) => mods.has(m)), nome].join("+");
+  if (acel === ATALHO_GLOBAL) return { erro: t("Esse atalho já mostra o Claudie de qualquer lugar.") };
+  return { acel };
+}
+// Registers the shortcut (or only releases it when off); a taken one leaves the error for Customize.
+function registraRapida(acel = cfgRapida().atalho, ligada = cfgRapida().ligada) {
+  if (acelRapida) { globalShortcut.unregister(acelRapida); acelRapida = null; }
+  rapidaErro = "";
+  if (!ligada) return { ok: true };
+  let ok = false;
+  try { ok = !globalShortcut.isRegistered(acel) && globalShortcut.register(acel, alternaRapida); } catch {}
+  if (!ok) { rapidaErro = t("O atalho {0} não está disponível: outro app já o usa.", acel); return { ok: false, erro: rapidaErro }; }
+  acelRapida = acel;
+  return { ok: true };
+}
+// Customize changes the shortcut or turns it off; a shortcut that cannot be taken leaves the previous one in place.
+ipcMain.handle("rapida_atalho", (e, m) => {
+  if (!J(e)) return { ok: false, erro: "" };
+  const antes = cfgRapida(), depois = { ...antes };
+  if (typeof m?.atalho === "string") {
+    const n = normalizaAtalho(m.atalho);
+    if (n.erro) return { ok: false, erro: n.erro };
+    depois.atalho = n.acel;
+  }
+  if (typeof m?.ligada === "boolean") depois.ligada = m.ligada;
+  const r = registraRapida(depois.atalho, depois.ligada);
+  if (!r.ok) { registraRapida(antes.atalho, antes.ligada); rapidaErro = r.erro; return r; }
+  config.entradaRapida = depois; salvarConfig();
+  return { ok: true, ...depois };
+});
+
+const IMAGEM_OK = /^image\/(png|jpeg|gif|webp)$/, B64 = /^[A-Za-z0-9+/=]+$/;
+const MAX_IMAGEM_B64 = 7 * 1024 * 1024, MAX_TOTAL_B64 = 20 * 1024 * 1024;
+// What Quick Entry may hand over: text up to 100000 characters and up to 6 pictures within the size caps.
+function validaRapida(d) {
+  if (!d || typeof d.texto !== "string" || d.texto.length > 100000 || !Array.isArray(d.anexos) || d.anexos.length > 6) return null;
+  let total = 0;
+  const anexos = [];
+  for (const a of d.anexos) {
+    if (!a || typeof a.dados !== "string" || typeof a.mime !== "string" || !IMAGEM_OK.test(a.mime) || !a.dados || a.dados.length > MAX_IMAGEM_B64 || !B64.test(a.dados)) return null;
+    total += a.dados.length;
+    if (total > MAX_TOTAL_B64) return null;
+    anexos.push({ nome: String(a.nome || "imagem").slice(0, 120), dados: a.dados, mime: a.mime });
+  }
+  if (!d.texto.trim() && !anexos.length) return null;
+  return { texto: d.texto, anexos };
+}
+ipcMain.handle("rapida_enviar", (e, d) => {
+  if (!daRapida(e)) return false;
+  const v = validaRapida(d);
+  if (!v) return false;
+  const j = alvo();
+  escondeRapida(); mostraAlvo(j);
+  despachaParaJanela(j, { tipo: "entrada_rapida", texto: v.texto, anexos: v.anexos, nova: d.nova !== false });
+  return true;
+});
+ipcMain.on("rapida_fechar", (e) => { if (daRapida(e)) escondeRapida(); });
+const telaDoCursor = () => screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+ipcMain.handle("rapida_capturar", (e) => {
+  if (!daRapida(e)) return null;
+  return captura.capturaRegiao(telaDoCursor(), todasJanelas(), voltaRapida).catch(() => null);
+});
+
+// Screen capture from the paperclip: the Screenshot menu item arms a one-use token, a listing can be asked for once
+// per token, and a window or screen is only taken if it was in the last listing. The token limits repeats; it does
+// not prove a click, since it is armed from the renderer itself.
+const usaGesto = () => { const ok = Date.now() < capturaGesto; capturaGesto = 0; return ok; };
+ipcMain.handle("captura_gesto", (e) => { if (!J(e)) return false; capturaGesto = Date.now() + 30000; return true; });
+ipcMain.handle("captura_fontes", async (e) => {
+  if (!J(e) || !usaGesto()) return null;
+  try {
+    const lista = await captura.listaFontes(todasJanelas());
+    fontesPermitidas = new Set(lista.map((s) => s.id));
+    return lista;
+  } catch (err) { console.log("[captura]", err?.message || err); return []; }
+});
+ipcMain.handle("captura_fonte", async (e, id) => {
+  const j = J(e), ok = typeof id === "string" && !!fontesPermitidas?.has(id);
+  fontesPermitidas = null;
+  if (!j || !ok) return null;
+  return captura.capturaFonte(id, todasJanelas(), () => mostraAlvo(j)).catch(() => null);
+});
+ipcMain.handle("captura_regiao", (e) => {
+  const j = J(e);
+  if (!j || !usaGesto()) return null;
+  return captura.capturaRegiao(telaDoCursor(), todasJanelas(), () => mostraAlvo(j)).catch(() => null);
+});
+ipcMain.on("captura_rect", (e, r) => captura.recebeRect(e, r));
+ipcMain.on("captura_cancela", (e) => captura.recebeCancela(e));
+
+// claudie:// links. Registered for the installed app; a run from source only with VIVO_LINK=1, so it never takes the
+// installed app's registration. Windows hands a link over in argv (a cold start, or second-instance).
+const linkDoArgv = (argv) => (argv || []).find((a) => /^"?claudie:\/\//i.test(a));
+function registraProtocolo() {
+  if (process.env.VIVO_PASTA || process.env.VIVO_JS || process.env.VIVO_ATALHOS || (!app.isPackaged && !process.env.VIVO_LINK)) return;
+  try {
+    if (process.defaultApp) { if (process.argv.length >= 2) app.setAsDefaultProtocolClient("claudie", process.execPath, [path.resolve(process.argv[1]), "--"]); }
+    else app.setAsDefaultProtocolClient("claudie", process.execPath, ["--"]);
+  } catch (e) { console.log("[link] não registrou:", e?.message || e); }
+}
+// An absolute folder that exists; never a network path (looking one up would hand over the person's credentials).
+function validaCwd(c) {
+  if (typeof c !== "string" || !c || /^[\\/]{2}/.test(c) || !path.isAbsolute(c)) return false;
+  try { return fs.statSync(c).isDirectory(); } catch { return false; }
+}
+// Text from a link shown in a native box without control or bidirectional characters that could hide what it says.
+const INVISIVEL = /[\u200b-\u200d\u2028\u2029\u2060\ufeff]/g;
+const limpaLink = (s) => String(s).replace(INVISIVEL, "").replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g, "");
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function tratarLink(bruto) {
+  let u;
+  try { u = new URL(String(bruto).replace(/^"|"$/g, "")); } catch { return; }
+  if (u.protocol !== "claudie:") return;
+  const acao = u.hostname.toLowerCase();
+  if (acao === "new") { filaLinks.push(u); processaLinks(); }
+  else if (acao === "session") {
+    const id = u.pathname.slice(1);
+    if (!UUID.test(id)) return console.log("[link] conversa inválida ignorada");
+    const aberta = [...janelas.values()].find((o) => o.sessionId === id && !o.fechada);
+    if (aberta) mostraAlvo(aberta); else criarJanela(id);
+  } else console.log("[link] ação ignorada:", limpaLink(acao).slice(0, 40));
+}
+// One dialog at a time: a second link waits for the answer to the first.
+async function processaLinks() {
+  if (abrindoLink) return;
+  abrindoLink = true;
+  try { while (filaLinks.length) await linkNovo(filaLinks.shift()); }
+  catch (e) { console.log("[link]", e?.message || e); }
+  finally { abrindoLink = false; }
+}
+async function linkNovo(u) {
+  const j = alvo(), avisos = [];
+  let prompt = (u.searchParams.get("prompt") || "").slice(0, 8000);
+  const cwdBruto = u.searchParams.get("cwd");
+  // A leading "/" would run an app command or a slash command of Claude Code.
+  if (prompt.trimStart().startsWith("/")) { prompt = ""; avisos.push(t("O texto do link começava com \"/\" e foi ignorado.")); }
+  let cwd = null;
+  if (cwdBruto) {
+    if (validaCwd(cwdBruto)) cwd = path.resolve(cwdBruto);
+    else avisos.push(t("A pasta do link não é válida e foi ignorada: {0}", limpaLink(cwdBruto).slice(0, 300)));
+  }
+  mostraAlvo(j);
+  // Only a bare new-conversation link goes without asking.
+  if (!u.searchParams.get("prompt") && !cwdBruto) return despachaParaJanela(j, { tipo: "entrada_rapida", texto: "", anexos: [], nova: true });
+  // The box shows the start of the text with blank runs collapsed, so nothing can be pushed out of sight.
+  const limpo = limpaLink(prompt).replace(/\n\s*\n+/g, "\n").trim();
+  const textoDoLink = limpo.length > 800 ? limpo.slice(0, 800) + "\n" + t("(+{0} caracteres)", limpo.length - 800) : limpo;
+  const r = await dialog.showMessageBox(j.win, {
+    type: "question", buttons: [t("Enviar"), t("Cancelar")], defaultId: 1, cancelId: 1, noLink: true,
+    title: t("Link do Claudie"), message: t("Um link quer iniciar uma conversa no Claudie"),
+    detail: [t("Pasta: {0}", cwd || j.cwd || ""), ...avisos, "", textoDoLink].join("\n"),
+  });
+  if (r.response !== 0) return;
+  const destino = j.fechada ? alvo() : j;
+  // The folder lives on this window's conversation only, never in the saved default.
+  if (cwd) defineCwd(destino, cwd, { global: false });
+  despachaParaJanela(destino, { tipo: "entrada_rapida", texto: prompt, anexos: [], nova: true, cwd: cwd || undefined });
+}
+app.on("open-url", (e, url) => { e.preventDefault(); tratarLink(url); });
+
 // One identity for the window and its shortcuts, so a pinned shortcut and the
 // open window share one taskbar button and one icon. Run from source it has an
 // identity of its own: a shortcut left by the dev Electron would otherwise lend
@@ -2270,7 +2530,9 @@ if (process.env.VIVO_PASTA || process.env.VIVO_JS) app.setPath("userData", path.
 // A second copy only hands over to the first: it quits and sets nothing up.
 const instanciaUnica = !!process.env.VIVO_ATALHOS || app.requestSingleInstanceLock();
 if (!instanciaUnica) app.quit();
-app.on("second-instance", () => mostraJanela());
+// A link that started the app (Windows passes it in argv) waits for the main window to be ready.
+linkPendente = linkDoArgv(process.argv) || null;
+app.on("second-instance", (_e, argv) => { mostraJanela(); const l = linkDoArgv(argv); if (l) tratarLink(l); });
 // Shortcuts that open the app with its icon: the Start Menu (where Windows
 // lets you pin it to the taskbar) and the project folder.
 // Run once with VIVO_ATALHOS=1.
@@ -2381,7 +2643,9 @@ app.whenReady().then(() => {
   if (process.env.VIVO_ATALHOS) { criaAtalhos(); app.quit(); return; }
   // The default menu minus DevTools, whose Ctrl+Shift+I belongs to the model picker.
   Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "editMenu" }, { label: "View", submenu: [{ role: "reload" }, { role: "forceReload" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }] }, { role: "windowMenu" }]));
-  servePapelWeb(); trazDoNomeAntigo(); lerConfig(); criaBandeja(); criarJanela(); aquecerClaude().then(iniciaAgendadas); aplicaGeral(); setTimeout(aquecerClaude, 1500); atalhoGlobal(); vigiaSessoes(); iniciaAtualizacoes();
+  servePapelWeb(); trazDoNomeAntigo(); lerConfig(); criaBandeja(); criarJanela(); aquecerClaude().then(iniciaAgendadas); aplicaGeral(); setTimeout(aquecerClaude, 1500); atalhoGlobal(); registraProtocolo(); registraRapida(); vigiaSessoes(); iniciaAtualizacoes();
+  // Quick Entry is made hidden ahead of time so its shortcut answers at once.
+  if (cfgRapida().ligada && !process.env.VIVO_JS) setTimeout(() => { if (!rapida && janelas.size) rapida = criaRapida(); }, 2000);
 });
 app.on("will-quit", () => { globalShortcut.unregisterAll(); bandeja?.destroy(); bandeja = null; });
 app.on("window-all-closed", () => { if (!deveFicarNaBandeja()) app.quit(); });
