@@ -1,0 +1,136 @@
+{
+ "feature": "customize-ecosystem",
+ "integration_points": [
+  {
+   "file": "src/main.js",
+   "line": 66,
+   "what": "query() wrapper: single entry for every SDK query. Add `stderr: (d) => registraLogMcp(d)` into `extra` (line 72-76) so all queries (turns, comConsulta, helpers) feed one ring buffer. SDK `stderr` option is a per-query callback receiving process stderr chunks."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1026,
+   "what": "claudeCli(args, cwd): execFile of claude CLI, timeout 45s, output truncated to 1500 chars (too small for `plugin list --json --available`). Add optional 3rd param {timeout, max, json} or a sibling claudeCliLongo; reuse comandoClaude (src/claude-exe.js:15) and acharClaude (main.js:51)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1034,
+   "what": "quebraComando / ESCOPOS_MCP (1035) / reabreConversas (1037) / esquecePainel (1025): reuse after plugin or connector changes (Claude Code reads plugins and MCP at start). Plugin changes also need reabreConversas()."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1038,
+   "what": "mcp_acao handler: add actions 'logs' (return buffer) and 'login' here or as new channel; names claude.ai*/claudie are already rejected. Existing ligar/desligar/reconectar/remover stay."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1058,
+   "what": "mcp_adicionar handler builds `claude mcp add` args; catalog one-click can call it with {nome, transporte:'http', url, escopo:'user'} (extract the arg-building into a helper `argsMcpAdd(d)` or just invoke the same function)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1098,
+   "what": "painel handler maps mcpServerStatus() to {nome, estado, erro, escopo, ferramentas, tipo, embutido}. estado==='needs-auth' already available; add a 'Entrar' button for it and a 'Logs' button for all rows."
+  },
+  {
+   "file": "src/main.js",
+   "line": 187,
+   "what": "salvarConfig atomic write; config.mcpDesligados precedent (1013) for persisted per-folder state (use for disabled skills if stored in config)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1674,
+   "what": "ipcMain.handle('link') + abreArquivo (169-175, shell.openPath/showItemInFolder) for 'open skills folder'; abreArquivo is gated by ABRIVEL (161) and anexosPermitidos, so add a dedicated 'skills_abrir_pasta' handler calling shell.openPath on a path computed in main only."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1654,
+   "what": "claude_entrar: spawn of `claude auth login` with linhasPara streaming + claude_codigo stdin: the template for `claude mcp login <name>` (spawn, stream output events, loopback browser flow)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1515,
+   "what": "terminalLiga(j): in-app shell session (term_enviar 1531). Fallback for OAuth: not needed since `claude mcp login` exists; external terminal via spawn('cmd',['/c','start','cmd','/k','claude'])."
+  },
+  {
+   "file": "src/preload.cjs",
+   "line": 57,
+   "what": "Expose new calls after mcpAdicionar: pluginsLista, pluginAcao, marketplaceAcao, skillsLista, skillCriar, skillAcao, skillsPasta, mcpLogs, mcpEntrar, conectoresCatalogo."
+  },
+  {
+   "file": "src/renderer/personalizar.js",
+   "line": 204,
+   "what": "ABAS array (geral, fundo, cores, fontes, sons, musica, app) + desenhaAba() if/else chain (218-304) + ACOES map (397) + ligaControles (351). Add tabs ['plugins','Plugins'], ['skills','Skills'], ['conectores','Conectores'] (catalog + logs) here; each branch builds HTML with existing classes pz-linha/pz-acoes/pz-lista/btn and wires via ACOES + data-acao. Better: put the new tab renderers in a new file src/renderer/extensoes.js (loaded after personalizar.js in index.html) exporting window.desenhaExtensoes(abaP, corpoP) to keep personalizar.js small."
+  },
+  {
+   "file": "src/renderer/painel.js",
+   "line": 63,
+   "what": "mcpLinha (66), mcpRodape (81), mcpExecuta (94), mcpLiga (109): add 'Logs' and 'Entrar' (needs-auth, line 77 area acoes) buttons via bt(...) with data-mcp attr; logs shown in an expandable <pre> under the row. Add 'Catálogo' link button in mcpRodape that opens Personalizar tab 'conectores' (abrePersonal('conectores'), personalizar.js:410)."
+  },
+  {
+   "file": "src/renderer/index.html",
+   "line": 143,
+   "what": "#personal dialog + personalBtn (38): no change needed except <script> tag for extensoes.js."
+  },
+  {
+   "file": "src/renderer/app.css",
+   "line": 909,
+   "what": "reuse .con-bloco, .mcp-bt, .mcp-form, .pz-* styles; add small rules for .ext-card, .ext-log (pre, max-height, mono)."
+  },
+  {
+   "file": "src/renderer/i18n/parts",
+   "what": "Add extensoes.json with pt key -> {en, vi} for every new UI string (pattern in conectores.json); strings reach window.t()."
+  }
+ ],
+ "design": "Verified CLI facts (claude 2.1.316 installed): `claude plugin list --json [--available]` returns [{id:'name@marketplace',version,scope,enabled,installPath,installedAt,lastUpdated,projectEnabled}]; `plugin install|enable|disable|uninstall|update <id> [-s user|project|local] [--json]`; `plugin marketplace add <src> [--scope] [--json]|list --json|remove|update`; `claude mcp login <name> [--no-browser]` and `claude mcp logout <name>` EXIST, so OAuth for needs-auth servers is just spawning `claude mcp login`. No need for terminal fallback (keep spawn-in-window fallback only if login exits non-zero). `claude mcp add` exists and is already wrapped.\n\nMain process (new file src/extensoes.js is optional; KISS: put in main.js next to mcp handlers, ~line 1080, or extract to src/extensoes.js exporting pure helpers: lerSkills, criarSkill, modeloSkill, catalogo):\n1. MCP logs: `const logsMcp = new Map()` name -> string[] ring (cap 200 lines/server) plus key '*' general. `registraLogMcp(chunk)`: split lines, strip ANSI, attribute to a server when the line contains a known server name (`/\\[?MCP[^\\]]*\\]?.*?\"?([\\w.-]+)\"?/i` or match against names from last mcpServerStatus kept in `nomesMcp` Set updated in the painel handler line 1098), else store under '*'. Wire in query() line 72: `extra.stderr = registraLogMcp`. Also push `erro` from mcpServerStatus into the ring when status==='failed' (painel handler). IPC `mcp_logs` (nome) -> {linhas}; `mcp_logs_limpar`. Optional 'Abrir pasta de logs' = shell.openPath(path.join(os.homedir(),'.claude')) is not required.\n2. MCP OAuth: extend mcp_acao with acao 'entrar': spawn comandoClaude(exe,['mcp','login',nome]) (copy pattern of claude_entrar 1654, 3 min timeout, stream output via enviarEvento tipo 'mcp_login' {nome, texto, fim, codigo}), on code 0 call esquecePainel() and comConsulta(j,q=>q.reconnectMcpServer(nome)) / reabreConversas(); acao 'sair' runs `claudeCli(['mcp','logout',nome])`. Renderer shows 'Entrar' for estado 'needs-auth' (painel.js mcpLinha) and 'Sair' for http/sse connected.\n3. Connector catalog: static JSON src/catalogo-conectores.json [{id,nome,descricao,url,transporte:'http',categoria,auth:'oauth'|'chave'}] (Notion https://mcp.notion.com/mcp, Linear https://mcp.linear.app/mcp, Sentry https://mcp.sentry.dev/mcp, GitHub, Atlassian, Asana, Stripe, PayPal, Figma, Cloudflare, Context7, etc.; verify URLs at implementation). IPC `conectores_catalogo` returns it flagged 'jaAdicionado' from painel status names; one-click 'Adicionar' calls the existing mcp_adicionar logic with {nome:id,transporte:'http',url,escopo:'user'}, then if auth==='oauth' offers 'Entrar' (step 2).\n4. Plugins: helper `claudeJson(args,cwd)` = claudeCli with max 4MB and JSON.parse of stdout (last line for --json action results). IPC `plugins_lista` -> {instalados: plugin list --json, disponiveis: plugin list --json --available, mercados: plugin marketplace list --json} (comCache 20s; invalidate with esquecePainel-like `respostas.delete('plugins|*')` after any action). IPC `plugin_acao` {acao: instalar|ativar|desativar|desinstalar|atualizar, id, escopo} validated: id /^[\\w.@-]{1,120}$/, escopo in ESCOPOS_MCP, maps to ['plugin', verb, id, '-s', escopo, '--json']; on success reabreConversas() (SDK restart picks it up; update says restart required). IPC `mercado_acao` {acao: add|remove|update, fonte, escopo} -> `plugin marketplace add <src> --scope` etc., fonte validated non-empty, no leading '-'. Skip --accept-command prompts: if result mentions shownCommand, surface message telling the person to run in terminal. Renderer tab 'Plugins': marketplace list + add field, installed list with switch (chave) / Atualizar / Remover (two-step confirm like mcpConfirma painel.js:75), available list with search and Instalar.\n5. Skills manager: `lerSkills(cwd)` scans ~/.claude/skills/*/SKILL.md and <cwd>/.claude/skills/*/SKILL.md (fs.readdirSync withFileTypes), parses frontmatter with a tiny regex (^---\\n([\\s\\S]*?)\\n---) key: value lines -> {nome, descricao, origem:'user'|'projeto', pasta, desligada}. IPC `skills_lista`. `skill_criar` {nome (/^[a-z0-9-]{1,64}$/), descricao, escopo:'user'|'projeto'}: refuse if folder exists, mkdir + write template SKILL.md (frontmatter name/description + body). `skills_pasta` {origem}: shell.openPath of the computed dir (mkdir first) - path never from renderer; also `skill_abrir` to showItemInFolder the SKILL.md. Enable/disable: store in config.skillsDesligadas[chaveMcp(cwd)|'user'] pattern (guardaDesligado clone) and apply by passing it to query options; BUT SDK option for skill filtering must be confirmed in docs (Options.skills / settings.skillOverrides); if absent, implement disable by renaming SKILL.md to SKILL.md.desligada (reversible, simple, works for both CLI and SDK). Recommend the rename approach. After change: esquece cache of 'comandos' (main.js:320, 10 min cache) and reabreConversas().\n6. Renderer: new src/renderer/extensoes.js with `desenhaPlugins(corpoP)`, `desenhaSkills(corpoP)`, `desenhaConectores(corpoP)` called from desenhaAba branches in personalizar.js; each renders HTML strings and binds via data-acao handlers; busy/msg state vars like mcpOcupado/mcpMsg in painel.js. Logs: <details class=\"pz-lista\"><pre class=\"ext-log\"> fetched via vivo.mcpLogs(nome), refresh button.\n7. Preload: add ipcRenderer.invoke one-liners. i18n: add parts/extensoes.json (en + vi) for all new pt strings. README/docs: add a short Customize section and note CLI >= 2.1.x requirement for `claude mcp login` and `plugin` commands.\nErrors from missing CLI come back from claudeCli as {erro}; renderer shows them with nota(msg,true) (personalizar.js:396) like existing code.",
+ "files_to_modify": [
+  "src/main.js",
+  "src/preload.cjs",
+  "src/renderer/personalizar.js",
+  "src/renderer/painel.js",
+  "src/renderer/index.html",
+  "src/renderer/app.css",
+  "README.md"
+ ],
+ "files_to_create": [
+  "src/renderer/extensoes.js",
+  "src/catalogo-conectores.json",
+  "src/renderer/i18n/parts/extensoes.json"
+ ],
+ "reuse": [
+  "src/main.js:1026 claudeCli (extend with timeout/max options)",
+  "src/claude-exe.js:15 comandoClaude and src/main.js:51 acharClaude",
+  "src/main.js:1037 reabreConversas, 1025 esquecePainel, 997 comCache, 978 comConsulta (reconnectMcpServer)",
+  "src/main.js:1058-1079 mcp_adicionar arg validation, 1034 quebraComando",
+  "src/main.js:1654-1669 claude_entrar spawn+stream pattern, linhasPara helper",
+  "src/main.js:1013-1019 guardaDesligado pattern for persisted per-folder disabled lists",
+  "src/main.js:187 salvarConfig atomic write",
+  "src/renderer/personalizar.js:213-214 segmentos/chaveT, 396 importa/nota, 397 ACOES, 351 ligaControles",
+  "src/renderer/painel.js:69 bt() helper, 75 two-step confirm via mcpConfirma, 94 mcpExecuta",
+  "src/renderer/app.css:495-552 .pz-* and 909-914 .con-bloco/.mcp-bt"
+ ],
+ "verification": [
+  "node --check src/main.js src/preload.cjs src/renderer/extensoes.js src/renderer/personalizar.js src/renderer/painel.js; node -e JSON.parse for catalogo-conectores.json and extensoes.json",
+  "Verify CLI contracts: `claude plugin list --json --available`, `claude plugin marketplace list --json`, `claude mcp login --help` (already confirmed on 2.1.316)",
+  "Launch with VIVO_JS=\"abrePersonal('plugins')\" VIVO_FOTO=plugins.png (README Testing section; uses isolated Claudie-teste profile) and same for skills/conectores; inspect screenshots",
+  "Skills: create via VIVO_JS calling vivo.skillCriar in a temp VIVO_PASTA cwd, confirm SKILL.md written, listed, disable/enable renames, '/' menu (comandos) updates",
+  "MCP logs: add a failing stdio server via catalog/form (e.g. command that exits), open Painel, confirm logs appear per server; stderr chunk attribution check with console log under VIVO_LOG",
+  "needs-auth: add a catalog remote server (e.g. Sentry), confirm status needs-auth in painel and 'Entrar' spawns `claude mcp login` and opens browser",
+  "Plugin round trip with a local marketplace dir: marketplace add, install, disable, enable, update, uninstall; confirm list refresh and conversations restart"
+ ],
+ "risks": [
+  "SDK `stderr` callback receives raw Claude Code process stderr, not structured per-server logs; attribution by server-name substring is heuristic, so unattributed lines go to a general bucket. Claude Code may only emit MCP debug output with --debug/DEBUG; may need extraArgs {debug:null} or `debug-to-stderr` (confirm in SDK docs, can't read node_modules).",
+  "Plugin install may require interactive confirmation (marketplace-declared commands, userConfig prompts via --config) and may exit non-zero without a TTY; surface message and tell the person to finish in a terminal.",
+  "claudeCli truncates to 1500 chars and times out at 45s: plugin list --available and git-backed marketplace add/install can exceed; must raise limits.",
+  "Plugins and skills load at Claude Code start: need reabreConversas() and cache invalidation of 'comandos' (main.js:320) and painel cache, else UI shows stale state.",
+  "Skill enable/disable has no verified official SDK setting; rename approach touches user files in ~/.claude/skills, and plugin-provided skills are not scanned (only user/project dirs).",
+  "Path safety: skill names and plugin ids/sources come from the renderer; validate with strict regexes, compute folders in main only, never pass leading '-' values to the CLI (use '--' or validate).",
+  "Catalog URLs for remote MCP servers can change; keep list small and verify each at implementation; `claude mcp login` needs CLI version that has it (2.1.316 does).",
+  "Scope creep in personalizar.js (436 lines): keep new tabs in extensoes.js. Personalizar is the closest existing 'Customize' surface; the Painel (details) stays for per-conversation status."
+ ],
+ "open_questions": [
+  "Should the new sections be tabs inside the Personalizar dialog (recommended, KISS) or a separate full 'Customize' page with its own sidebar button?",
+  "Skills enable/disable: accept rename-to-.desligada approach, or confirm an official settings key (skillOverrides / Options.skills) in the Agent SDK docs before implementing?",
+  "Is a single global ring buffer with best-effort per-server attribution acceptable, or should `claude mcp get <name>` / `--mcp-debug` output be used for failed servers?",
+  "Zip import of skills (listed in gap report row 107) is outside the described scope: skip it?"
+ ]
+}

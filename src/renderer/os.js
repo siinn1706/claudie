@@ -87,7 +87,7 @@ const altAbertos = new Map(); // file -> is its diff expanded
 const altNome = (f) => f.split(/[\\/]/).pop();
 const altPasta = (f) => f.split(/[\\/]/).slice(-3, -1).join("/");
 // unified diff text from git -> the same rows the other diffs use, plus line numbers
-function diffGitHtml(texto) {
+function diffGitHtml(texto, caminho = "") {
   let velho = 0, novo = 0, n = 0, html = "";
   for (const l of texto.split("\n")) {
     if (!l) continue;
@@ -96,7 +96,8 @@ function diffGitHtml(texto) {
     if (h) { velho = +h[1]; novo = +h[2]; html += `<div class="l hunk"><u></u><u></u><i>⋯</i><code>${esc(l)}</code></div>`; continue; }
     if (l[0] === "\\") continue;
     const s = l[0] === "+" ? "mais" : l[0] === "-" ? "menos" : "";
-    html += `<div class="l ${s}"><u>${s === "mais" ? "" : velho}</u><u>${s === "menos" ? "" : novo}</u><i>${s === "mais" ? "+" : s === "menos" ? "−" : ""}</i><code>${esc(l.slice(1)) || " "}</code></div>`;
+    const lado = s === "menos" ? "E" : "D", linha = lado === "E" ? velho : novo;
+    html += `<div class="l ${s}" data-arq="${esc(caminho)}" data-linha="${linha}" data-lado="${lado}" data-chave="${esc(caminho)}|${lado}|${linha}">${BOTAO_COMENTAR}<u>${s === "mais" ? "" : velho}</u><u>${s === "menos" ? "" : novo}</u><i>${s === "mais" ? "+" : s === "menos" ? "−" : ""}</i><code>${esc(l.slice(1)) || " "}</code></div>`;
     if (s !== "mais") velho++;
     if (s !== "menos") novo++;
   }
@@ -105,7 +106,7 @@ function diffGitHtml(texto) {
 function abreAlteracoes() {
   const j = janelinha("alteracoes", "Alterações da conversa", { largura: 760, altura: 520 });
   j.corpo.classList.add("alt");
-  j.corpo.innerHTML = '<div class="alt-topo"><div class="alt-abas"></div><button class="btn" data-atual title="Reler o git agora">Atualizar</button></div><div class="alt-conteudo"></div>';
+  j.corpo.innerHTML = '<div class="alt-topo"><div class="alt-abas"></div><button class="btn" data-revisa title="Pedir ao Claude para revisar as mudanças atuais">Revisar mudanças</button><button class="btn" data-atual title="Reler o git agora">Atualizar</button></div><div class="alt-conteudo"></div>';
   const abas = j.corpo.querySelector(".alt-abas"), cont = j.corpo.querySelector(".alt-conteudo");
   const modo = () => (altGit?.git ? altModo : "conv");
   const desenhaConv = () => {
@@ -113,13 +114,14 @@ function abreAlteracoes() {
     if (!mapa.size) { cont.innerHTML = '<p class="jl-vazio">Nenhum arquivo foi mudado nesta conversa ainda.</p>'; return; }
     let mais = 0, menos = 0;
     cont.innerHTML = [...mapa].map(([f, lista], k) => {
-      const blocos = lista.map(({ card }) => diffDe(card._nome, card._entrada));
+      const blocos = lista.map(({ card }) => diffDe(card._nome, card._entrada, card.dataset.id));
       blocos.forEach((b) => { const m = b.contagem.match(/\+(\d+).*?−(\d+)/); if (m) { mais += +m[1]; menos += +m[2]; } });
       return `<details class="arq-alt"${mapa.size < 4 ? " open" : ""}><summary>${ICONE.editar}<b title="${esc(f)}">${esc(altNome(f))}</b><small>${esc(altPasta(f))}</small><span class="n">${lista.length}×</span></summary>`
         + lista.map(({ dono }, n) => `<div class="mud">${blocos[n].html}<div class="mud-b"><button class="btn" data-ir="${k}:${n}">Ver na conversa</button>${dono?.dataset.uuid ? `<button class="btn" data-desfaz="${k}:${n}">Desfazer a partir daqui</button>` : ""}</div></div>`).join("") + "</details>";
     }).join("");
     cont.insertAdjacentHTML("afterbegin", `<div class="jl-resumo"><b>${mapa.size} arquivo${mapa.size > 1 ? "s" : ""}</b><em class="contagem"><b>+${mais}</b><s>−${menos}</s></em></div>`);
     const lista = [...mapa.values()];
+    reaplicaRascunhos(cont);
     cont.querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.ir.split(":").map(Number), c = lista[k][n].card; c.closest(".ferr-grupo")?.classList.add("aberto"); c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.remove("piscando"); void c.offsetWidth; c.classList.add("piscando"); }));
     cont.querySelectorAll("[data-desfaz]").forEach((b) => (b.onclick = () => { const [k, n] = b.dataset.desfaz.split(":").map(Number), d = lista[k][n].dono; d.scrollIntoView({ behavior: "smooth", block: "center" }); desfazDaqui(d); }));
   };
@@ -135,8 +137,9 @@ function abreAlteracoes() {
         const aberto = altAbertos.has(f.caminho) ? altAbertos.get(f.caminho) : a.length < 4;
         const aviso = f.binario ? "Arquivo binário: o diff não é mostrado." : f.grande ? "Arquivo grande demais: o diff está cortado." : "";
         return `<details class="arq-alt" data-k="${k}"${aberto ? " open" : ""}><summary><span class="est est-${estado(f)}">${estado(f)}</span><b title="${esc(f.caminho)}">${esc(altNome(f.caminho))}</b><small>${esc(altPasta(f.caminho))}</small><em class="contagem"><b>+${f.mais}</b><s>−${f.menos}</s></em></summary>`
-          + `<div class="mud">${f.diff ? diffGitHtml(f.diff) : ""}${aviso ? `<p class="jl-vazio alt-nota">${aviso}</p>` : ""}<div class="mud-b"><button class="btn" data-abre="${k}">Abrir arquivo</button><button class="btn" data-reverte="${k}">${f.novo ? "Apagar arquivo novo" : f.estado === "D" ? "Restaurar arquivo" : "Reverter mudanças"}</button></div></div></details>`;
+          + `<div class="mud">${f.diff ? diffGitHtml(f.diff, f.caminho) : ""}${aviso ? `<p class="jl-vazio alt-nota">${aviso}</p>` : ""}<div class="mud-b"><button class="btn" data-abre="${k}">Abrir arquivo</button><button class="btn" data-reverte="${k}">${f.novo ? "Apagar arquivo novo" : f.estado === "D" ? "Restaurar arquivo" : "Reverter mudanças"}</button></div></div></details>`;
       }).join("")}</div></div>`;
+    reaplicaRascunhos(cont);
     cont.querySelectorAll("details").forEach((d) => d.addEventListener("toggle", () => altAbertos.set(a[+d.dataset.k].caminho, d.open)));
     cont.querySelectorAll(".alt-lista button").forEach((b) => (b.onclick = () => { const d = cont.querySelector(`details[data-k="${b.dataset.k}"]`); d.open = true; d.scrollIntoView({ behavior: "smooth", block: "start" }); }));
     cont.querySelectorAll("[data-abre]").forEach((b) => (b.onclick = async () => { if (!(await vivo.abrirArquivo(a[+b.dataset.abre].abs))) nota("Não deu pra abrir: o arquivo está fora das pastas desta conversa.", true); }));
@@ -154,11 +157,16 @@ function abreAlteracoes() {
       busca();
     }));
   };
+  // a comment box open in the list keeps the page as it is; it is drawn again when the box closes
+  let pendente = false;
   const desenha = () => {
+    if (cont.querySelector(".cm-caixa")) { pendente = true; return; }
+    pendente = false;
     const m = modo(), sc = cont.scrollTop;
     abas.innerHTML = altGit?.git ? `<button class="btn${m === "git" ? " forte" : ""}" data-m="git">Todas as mudanças</button><button class="btn${m === "conv" ? " forte" : ""}" data-m="conv">Desta conversa</button>` : "";
     abas.querySelectorAll("[data-m]").forEach((b) => (b.onclick = () => { altModo = b.dataset.m; desenha(); }));
     j.corpo.querySelector("[data-atual]").hidden = m !== "git";
+    j.corpo.querySelector("[data-revisa]").hidden = m !== "git";
     m === "git" ? desenhaGit() : desenhaConv();
     cont.scrollTop = sc;
   };
@@ -168,10 +176,18 @@ function abreAlteracoes() {
     altGit = r; desenha();
   };
   j.corpo.querySelector("[data-atual]").onclick = busca;
+  j.corpo.querySelector("[data-revisa]").onclick = revisaMudancas;
+  if (j.aoFecharCaixa) removeEventListener("comentario-fechado", j.aoFecharCaixa);
+  j.aoFecharCaixa = () => { if (!j.el.isConnected) return removeEventListener("comentario-fechado", j.aoFecharCaixa); if (pendente) desenha(); };
+  addEventListener("comentario-fechado", j.aoFecharCaixa);
   // the per-conversation tab follows the chat; the git one is re-read when asked or when a turn ends
   j.redesenha = () => { if (modo() === "conv") desenha(); };
   j.busca = busca;
   desenha(); busca();
+}
+// Asks Claude to review the working tree and report the findings as a card.
+function revisaMudancas() {
+  return envia("Revise as mudanças atuais do repositório: rode git status --short e git diff HEAD e leia também os arquivos não rastreados (a janela de mudanças os mostra). Depois chame a ferramenta mcp__claudie__report_findings uma vez com cada achado (file, line, severity, summary, suggestion); não liste os achados em texto.");
 }
 aoEvento((ev) => { if (ev.tipo === "parado" || ev.tipo === "sessao") janelinhas.get("alteracoes")?.busca?.(); });
 const botaoAlt = document.createElement("button");
@@ -239,6 +255,7 @@ const ACOES_RADIAL = [
   ["Nova conversa", svg('<path d="M12 5v14M5 12h14"/>'), () => novaConversa()],
   ["Temas", ICONE.tema, () => abrePicker()],
   ["Personalizar", svg('<path d="M4.5 19.5c1.5 0 3.5-.5 4.2-2.2.7-1.7-.2-3.3-1.7-3.3s-2.5 1.6-2.5 3c0 1-.5 2-1 2.5zM9.5 13l9-9.5a1.6 1.6 0 0 1 2.3 2.3L11.5 15"/>'), () => abrePersonal()],
+  ["Navegador", svg('<rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M3 9.5h18M6.5 7h.01M9.5 7h.01"/>'), () => alternaNavegador()],
   ["Alterações", svg('<path d="M8 4v12M4 8h8M14 17h6"/><rect x="3" y="3" width="18" height="18" rx="3"/>'), () => abreAlteracoes()],
   ["Música", svg('<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>'), () => abrePlayer()],
   ["Nova janela", ICONE.janela, () => vivo.janelaNova()],

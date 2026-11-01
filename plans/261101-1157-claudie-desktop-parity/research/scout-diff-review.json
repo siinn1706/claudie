@@ -1,0 +1,131 @@
+{
+ "feature": "diff-review: inline diff comments with a pending bar, plus report_findings review card and /review-changes",
+ "integration_points": [
+  {
+   "file": "src/renderer/os.js",
+   "line": 90,
+   "what": "diffGitHtml(texto): emits rows `<div class=\"l mais|menos|''\"><u>velho</u><u>novo</u><i>+/-</i><code>`. Add data-lado (D for mais/context=novo, E for menos) and data-linha (novo for mais/context, velho for menos) on each row, plus a `<b class=\"cm-mais\">+</b>` gutter button. Needs the file path: add param `caminho` and call diffGitHtml(f.diff, f.caminho) at line 138; put data-arq on the .diff wrapper."
+  },
+  {
+   "file": "src/renderer/os.js",
+   "line": 134,
+   "what": "desenhaGit(): per-file `.alt-diffs` block; after building cont.innerHTML, add one delegated click handler on `cont` for `.cm-mais` (git view). Also add a 'Revisar mudanças' button next to data-atual in the alt-topo markup at line 108 (handler sends the review prompt)."
+  },
+  {
+   "file": "src/renderer/os.js",
+   "line": 108,
+   "what": "abreAlteracoes() topo markup `<div class=\"alt-topo\">...<button data-atual>`: add `<button class=\"btn\" data-revisa>Revisar mudanças</button>`; onclick => revisaMudancas()."
+  },
+  {
+   "file": "src/renderer/os.js",
+   "line": 115,
+   "what": "desenhaConv() ('Desta conversa' tab) reuses diffDe blocks per Edit/Write card; those rows get the same hover + once diffDe emits data attributes, the same delegated handler works."
+  },
+  {
+   "file": "src/renderer/extras.js",
+   "line": 21,
+   "what": "diffDe(nome,e) and linhasDiff (line 10): rows are `<div class=\"l ...\"><i>..</i><code>`. Add data-lado/data-linha/data-arq (file_path) + hover button here. Edit/MultiEdit input has no absolute line numbers (only old_string/new_string), so for these cards line is null and the draft carries a `trecho` (the code text) so Claude can locate it; Write cards (all '+') use index+1 as the line. This one change covers chat Edit cards (app.js:196 ferramenta), the permission card (app.js:307) and the 'Desta conversa' tab (os.js:116)."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 191,
+   "what": "ferramenta(id,nome,e,fim): add branch at top: if nome === 'mcp__claudie__report_findings' render cartaoRevisao(e.achados) via bloco('msg claude') instead of the generic details/JSON card. Same function is used live (case 'ferramenta' line 348) and when history replays (line 972), so the card survives reopening a conversation with no new event type."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 184,
+   "what": "ROTULO map: add mcp__claudie__report_findings: 'Relatou achados da revisão' (fallback rotulo() at 186 would print 'claudie · report_findings')."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 399,
+   "what": "envia(textoForcado): reuse as the send path for every generated prompt (Fix this one, Walk through, Apply all, send comments). It already branches rodando -> vivo.injetar (line 419) else vivo.enviar (line 429). Add slash command interception next to line 403-412: `if (t === '/review-changes') { limpa(); revisaMudancas(); return; }` (app-only command like /customize at 411)."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 436,
+   "what": "entrada keydown handler: Ctrl+Enter already sends the composer; for the pending-comments bar add a keydown/click on the bar's send button and, when the bar has drafts and composer is empty, let Ctrl+Enter (capture on document) call enviaComentarios(). Pending bar DOM goes above #composer; follows atualizaEnviar (line 397) pattern."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 496,
+   "what": "escolheComando(c, executa): the slash picker lists Claude Code commands from main.js comandos() (line 317); add a local entry {nome:'review-changes', descricao:'Peça ao Claude para revisar o diff atual', dica:''} where the list is consumed so /review-changes shows in the picker (same way /theme, /customize are app commands)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 202,
+   "what": "servidorTemasPara(t): add `tool('report_findings', desc, {achados: z.array(z.object({file:z.string(), line:z.number().int().optional(), severity:z.enum(['critical','high','medium','low','info']), summary:z.string(), suggestion:z.string().optional()})).min(0), resumo: z.string().optional()}, async ({achados}) => texto(`${achados.length} achados mostrados na conversa. Não repita a lista em texto.`), {alwaysLoad:true})` to the tools array (line 210-225). Render is driven by the tool_use event, so the handler need not call t.ev. Update instructions string (205) with one sentence: after a review request, call report_findings once instead of writing the list."
+  },
+  {
+   "file": "src/main.js",
+   "line": 227,
+   "what": "FERRAMENTAS_TEMA array of names auto-allowed via allowedTools at 608: append 'report_findings' so it needs no permission card (canUseTool at 609). The sibling session at line 987 also builds servidorTemasPara(j): no change needed."
+  },
+  {
+   "file": "src/main.js",
+   "line": 886,
+   "what": "IPC enviar/injetar (886,893): reused unchanged; formatted comment message and review prompts are plain strings sent from the renderer. Note injetar/enviar refuse strings starting with '/' only for attachments-free slash handling (line 895, montaPrompt 256), so generated prompts must not begin with '/'."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1198,
+   "what": "git_alteracoes handler returns {arquivos:[{caminho,estado,mais,menos,diff,abs}]} with HEAD diff -U3, binary/large flags; use as data source for the review prompt (the prompt only tells Claude to run `git diff HEAD`; no new IPC needed)."
+  },
+  {
+   "file": "src/renderer/i18n/parts/",
+   "line": 0,
+   "what": "Add new file diff-review.json ({pt key:{en,vi}}) for all new UI strings (Comentar nesta linha, Enviar comentários, Corrigir este, Explicar passo a passo, Aplicar todas as correções, Revisar mudanças, severities...). Check how i18n/parts/*.json is discovered (no hit in js/html by file name, so likely globbed in main/preload or i18n index; confirm before adding)."
+  },
+  {
+   "file": "src/renderer/app.css",
+   "line": 570,
+   "what": "Diff styles (.diff .l, .l.mais/menos at 572-577, numbers `u` at 1260): add .l .cm-mais (hover-only, absolute in gutter, opacity 0 -> 1 on .l:hover), .cm-caixa (inline textarea row inserted after the line), .l.comentada highlight, #comentariosBar, .achado cards with severity colors (light variants like lines 670-672 under body.light)."
+  }
+ ],
+ "design": "Plain JS, no new deps, three pieces.\n\nA) Inline comments (renderer only). Shared state in extras.js: `const rascunhos = []` of {id,file,line,side:'D'|'E',text,trecho} (D = new/right side, E = old/left side). diffGitHtml (os.js:90) and diffDe (extras.js:21) add to each row `data-arq`, `data-linha`, `data-lado` and a `<b class=\"cm-mais\" title=\"Comentar\">+</b>`; Edit/MultiEdit rows have line=null plus the code text in `trecho` because tool input has no file line numbers. One delegated document-level click handler `abreCaixaComentario(rowEl)` inserts a `.cm-caixa` (textarea + Salvar/Cancelar; Ctrl+Enter saves, Esc cancels) after the row; `salvaRascunho()` pushes to rascunhos and marks the row `.comentada`; `desenhaBarraComentarios()` renders a bar above #composer (\"N comentários pendentes\" + Enviar (Ctrl+Enter) + Limpar + a chip list with remove). `enviaComentarios()` builds the message via `formataComentarios(rascunhos)`: header 'Comentários de revisão no diff:' then, grouped by file, `- arquivo:linha (lado novo|antigo): texto` plus the code snippet in a fenced line when trecho exists; then calls existing `envia(texto)` (app.js:399), which already picks vivo.injetar vs vivo.enviar, and clears rascunhos on success. Ctrl+Enter anywhere with drafts pending and empty composer triggers it. No new IPC.\n\nB) report_findings tool (main.js:210). zod schema as in integration points; handler returns texto() only. The in-chat card is rendered by the renderer from the existing 'ferramenta' event/history replay: app.js ferramenta() early-branches on nome 'mcp__claudie__report_findings' to `cartaoRevisao(entrada)` which builds a `.msg claude` block listing findings sorted by severity (badge, file:line link that calls vivo.abrirArquivo, summary, suggestion), per-finding buttons 'Corrigir este' and 'Explicar passo a passo' and a header 'Aplicar todas as correções'. Each button calls `envia(prompt)`: fix -> `Corrija este achado e só ele: <file>:<line> — <summary>. Sugestão: <suggestion>`; walk -> `Explique passo a passo este achado sem editar nada: ...`; all -> list all achados, 'Aplique as correções de todos os achados acima, um por um.' Prompts must not start with '/'. Add the tool to FERRAMENTAS_TEMA (main.js:227) so allowedTools skips the permission card, and mention it in the server instructions.\n\nC) Review trigger. `revisaMudancas()` (os.js, global like alteracoes()) calls envia with: 'Revise as mudanças atuais do repositório (rode git diff HEAD e leia o necessário). Depois chame a ferramenta mcp__claudie__report_findings uma vez com cada achado (file, line, severity, summary, suggestion); não liste os achados em texto.' Wired to the new 'Revisar mudanças' button in abreAlteracoes top bar (os.js:108) and to the app-only command `/review-changes` intercepted in envia() beside /customize (app.js:411), plus a local entry in the slash picker list. If the message is sent while a turn runs, envia already injects it. Strings added to a new i18n part. Verify by node --check on all touched files and VIVO_TESTE with a git-dirty folder.",
+ "files_to_modify": [
+  "src/main.js",
+  "src/renderer/app.js",
+  "src/renderer/os.js",
+  "src/renderer/extras.js",
+  "src/renderer/app.css"
+ ],
+ "files_to_create": [
+  "src/renderer/i18n/parts/diff-review.json"
+ ],
+ "reuse": [
+  "src/renderer/app.js:399 envia(textoForcado): single send path (injetar when running, enviar otherwise, queue fallback)",
+  "src/renderer/app.js:411 /customize style app-only slash command interception",
+  "src/renderer/extras.js:21 diffDe and src/renderer/os.js:90 diffGitHtml: the only two diff row generators, shared by chat cards, permission card (app.js:307) and Changes window",
+  "src/renderer/os.js:16 janelinha() and 105 abreAlteracoes(): existing window and top bar",
+  "src/main.js:198 texto() result helper and 202-226 createSdkMcpServer tool() pattern with alwaysLoad",
+  "src/main.js:227 FERRAMENTAS_TEMA + 608 allowedTools auto-approval",
+  "src/renderer/app.js:191 ferramenta() used by both live events (348) and history replay (972)",
+  "src/renderer/app.js:8 esc(), bloco(), nota() helpers",
+  "src/renderer/i18n/parts/alteracoes-git.json: format for pt-key to en/vi strings"
+ ],
+ "risks": [
+  "Edit/MultiEdit tool input carries no absolute file line numbers, so comments on chat Edit cards cannot have a true line; design sends file + code snippet instead (spec's `line` is null there).",
+  "git diff in the Changes window is re-rendered on each 'parado'/'sessao' event and 'Atualizar' (os.js:176), which wipes open comment boxes; drafts live in module state and are re-marked after redraw, but an open textarea mid-typing is lost unless redraw is skipped while a .cm-caixa is open.",
+  "Line numbers in drafts go stale if the file changes after commenting; message says 'no diff at time of comment'.",
+  "report_findings relies on the model following instructions; if it lists findings in text instead, no card shows. Instructions string and the prompt of /review-changes both tell it to call the tool.",
+  "If an old conversation is replayed without the claudie MCP server (tool name present in history), the card still renders from history because it keys off tool name, which is desired.",
+  "Generated prompts beginning with '/' would be treated as slash commands by montaPrompt (main.js:256, 895); keep them starting with a letter.",
+  "diffGitHtml cuts diffs at 600 lines and diffDe at 400, so comment buttons are absent past the cut.",
+  "i18n parts discovery not confirmed (no JS reference to file names found by grep); verify it is globbed before relying on a new file."
+ ],
+ "verification": [
+  "node --check src/main.js; node --check src/preload.cjs; node --check src/renderer/app.js; node --check src/renderer/os.js; node --check src/renderer/extras.js",
+  "Validate JSON: node -e \"JSON.parse(require('fs').readFileSync('src/renderer/i18n/parts/diff-review.json','utf8'))\"",
+  "Launch with VIVO_PASTA=<git folder with dirty files> VIVO_JS=\"abreAlteracoes(); setTimeout(()=>document.querySelector('.alt-diffs .cm-mais').click(),600)\" VIVO_FOTO=shot.png npm start, check hover button, box and pending bar in screenshot",
+  "Use simulador.js (line 44, emite tipo ferramenta with Edit input) to check Edit-card comments, and emite({tipo:'ferramenta',id:'r1',nome:'mcp__claudie__report_findings',entrada:{achados:[...]}}) to check the findings card and its three buttons",
+  "VIVO_LOG=1 VIVO_TESTE=\"/review-changes\" npm start: confirm the review prompt is sent and the model calls report_findings with no permission card",
+  "Check light theme (body.light) colors for new styles and en/vi strings via the language switch"
+ ],
+ "open_questions": [
+  "Is i18n/parts/*.json auto-discovered (glob) or listed in an index/manifest? Not found by grep in js/html.",
+  "Should the pending-comments bar live above the composer (needed for chat Edit cards) or inside the Changes window only? Design assumes above the composer.",
+  "Should comments on Edit cards without file line numbers be accepted with a snippet (design) or limited to git diff lines only?",
+  "SDK facts for tool() annotations/alwaysLoad were taken from the existing code pattern (not from web docs); confirm zod array/enum usage matches SDK ^0.3.312, as tool() already takes a zod shape at main.js:211."
+ ]
+}

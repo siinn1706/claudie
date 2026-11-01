@@ -75,6 +75,10 @@ function transicaoDither() {
 }
 window.transicaoDither = transicaoDither;
 
+// ---- browser pane shortcut ---------------------------------------------------------------------
+// Ctrl+Shift+B docks or closes the pane; the window's Ctrl+B only folds the sidebar.
+addEventListener("keydown", (e) => { if (e.ctrlKey && e.shiftKey && !e.altKey && e.code === "KeyB") { e.preventDefault(); alternaNavegador(); } });
+
 // ---- composer modes -----------------------------------------------------------------------------
 entrada.addEventListener("input", () => $("composer").classList.toggle("modo-comando", entrada.value.startsWith("/")));
 

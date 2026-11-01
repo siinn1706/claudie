@@ -29,23 +29,31 @@ const ICONE = {
   pasta: svg('<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>'),
   janela: svg('<rect x="3.5" y="5.5" width="13" height="13" rx="2"/><path d="M8.5 5.5V4.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-1"/>'),
   duplicar: svg('<rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5v-2a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/>'),
+  tela: svg('<rect x="3.5" y="4.5" width="17" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/>'),
+  regiao: svg('<path d="M4.5 9V6.5a2 2 0 0 1 2-2H9M15 4.5h2.5a2 2 0 0 1 2 2V9M19.5 15v2.5a2 2 0 0 1-2 2H15M9 19.5H6.5a2 2 0 0 1-2-2V15"/>'),
 };
 const horaAgora = () => new Date().toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
 const iconeDa = (nome) => (nome === "Bash" ? ICONE.terminal : /^(Read|NotebookRead)$/.test(nome) ? ICONE.arquivo : /^(Write|Edit|MultiEdit|NotebookEdit)$/.test(nome) ? ICONE.editar
-  : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudie__") ? ICONE.tema : ICONE.ferramenta);
+  : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : /^mcp__claudie__(browser|servidor)/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudie__") ? ICONE.tema : nome.startsWith("mcp__computer-use__") ? ICONE.tela : ICONE.ferramenta);
 
 // Markdown: raw HTML in Claude's text is shown as text, never run.
 marked.use({ gfm: true, breaks: true, renderer: { html: ({ text }) => esc(text), image: ({ href, text }) => (/^(data:image\/|blob:|file:\/\/\/(?!\/))/i.test(href || "") || (href && /^(?![a-z][a-z0-9+.-]*:)(?![\\\/]{2})/i.test(href)) || /^[a-z]:[\/](?![\/])/i.test(href || "")) ? `<img src="${esc(href)}" alt="${esc(text)}">` : esc(text) } });
 const md = (s) => marked.parse(s || "");
 // Code blocks get a header with their language and a copy button.
-function decora(el) {
+// With final set (the block is complete, not mid-stream) mermaid, svg and html blocks also get a Code/Preview toggle.
+const PREVIA_LANG = /^(mermaid|svg|html?)$/, PREVIA_MAX = 500 * 1024;
+function decora(el, final = false) {
   for (const pre of el.querySelectorAll("pre")) {
-    if (pre.parentElement.classList.contains("codigo")) continue;
+    let caixa = pre.parentElement;
     const code = pre.querySelector("code"), lang = (code?.className.match(/language-(\S+)/) || [])[1] || "código";
-    const caixa = document.createElement("div"); caixa.className = "codigo";
-    caixa.innerHTML = `<div class="codigo-topo"><span>${esc(lang)}</span><button>${ICONE.copiar}<span>Copiar</span></button></div>`;
-    pre.replaceWith(caixa); caixa.append(pre);
-    caixa.querySelector("button").onclick = (e) => copia(pre.innerText, e.currentTarget);
+    if (!caixa.classList.contains("codigo")) {
+      caixa = document.createElement("div"); caixa.className = "codigo";
+      caixa.innerHTML = `<div class="codigo-topo"><span>${esc(lang)}</span><button>${ICONE.copiar}<span>Copiar</span></button></div>`;
+      pre.replaceWith(caixa); caixa.append(pre);
+      caixa.querySelector("button").onclick = (e) => copia(pre.innerText, e.currentTarget);
+    }
+    const fonte = code?.textContent || "";
+    if (final && window.montaPrevia && !caixa.dataset.vis && PREVIA_LANG.test(lang) && fonte.length <= PREVIA_MAX) { caixa.dataset.vis = "1"; window.montaPrevia?.(caixa, lang, fonte); }
   }
 }
 function copia(texto, botao) {
@@ -99,6 +107,7 @@ function meu(texto, anexos = [], imagens = 0, hora = horaAgora()) {
   desfaz.className = "desfaz"; desfaz.title = "Desfazer as mudanças nos arquivos feitas a partir desta mensagem"; desfaz.innerHTML = svg('<path d="M9 7.5 4.5 12 9 16.5"/><path d="M5 12h9.5a5 5 0 0 1 0 10H12"/>');
   desfaz.onclick = () => desfazDaqui(el);
   el.append(desfaz);
+  anexos = anexos.filter((x) => x.tipo !== "app");
   if (anexos.length || imagens) {
     const a = document.createElement("div"); a.className = "msg-anexos";
     for (const x of anexos) {
@@ -123,7 +132,7 @@ function tiraPensando() { pensando?.remove(); pensando = null; }
 function fechaSegmento() {
   if (!segmento) return;
   segmento.classList.remove("cursor");
-  segmento.querySelector(".corpo").innerHTML = md(bufferTexto); decora(segmento);
+  segmento.querySelector(".corpo").innerHTML = md(bufferTexto); decora(segmento, true);
   acoesResposta(segmento, bufferTexto, horaAgora());
   window.camadas?.(segmento);
   segmento = null; bufferTexto = "";
@@ -178,27 +187,80 @@ function resumo(nome, e = {}) {
   if (nome === "WebSearch") return e.query;
   if (nome === "mcp__claudie__buscar_fundo") return [e.busca, e.categoria].filter(Boolean).join(" · ");
   if (/fundo$/.test(nome)) return PECAS.get(e.peca)?.nome || e.peca;
+  if (nome === "mcp__claudie__browser_navigate") return e.url;
+  if (nome === "mcp__claudie__browser_click") return e.seletor || (e.x != null ? `[${e.x}, ${e.y}]` : "");
+  if (nome === "mcp__claudie__browser_type") return [e.seletor, e.texto].filter(Boolean).join(" · ");
+  if (/^mcp__claudie__servidor_/.test(nome)) return e.nome || "";
+  if (nome.startsWith("mcp__claudie__browser")) return "";
+  if (nome === "mcp__computer-use__app") return e.app;
+  if (nome.startsWith("mcp__computer-use__")) return e.text || (e.coordinate || e.region ? `[${(e.coordinate || e.region).join(", ")}]` : "");
   if (nome.startsWith("mcp__claudie__")) return nomeTema(e.tema);
   return Object.values(e).find((x) => typeof x === "string") || "";
 }
 const ROTULO = { Bash: "Comando", Read: "Leu", Write: "Criou", Edit: "Editou", MultiEdit: "Editou", Glob: "Procurou arquivos", Grep: "Buscou", WebFetch: "Abriu página", WebSearch: "Pesquisou", ToolSearch: "Buscou ferramenta", TodoWrite: "Lista de tarefas", Task: "Subagente", Workflow: "Fluxo de agentes", mcp__claudie__sugerir_tema: "Sugeriu tema", mcp__claudie__aplicar_tema: "Aplicou tema",
-  mcp__claudie__buscar_fundo: "Buscou fundos", mcp__claudie__sugerir_fundo: "Sugeriu fundo", mcp__claudie__aplicar_fundo: "Aplicou fundo" };
+  mcp__claudie__buscar_fundo: "Buscou fundos", mcp__claudie__sugerir_fundo: "Sugeriu fundo", mcp__claudie__aplicar_fundo: "Aplicou fundo",
+  "mcp__computer-use__screenshot": "Captura de tela", "mcp__computer-use__zoom": "Zoom na tela", "mcp__computer-use__cursor_position": "Posição do mouse", "mcp__computer-use__wait": "Esperou", "mcp__computer-use__left_click": "Clicou", "mcp__computer-use__right_click": "Clicou com o direito",
+  "mcp__computer-use__middle_click": "Clicou com o meio", "mcp__computer-use__double_click": "Duplo clique", "mcp__computer-use__triple_click": "Clique triplo", "mcp__computer-use__left_click_drag": "Arrastou", "mcp__computer-use__mouse_move": "Moveu o mouse",
+  "mcp__computer-use__scroll": "Rolou", "mcp__computer-use__type": "Digitou", "mcp__computer-use__key": "Apertou tecla", "mcp__computer-use__hold_key": "Segurou tecla", "mcp__computer-use__app": "Controle de app",
+  mcp__claudie__browser: "Site no navegador", mcp__claudie__browser_navigate: "Abriu página no painel", mcp__claudie__browser_screenshot: "Captura do painel", mcp__claudie__browser_read: "Leu a página", mcp__claudie__browser_click: "Clicou na página", mcp__claudie__browser_type: "Digitou na página",
+  mcp__claudie__servidor_listar: "Listou servidores", mcp__claudie__servidor_logs: "Logs do servidor", mcp__claudie__servidor_iniciar: "Iniciou servidor", mcp__claudie__servidor_parar: "Parou servidor" };
 const rotulo = (n) => ROTULO[n] || n.replace(/^mcp__([^_]+)__/, "$1 · ");
 // What a permission card asks for, in the infinitive.
-const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente", Workflow: "iniciar um fluxo de vários agentes" };
+const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente", Workflow: "iniciar um fluxo de vários agentes", "mcp__computer-use__app": "controlar o aplicativo", mcp__claudie__browser: "abrir um site no navegador do app", mcp__claudie__servidor_iniciar: "iniciar um servidor de desenvolvimento", mcp__claudie__servidor_parar: "parar um servidor de desenvolvimento" };
 const pedido = (n) => PEDIDO[n] || `usar ${rotulo(n)}`;
 
 function ferramenta(id, nome, e, fim = null) {
   if (PLANO.has(nome)) return;
   fechaRaciocinio(); fechaSegmento(); tiraPensando();
+  if (nome === "mcp__claudie__report_findings") { tiraBoas(); ferramentas.set(id, cartaoRevisao(e)); desce(); return; }
   const d = document.createElement("details");
   d.className = "ferr";
-  const diff = diffDe(nome, e);
+  const diff = diffDe(nome, e, id);
   d.innerHTML = `<summary>${iconeDa(nome)}<b data-nome="${esc(nome)}">${esc(rotulo(nome))}</b><span>${esc(resumo(nome, e) || "")}</span>${diff ? diff.contagem : ""}<i class="estado ${fim ? fim : "rodando"}">${fim === "ok" ? ICONE.ok : ""}</i></summary>${diff ? diff.html : `<pre>${esc(JSON.stringify(e, null, 2))}</pre>`}`;
-  d._nome = nome; d._entrada = e; d._diff = diff; d.dataset.nome = nome;
+  d._nome = nome; d._entrada = e; d._diff = diff; d.dataset.nome = nome; d.dataset.id = id;
   tiraBoas(); agrupa(d); desce();
   ferramentas.set(id, d);
+  reaplicaRascunhos(d);
 }
+// ---- review card ----------------------------------------------------------------------------
+// Claude's report_findings call: the findings of a review as a card with a button per
+// finding. The buttons never carry Claude's own wording into a message: they point at the
+// finding by its number in the call, adding the file:line only when it is a plain path.
+const SEVERIDADES = ["critical", "high", "medium", "low", "info"];
+const ROTULO_SEV = { critical: "Crítica", high: "Alta", medium: "Média", low: "Baixa", info: "Info" };
+const corta = (v, n = 2000) => String(v ?? "").slice(0, n);
+function cartaoRevisao(e) {
+  const el = bloco("achados claude");
+  el._entrada = e; desenhaCartaoRevisao(el);
+  return el;
+}
+function desenhaCartaoRevisao(el) {
+  const e = el._entrada;
+  const lista = (Array.isArray(e?.achados) ? e.achados : []).map((a, i) => ({ n: i + 1, file: corta(a?.file), line: a?.line > 0 ? Math.floor(a.line) : null, severity: SEVERIDADES.includes(a?.severity) ? a.severity : "info", summary: corta(a?.summary), suggestion: corta(a?.suggestion) }));
+  const ordem = [...lista].sort((a, b) => SEVERIDADES.indexOf(a.severity) - SEVERIDADES.indexOf(b.severity) || a.n - b.n);
+  const local = (a) => a.file + (a.line ? ":" + a.line : "");
+  const contagem = SEVERIDADES.map((v) => [v, lista.filter((a) => a.severity === v).length]).filter(([, n]) => n);
+  el.innerHTML = `<div class="ach-topo"><b>${esc(window.t("Revisão das mudanças"))}</b><span>${esc(window.t(lista.length === 1 ? "{0} achado" : "{0} achados", lista.length))}</span>${contagem.map(([v, n]) => `<em class="ach-sev sev-${v}">${n} ${esc(window.t(ROTULO_SEV[v]))}</em>`).join("")}${lista.length ? `<button class="btn forte" data-todas>${esc(window.t("Aplicar todas as correções"))}</button>` : ""}</div>`
+    + (e?.resumo ? `<p class="ach-resumo" data-sem-traducao>${esc(corta(e.resumo))}</p>` : "")
+    + (lista.length ? ordem.map((a) => `<div class="ach"><div class="ach-l"><span class="ach-sev sev-${a.severity}">${esc(window.t(ROTULO_SEV[a.severity]))}</span><b>#${a.n}</b><button class="ach-arq" data-ir="${a.n}" data-sem-traducao title="${esc(local(a))}">${esc(local(a))}</button></div><p data-sem-traducao>${esc(a.summary)}</p>${a.suggestion ? `<p class="ach-sug" data-sem-traducao>${esc(a.suggestion)}</p>` : ""}<div class="ach-b"><button class="btn" data-corrige="${a.n}">${esc(window.t("Corrigir este"))}</button><button class="btn" data-explica="${a.n}">${esc(window.t("Explicar passo a passo"))}</button></div></div>`).join("") : `<p class="jl-vazio">${esc(window.t("Nenhum achado."))}</p>`);
+  const por = (n) => lista.find((a) => a.n === n);
+  // only a plain path goes into a message; anything else is pointed at by its number alone
+  const alvo = (a) => (/^[\w@%+=:,.\/\ -]{1,200}$/.test(local(a)) ? window.t(" (arquivo `{0}`)", local(a)) : "");
+  el.querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => abreCaminhoDaConversa(local(por(+b.dataset.ir)))));
+  el.querySelectorAll("[data-corrige]").forEach((b) => (b.onclick = () => { const a = por(+b.dataset.corrige); envia(window.t("Corrija o achado #{0} do relatório report_findings acima{1} e só ele.", a.n, alvo(a))); }));
+  el.querySelectorAll("[data-explica]").forEach((b) => (b.onclick = () => { const a = por(+b.dataset.explica); envia(window.t("Explique passo a passo o achado #{0} do relatório report_findings acima{1}, sem editar nada.", a.n, alvo(a))); }));
+  const todas = el.querySelector("[data-todas]");
+  if (todas) todas.onclick = () => {
+    if (!todas.dataset.arma) {
+      todas.dataset.arma = todas.textContent; todas.textContent = window.t("Confirmar: aplicar todas?"); todas.classList.add("perigo");
+      setTimeout(() => { if (todas.isConnected && todas.dataset.arma) { todas.textContent = todas.dataset.arma; delete todas.dataset.arma; todas.classList.remove("perigo"); } }, 4000);
+      return;
+    }
+    envia(`Aplique as correções de todos os achados do relatório report_findings acima, um por um, de #1 a #${lista.length}.`);
+    todas.textContent = todas.dataset.arma; delete todas.dataset.arma; todas.classList.remove("perigo");
+  };
+}
+addEventListener("idioma", () => col.querySelectorAll(".achados").forEach(desenhaCartaoRevisao));
 // Everything Claude does between two pieces of text (tools and the reasoning
 // around them) folds into one quiet line, as in Claude desktop: "Ran 4 commands",
 // "Edited and read tarefas.js" with the lines changed. While a tool runs the
@@ -257,6 +319,7 @@ function rotuloGrupo(g) {
 addEventListener("idioma", () => col.querySelectorAll(".ferr-grupo").forEach(rotuloGrupo));
 function ferramentaFim(id, erro, saida, maior = false, imagens = []) {
   const d = ferramentas.get(id); if (!d) return;
+  if (d.classList.contains("achados")) { if (erro) { d.remove(); ferramentas.delete(id); } return; }
   const i = d.querySelector("summary .estado"); i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
   const g = d.closest(".ferr-grupo"); if (g) rotuloGrupo(g);
   if (!(saida && d.querySelector("pre")) && !imagens.length) return;
@@ -299,13 +362,29 @@ function subFim({ pai, id, erro }) {
   i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
 }
 
+// The site (or the command) a browser permission is about, readable above the raw input.
+function linhasPerm(ev) {
+  const e = ev.entrada || {}, l = [];
+  if (ev.ferramenta === "mcp__claudie__browser" && e.host) l.push(["Site", e.host]);
+  if (ev.ferramenta === "mcp__computer-use__app") {
+    l.push(["Aplicativo", e.app || ""]);
+    if (e.titulo) l.push(["Janela", e.titulo]);
+    if (NIVEL_ROTULO[e.nivel]) l.push(["Nível", t(NIVEL_ROTULO[e.nivel])]);
+  }
+  if (ev.ferramenta === "mcp__claudie__servidor_iniciar") {
+    if (e.comando) l.push(["Comando", [e.comando, ...(e.args || [])].join(" ")]);
+    if (e.cwd) l.push(["Pasta", e.cwd]);
+    if (e.env?.length) l.push(["Variáveis", e.env.join(", ")]);
+  }
+  return l.map(([k, v]) => `<div class="perm-linha"><span>${t(k)}</span><code>${esc(String(v))}</code></div>`).join("");
+}
 function permissao(ev) {
   fechaSegmento(); tiraPensando();
   if (ev.ferramenta === "ExitPlanMode" && typeof ev.entrada?.plan === "string") return cartaoPlano(ev);
   const el = bloco("perm");
   el.dataset.id = ev.id;
   const diff = diffDe(ev.ferramenta, ev.entrada);
-  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}${JSON.stringify(ev.entrada, null, 2).length > 3000 ? `
+  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${linhasPerm(ev)}${ev.ferramenta === "mcp__computer-use__app" ? "" : diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}${JSON.stringify(ev.entrada, null, 2).length > 3000 ? `
 … (+${JSON.stringify(ev.entrada, null, 2).length - 3000} caracteres ocultos)` : ""}</pre>`}<input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que fazer em vez disso" />`;
   const linha = document.createElement("div"); linha.className = "b";
   const fb = el.querySelector(".perm-fb");
@@ -325,7 +404,7 @@ function cartaoPlano(ev) {
   const el = bloco("perm plano-card");
   el.dataset.id = ev.id;
   el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude montou um plano e quer <b>começar a executar</b></span></div><div class="corpo plano-md">${md(ev.entrada.plan)}</div><input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que ajustar no plano" />`;
-  decora(el);
+  decora(el, true);
   const fb = el.querySelector(".perm-fb"), linha = document.createElement("div"); linha.className = "b";
   const fecha = (ok, texto) => { el.className = "resolvido"; el.innerHTML = `${ok ? ICONE.ok : ICONE.erro}<span>${texto}</span>`; mostraPensando(); };
   const botao = (rot, cls, fn) => { const b = document.createElement("button"); b.textContent = rot; b.className = "btn" + (cls ? " " + cls : ""); b.onclick = fn; linha.append(b); return b; };
@@ -354,7 +433,7 @@ aoEvento((ev) => {
     case "sub_ferramenta": subFerramenta(ev); break;
     case "sub_ferramenta_fim": subFim(ev); break;
     case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida, ev.maior, ev.imagens); if (planoResultado(ev.id, ev.tarefa)) desenhaPlano(); break;
-    case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", `Quer ${pedido(ev.ferramenta)}.`); break;
+    case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", window.t("Quer {0}.", window.t(pedido(ev.ferramenta)))); break;
     case "permissao_fim": document.querySelector(`.perm[data-id="${ev.id}"], .pergunta[data-id="${ev.id}"]`)?.remove(); break;
     case "apagada": if (sessaoAtual === ev.id) { novaConversa(); nota("Esta conversa foi apagada em outra janela."); } break;
     case "config": mostraEscolhas(ev); break;
@@ -365,10 +444,13 @@ aoEvento((ev) => {
     case "aplicar_arte": aplicaChave(ev.chave); break;
     case "sessao": sessaoAtual = ev.id; marcaSessao(); break;
     case "info": break;
+    case "entrada_rapida": filaRapida = filaRapida.then(() => entradaRapida(ev)).catch(() => {}); break;
     case "aviso": aviso(window.t(ev.texto)); break;
+    case "computador": mostraComputador(ev); break;
     case "fim": if (!ev.ok && ev.detalhe !== "success") aviso(`Parou: ${ev.detalhe}`, true); break;
     case "erro": tiraPensando(); aviso(ev.texto, true); window.somEvento?.("erro"); break;
     case "atualizacao": mostraAtualizacao(ev); break;
+    case "foco_entrada": (ev.nova ? novaConversa() : Promise.resolve()).then(() => entrada.focus()); break;
     case "parado":
       tiraPensando(); fechaSegmento(); setRodando(false); turnoVisto = null; carregaSessoes();
       if (fila.length) setTimeout(proximaDaFila, 350);
@@ -390,48 +472,88 @@ function juntaColados(t, junto) {
   const colados = junto.filter((a) => a.tipo === "texto");
   return {
     texto: [t, ...colados.map((a) => a.conteudo)].filter(Boolean).join("\n\n"),
-    enviados: junto.filter((a) => a.tipo !== "texto").map(({ nome, caminho, dados, mime }) => ({ nome, caminho, dados, mime })),
+    enviados: junto.filter((a) => a.tipo !== "texto" && a.tipo !== "app").map(({ nome, caminho, dados, mime }) => ({ nome, caminho, dados, mime })),
+    // an app chip counts only while its @name is still in the message
+    apps: junto.filter((a) => a.tipo === "app" && (t.includes("@" + a.nome) || t.includes('@"' + a.nome + '"'))).map((a) => a.exe),
   };
 }
 const geral = () => (typeof visualAtual === "function" ? visualAtual().geral || {} : {});
-const atualizaEnviar = () => { const vazio = !entrada.value.trim() && !anexos.length; $("enviar").disabled = !rodando && vazio; $("enviarMais").disabled = vazio; };
+// An app chip only marks a mention in the text; it is no content of its own.
+function soltaAppsSemNome() {
+  const v = entrada.value, resta = anexos.filter((a) => a.tipo !== "app" || v.includes("@" + a.nome) || v.includes("@\"" + a.nome + "\""));
+  if (resta.length !== anexos.length) { anexos = resta; desenhaAnexos(); }
+}
+const reais = (l) => l.filter((x) => x.tipo !== "app");
+const atualizaEnviar = () => { const vazio = !entrada.value.trim() && !reais(anexos).length; $("enviar").disabled = !rodando && vazio; $("enviarMais").disabled = vazio; };
 
-async function envia(textoForcado) {
-  const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null ? anexos : [];
-  if (!t && !junto.length) return;
-  const limpa = () => { entrada.value = ""; ajustaAltura(); fechaComandos(); fechaMencoes(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
-  if (t === "/theme") { abrePicker("claudie"); limpa(); return; }
+// textoForcado sends that text instead of the composer's (its attachments only with comAnexos).
+async function envia(textoForcado, comAnexos) {
+  const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null || comAnexos ? anexos : [];
+  if (!t && !reais(junto).length) return false;
+  const limpa = () => { if (textoForcado == null) { entrada.value = ""; ajustaAltura(); } fechaComandos(); fechaMencoes(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
+  if (t === "/theme") { abrePicker("claudie"); limpa(); return true; }
   if (t.startsWith("/theme ")) {
     const pedido = t.slice(7).trim().toLowerCase(), i = THEMES.findIndex((x) => x.id === pedido || x.name.toLowerCase() === pedido);
     if (["default", "off"].includes(pedido)) aplica(-1); else if (i >= 0) aplica(i); else abrePicker("claudie");
-    limpa(); return;
+    limpa(); return true;
   }
-  if (t === "/wallpaper" || t.startsWith("/wallpaper ")) { abrePicker("biblioteca", t.slice(10).trim()); limpa(); return; }
-  if (t === "/import") { limpa(); importaMotion(); return; }
-  if (t === "/customize") { limpa(); abrePersonal(); return; }
-  if (t === "/new") { novaConversa(); limpa(); return; }
+  if (t === "/wallpaper" || t.startsWith("/wallpaper ")) { abrePicker("biblioteca", t.slice(10).trim()); limpa(); return true; }
+  if (t === "/import") { limpa(); importaMotion(); return true; }
+  if (t === "/customize") { limpa(); abrePersonal(); return true; }
+  if (t === "/review-changes") { limpa(); revisaMudancas(); return true; }
+  if (t === "/new") { novaConversa(); limpa(); return true; }
   // With Claude working, the message goes into the running turn, as in Claude
   // Code; what it cannot take (slash commands, a turn about to end) waits in line.
   if (rodando) {
     limpa();
     if (junto === anexos) { anexos = []; desenhaAnexos(); }
-    const { texto: final, enviados } = juntaColados(t, junto);
-    if (await vivo.injetar(final, enviados)) { fechaSegmento(); meu(t, junto); window.somEvento?.("enviar"); return; }
-    fila.push({ t, junto: [...junto] }); desenhaFila(); proximaDaFila(); return;
+    const { texto: final, enviados, apps } = juntaColados(t, junto);
+    if (await vivo.injetar(final, enviados, apps)) { fechaSegmento(); meu(t, junto); window.somEvento?.("enviar"); return true; }
+    fila.push({ t, junto: [...junto] }); desenhaFila(); proximaDaFila(); return true;
   }
   limpa(); fechaPicker();
-  if (!sessaoAtual) { const titulo = t || junto.map((x) => x.nome).join(", "); $("titulo").textContent = titulo.length > 60 ? titulo.slice(0, 60) + "…" : titulo; }
-  const { texto: final, enviados } = juntaColados(t, junto);
+  if (!sessaoAtual) { const titulo = t || reais(junto).map((x) => x.nome).join(", "); $("titulo").textContent = titulo.length > 60 ? titulo.slice(0, 60) + "…" : titulo; }
+  const { texto: final, enviados, apps } = juntaColados(t, junto);
   meu(t, junto); window.somEvento?.("enviar");
   const bolha = col.lastElementChild, eram = junto === anexos ? [...anexos] : null;
   if (eram) { anexos = []; desenhaAnexos(); }
   setRodando(true); turnoVisto = "novo"; turnoN = 0;
-  if (!(await vivo.enviar(final, enviados))) {
+  if (!(await vivo.enviar(final, enviados, apps))) {
     setRodando(false); turnoVisto = null; bolha?.remove();
-    if (textoForcado == null) { entrada.value = t; ajustaAltura(); if (eram) { anexos = eram; desenhaAnexos(); } }
+    if (textoForcado == null) { entrada.value = t; ajustaAltura(); }
+    if (eram) { anexos = eram; desenhaAnexos(); }
     atualizaEnviar(); nota("Não deu pra enviar agora.", true);
+    return false;
   }
+  return true;
 }
+// The pending diff comments of this conversation, sent as one message; a failed send keeps them.
+async function enviaComentarios() {
+  const lista = rascunhos.filter((d) => d.conv === convRascunho);
+  if (!lista.length) return;
+  if (await envia(formataComentarios(lista))) limpaRascunhos(lista);
+}
+// Quick Entry and claudie:// links: a message from outside the window, into a new conversation or this one. What
+// was typed in the composer is put back afterwards.
+let filaRapida = Promise.resolve();
+async function entradaRapida(ev) {
+  if (ev.cwd) { mostraPasta(ev.cwd); todosComandos = buscandoComandos = null; carregaSessoes(); }
+  if (ev.nova) await novaConversa();
+  if (!ev.texto && !(ev.anexos || []).length) return;
+  const rascunho = { texto: entrada.value, anexos };
+  anexos = (ev.anexos || []).map((a) => ({ ...a, url: "data:" + a.mime + ";base64," + a.dados }));
+  try { await envia(ev.texto || "", true); }
+  finally { entrada.value = rascunho.texto; anexos = rascunho.anexos; desenhaAnexos(); ajustaAltura(); }
+}
+// Ctrl+Enter sends the comments from the empty composer or from nowhere in particular;
+// any other field keeps its own Enter.
+addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || !e.ctrlKey || e.shiftKey || e.altKey || e.isComposing || !rascunhos.length) return;
+  if (reais(anexos).length || mencoesEl.classList.contains("on") || comandosEl.classList.contains("on")) return;
+  const a = document.activeElement;
+  if (a !== document.body && !(a === entrada && !entrada.value.trim())) return;
+  e.preventDefault(); e.stopPropagation(); enviaComentarios();
+}, true);
 let ctrlX = 0;
 entrada.addEventListener("keydown", (e) => {
   if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.key === "x" || e.key === "X") && !entrada.value.slice(entrada.selectionStart, entrada.selectionEnd)) { e.preventDefault(); ctrlX = Date.now(); return; }
@@ -449,11 +571,30 @@ entrada.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); escolheComando(cmdVis[cmdSel], true); return; }
     if (e.key === "Escape") { e.stopPropagation(); fechaComandos(); return; }
   }
+  if (sugestao && !entrada.value && (e.key === "Tab" || e.key === "ArrowRight") && !e.ctrlKey && !e.altKey && !e.shiftKey) { e.preventDefault(); aceitaSugestao(); return; }
   if (e.key === "Enter" && !e.shiftKey && (geral().enviar !== "ctrl" || e.ctrlKey)) { e.preventDefault(); envia(); }
-  if (e.key === "Escape") fechaPicker();
+});
+// ---- next-prompt suggestion --------------------------------------------------
+// After a turn Claude Code predicts what the person may ask next. It shows as the
+// composer's placeholder while the box is empty; Tab or → takes it.
+let sugestao = "";
+function mostraSugestao(s) {
+  sugestao = s || "";
+  entrada.placeholder = sugestao || window.t("Mensagem para o Claude");
+  entrada.classList.toggle("com-sugestao", !!sugestao);
+}
+function aceitaSugestao() {
+  const s = sugestao;
+  mostraSugestao("");
+  entrada.value = s; entrada.setSelectionRange(s.length, s.length);
+  ajustaAltura(); atualizaEnviar(); entrada.focus();
+}
+aoEvento((ev) => {
+  if (ev.tipo === "sugestao") { if (ev.sid && ev.sid === sessaoAtual && !rodando) mostraSugestao(ev.texto); }
+  else if (ev.tipo === "inicio") mostraSugestao("");
 });
 const ajustaAltura = () => { entrada.style.height = "auto"; entrada.style.height = Math.min(240, entrada.scrollHeight) + "px"; };
-entrada.addEventListener("input", () => { ajustaAltura(); atualizaEnviar(); cmdSel = 0; mencSel = 0; mostraComandos(); mostraMencoes(); });
+entrada.addEventListener("input", () => { soltaAppsSemNome(); ajustaAltura(); atualizaEnviar(); cmdSel = 0; mencSel = 0; mostraComandos(); mostraMencoes(); });
 // Moving the caret into or out of an "@word" opens or closes the picker.
 entrada.addEventListener("keyup", (e) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) mostraMencoes(); });
 entrada.addEventListener("click", () => mostraMencoes());
@@ -469,6 +610,7 @@ const LOCAIS = [
   { nome: "wallpaper", dica: "[search]", descricao: "Procurar um fundo na biblioteca ASCII Magic" },
   { nome: "import", descricao: "Importar uma animação feita no ASCII Motion" },
   { nome: "customize", descricao: "Fundos, cores, fontes, sons, música, ícone e nome" },
+  { nome: "review-changes", descricao: "Pedir ao Claude para revisar as mudanças atuais" },
   { nome: "new", descricao: "Começar uma conversa nova" },
 ].map((c) => ({ ...c, local: true }));
 let todosComandos = null, buscandoComandos = null, cmdVis = [], cmdSel = 0;
@@ -533,16 +675,37 @@ function notaArquivo(a, q) {
   else { let i = 0; for (const ch of c) if (ch === q[i]) i++; if (i === q.length) n = 200; }
   return n && n - c.length / 1000;
 }
+// The apps of "@": with computer control on they are offered above the files; with it off, an app name typed
+// after "@" offers to turn it on.
+let appsLista = [], buscandoApps = false; // main keeps the list for 30 s
+function carregaApps() {
+  if (buscandoApps) return;
+  buscandoApps = true;
+  Promise.resolve().then(() => vivo.appsComputador()).then((l) => { appsLista = l || []; }).catch(() => {}).finally(() => { buscandoApps = false; if (document.activeElement === entrada && mencaoAtual()) mostraMencoes(); });
+}
+const notaApp = (a, q) => notaArquivo({ c: a.nome }, q);
 function mostraMencoes() {
   const m = mencaoAtual();
   if (!m) return fechaMencoes();
   if (!mencoesEl.classList.contains("on")) carregaArquivos(false);
-  mencVis = arquivosLista.map((a) => [a, notaArquivo(a, m.q)]).filter((x) => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 60).map((x) => x[0]);
+  carregaApps();
+  const apps = (computador ? appsLista : []).map((a) => [a, notaApp(a, m.q)]).filter((x) => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => ({ ...x[0], app: true }));
+  const dica = !computador && m.q.length >= 2 && appsLista.some((a) => notaApp(a, m.q) >= 600) ? [{ dica: true }] : [];
+  const arqs = arquivosLista.map((a) => [a, notaArquivo(a, m.q)]).filter((x) => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 60).map((x) => x[0]);
+  mencVis = [...apps, ...arqs, ...dica];
   // Nothing matches: the folder may have changed since it was listed, so look again (at most every few seconds).
   if (!mencVis.length && m.q && !buscandoArquivos && Date.now() - atualizadoEm > 4000) carregaArquivos(true);
   if (!mencVis.length && !buscandoArquivos) return fechaMencoes();
   mencSel = Math.min(mencSel, Math.max(0, mencVis.length - 1));
-  mencoesEl.innerHTML = mencVis.map((a, i) => { const k = a.c.lastIndexOf("/"); return `<div class="cmd${i === mencSel ? " on" : ""}" data-i="${i}" role="option"><b>${esc(a.c.slice(k + 1))}${a.d ? "/" : ""}</b><span>${esc(k >= 0 ? a.c.slice(0, k) : "")}</span></div>`; }).join("")
+  const linha = (a, i) => {
+    const on = i === mencSel ? " on" : "";
+    if (a.dica) return `<div class="cmd dica${on}" data-i="${i}" role="option"><b>Ligue o controle do computador para mencionar apps</b></div>`;
+    if (a.app) return `<div class="cmd app${on}" data-i="${i}" role="option">${a.icone ? `<img src="${esc(a.icone)}" alt="">` : ""}<b>${esc(a.nome)}</b><span>${esc(a.exe)}</span><em>${NIVEL_ROTULO[a.nivel] || NIVEL_ROTULO.total}</em></div>`;
+    const k = a.c.lastIndexOf("/");
+    return `<div class="cmd${on}" data-i="${i}" role="option"><b>${esc(a.c.slice(k + 1))}${a.d ? "/" : ""}</b><span>${esc(k >= 0 ? a.c.slice(0, k) : "")}</span></div>`;
+  };
+  const cabeca = (i) => (i === 0 && apps.length ? '<div class="cmd-grupo">Apps</div>' : i === apps.length && apps.length && arqs.length ? '<div class="cmd-grupo">Arquivos</div>' : "");
+  mencoesEl.innerHTML = mencVis.map((a, i) => cabeca(i) + linha(a, i)).join("")
     + (buscandoArquivos ? '<div class="cmd-espera">Procurando arquivos…</div>' : "");
   mencoesEl.classList.add("on"); fechaPicker();
   mencoesEl.querySelector(".cmd.on")?.scrollIntoView({ block: "nearest" });
@@ -551,7 +714,14 @@ function fechaMencoes() { mencoesEl.classList.remove("on"); mencVis = []; mencSe
 function escolheMencao(a) {
   const m = mencaoAtual();
   if (!m || !a) return fechaMencoes();
-  const aspas = /\s/.test(a.c), corpo = (aspas ? '@"' : "@") + a.c;
+  if (a.dica) { computador = true; guardaEscolha({ computador }); atualizaEscolhas(); entrada.focus(); mostraMencoes(); return; }
+  const nome = a.app ? a.nome : a.c, aspas = /\s/.test(nome), corpo = (aspas ? '@"' : "@") + nome;
+  if (a.app) {
+    entrada.setRangeText(corpo + (aspas ? '" ' : " "), m.ini, m.fim, "end");
+    if (!anexos.some((x) => x.tipo === "app" && x.exe === a.exe)) anexos.push({ tipo: "app", nome: a.nome, exe: a.exe, nivel: a.nivel, icone: a.icone });
+    desenhaAnexos(); ajustaAltura(); atualizaEnviar(); fechaMencoes(); entrada.focus();
+    return;
+  }
   entrada.setRangeText(a.d ? corpo + "/" : corpo + (aspas ? '" ' : " "), m.ini, m.fim, "end");
   ajustaAltura(); atualizaEnviar(); mencSel = 0; entrada.focus();
   if (a.d) mostraMencoes(); else fechaMencoes();
@@ -567,12 +737,19 @@ let anexos = [];
 const anexosEl = $("anexos");
 const ehImagem = (nome) => /\.(png|jpe?g|gif|webp)$/i.test(nome);
 const urlArquivo = (c) => "file:///" + encodeURI(c.replace(/\\/g, "/")).replace(/#/g, "%23").replace(/\?/g, "%3F");
+const NIVEL_ROTULO = { ver: "Só ver", clicar: "Clicar", total: "Total" };
 function desenhaAnexos() {
   anexosEl.innerHTML = "";
   anexos.forEach((a, i) => {
     const d = document.createElement("div");
     d.className = "anexo" + (a.url ? " img" : ""); d.title = a.caminho || a.nome;
     if (a.url) { const img = document.createElement("img"); img.src = a.url; img.alt = a.nome; d.append(img); d.title = "Ver imagem"; d.onclick = (e) => { if (!e.target.closest(".tira")) abreImagem(a.url, a.nome); }; }
+    else if (a.tipo === "app") {
+      d.classList.add("app"); d.title = a.exe;
+      if (a.icone) { const img = document.createElement("img"); img.src = a.icone; img.alt = ""; d.append(img); }
+      const n = document.createElement("span"); n.textContent = a.nome; d.append(n);
+      const nv = document.createElement("em"); nv.textContent = NIVEL_ROTULO[a.nivel] || NIVEL_ROTULO.total; d.append(nv);
+    }
     else { d.innerHTML = a.tipo === "texto" ? ICONE.editar : ICONE.arquivo; const n = document.createElement("span"); n.textContent = a.nome; d.append(n); }
     if (a.tipo === "texto") { d.classList.add("colado"); d.title = "Clique para ver e editar"; d.onclick = (e) => { if (!e.target.closest(".tira")) editaColado(a); }; }
     const x = document.createElement("button"); x.className = "tira"; x.title = "Remover"; x.innerHTML = ICONE.erro;
@@ -625,7 +802,41 @@ async function anexaArquivos(lista) {
   }
   desenhaAnexos(); entrada.focus();
 }
-$("clipe").onclick = async () => { for (const c of await vivo.anexar()) anexaCaminho(c); desenhaAnexos(); entrada.focus(); };
+// The paperclip opens two choices: files, or a screenshot (a screen, a window or a region).
+const clipeMenu = $("clipeMenu"), capturaPicker = $("capturaPicker");
+$("clipe").onclick = () => abreEscolha(clipeMenu);
+$("clipeArquivos").onclick = async () => { fechaEscolhas(); for (const c of await vivo.anexar()) anexaCaminho(c); desenhaAnexos(); entrada.focus(); };
+$("clipeCaptura").onclick = async () => { await vivo.capturaGesto(); abreCapturas(); };
+function anexaCaptura(r) {
+  if (!r) return false;
+  anexos.push({ nome: r.nome, dados: r.dados, mime: r.mime, url: "data:" + r.mime + ";base64," + r.dados });
+  desenhaAnexos(); entrada.focus();
+  return true;
+}
+// Region first, then the screens and windows with a small picture each.
+async function abreCapturas() {
+  capturaPicker.innerHTML = `<div class="pop-titulo"><span>Captura de tela</span></div><div class="captura-grade"><div class="captura-aviso">Procurando telas e janelas…</div></div>`;
+  abreEscolha(capturaPicker);
+  const lista = await vivo.capturaFontes();
+  if (popAberto !== capturaPicker) return;
+  const grade = capturaPicker.querySelector(".captura-grade");
+  grade.innerHTML = "";
+  const regiao = document.createElement("button");
+  regiao.type = "button"; regiao.className = "captura-tile regiao";
+  regiao.innerHTML = `${ICONE.regiao}<span>Selecionar região</span>`;
+  regiao.onclick = async () => { fechaEscolhas(); await vivo.capturaGesto(); anexaCaptura(await vivo.capturaRegiao()); };
+  grade.append(regiao);
+  if (!lista) { const a = document.createElement("div"); a.className = "captura-aviso"; a.textContent = "Não deu pra listar as telas e janelas."; grade.append(a); return; }
+  for (const f of lista) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "captura-tile"; b.title = f.nome;
+    if (f.thumb) { const img = document.createElement("img"); img.src = f.thumb; img.alt = ""; b.append(img); } else b.insertAdjacentHTML("beforeend", ICONE.tela);
+    const n = document.createElement("span"); n.setAttribute("data-sem-traducao", ""); n.textContent = f.nome;
+    b.append(n);
+    b.onclick = async () => { fechaEscolhas(); if (!anexaCaptura(await vivo.capturaFonte(f.id))) nota("Não deu pra capturar essa janela.", true); };
+    grade.append(b);
+  }
+}
 entrada.addEventListener("paste", (e) => { const l = [...(e.clipboardData?.files || [])]; if (l.length && !e.clipboardData.getData("text/plain")) { e.preventDefault(); anexaArquivos(l); } });
 // Dropping anywhere on the window attaches; an ASCII Motion file (or a JSON
 // dropped on the "Meus" tab) is imported as a background instead.
@@ -685,16 +896,20 @@ window.instalaAtualizacao = function instalaAtualizacao() {
 vivo.atualizacao().then(mostraAtualizacao);
 // A link in the conversation: the web opens in the browser; anything else is a file
 // Claude named, read from the attribute (the DOM would resolve it against the app's own folder).
-async function abreLinkDaConversa(a) {
+// Alt+click opens a web link in the browser pane instead of the system browser.
+async function abreLinkDaConversa(a, altClique = false) {
   const h = a.getAttribute("href") || "";
-  if (/^https?:/i.test(h)) return vivo.link(a.href);
+  if (/^https?:/i.test(h)) return altClique ? vivo.navAbrir(a.href).then((e) => e && nota(e, true)) : vivo.link(a.href);
   if (!h || h[0] === "#" || /^[a-z][a-z0-9+.-]+:(?!\d)/i.test(h) && !/^file:/i.test(h)) return;
+  return abreCaminhoDaConversa(h);
+}
+async function abreCaminhoDaConversa(h) {
   const r = await vivo.abrirLink(h);
   if (r?.imagem) abreImagem(r.imagem, r.nome);
   else if (r?.erro === "fora") nota("Não deu pra abrir: o arquivo está fora das pastas desta conversa.", true);
   else if (r?.erro) nota("Não deu pra abrir: não achei esse arquivo na pasta da conversa.", true);
 }
-col.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a) { e.preventDefault(); abreLinkDaConversa(a); } });
+col.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a) { e.preventDefault(); abreLinkDaConversa(a, e.altKey); } });
 
 // The empty conversation: the mark breathing, a greeting for the time of
 // day, and a few ways to start.
@@ -719,7 +934,7 @@ function telaInicial() {
     <div class="sugestoes grade">${SUGESTOES.map(([p, t, d, ic]) => `<button data-p="${esc(p)}">${svg(ic)}<span><b>${t}</b><small>${d}</small></span></button>`).join("")}</div>
     <p class="boas-dica">${enviar} envia · <kbd>/</kbd> comandos · <kbd>Ctrl</kbd> + <kbd>K</kbd> busca</p>
   </div>`;
-  col.querySelectorAll(".sugestoes button").forEach((b) => (b.onclick = () => envia(b.dataset.p)));
+  col.querySelectorAll(".sugestoes button").forEach((b) => (b.onclick = () => envia(window.t(b.dataset.p))));
   col.querySelector(".boas-pasta").onclick = () => $("pasta").click();
 }
 
@@ -918,7 +1133,7 @@ function menuSessao(ancora, s) {
   menu.querySelector('[data-a="janela"]').onclick = () => { fechaMenu(); vivo.janelaNova(s.id); };
   menu.querySelector('[data-a="duplicar"]').onclick = async () => {
     fechaMenu(); if (rodando) return;
-    const r2 = await vivo.ramificar(s.id, null, `${s.titulo} (cópia)`, s.cwd);
+    const r2 = await vivo.ramificar(s.id, null, window.t("{0} (cópia)", s.titulo), s.cwd);
     if (r2) { if (r2.cwd && r2.cwd !== $("pasta").title) { mostraPasta(r2.cwd); todosComandos = buscandoComandos = null; } await abreSessao(r2.id, r2.titulo); carregaSessoes(); }
   };
   menu.querySelector('[data-a="exportar"]').onclick = async () => { fechaMenu(); const f = await vivo.exportar(s.id, s.titulo, s.cwd); if (f?.erro) nota(`Não deu pra exportar: ${f.erro}`, true); else if (f) nota(`Exportada: ${f}`); };
@@ -950,8 +1165,8 @@ function renomeia(s) {
 
 // A turn still running stays running: leaving its conversation only stops
 // drawing it, and coming back picks it up where it is.
-async function abreSessao(id, titulo) {
-  const pastaAntes = $("pasta").title, alvo = sessaoPorId(id);
+async function abreSessao(id, titulo, cwdConhecida) {
+  const pastaAntes = $("pasta").title, alvo = sessaoPorId(id) || (cwdConhecida ? { cwd: cwdConhecida } : undefined);
   const espera = (abrindo = []);
   const r = await vivo.abrirSessao(id, alvo?.cwd);
   if (abrindo === espera) abrindo = null;
@@ -960,14 +1175,15 @@ async function abreSessao(id, titulo) {
   if (alvo?.cwd && alvo.cwd !== pastaAntes) { mostraPasta(alvo.cwd); todosComandos = buscandoComandos = null; }
   window.transicaoDither?.();
   trocaFila(id);
-  sessaoAtual = id; $("titulo").textContent = titulo;
+  limpaRascunhos();
+  sessaoAtual = id; $("titulo").textContent = titulo; mostraSugestao("");
   col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true;
   if (r.cfg) mostraEscolhas(r.cfg);
   const t = r.turno;
   turnoVisto = t?.tid || null; turnoN = t?.n || 0; setRodando(!!t);
   for (const m of r.hist) {
     if (m.papel === "eu") { meu(m.texto, (m.fotos || []).map((url) => ({ nome: "imagem", url })), m.imagens || 0, ""); if (m.uuid) [...col.querySelectorAll(".msg.eu")].pop().dataset.uuid = m.uuid; }
-    else if (m.papel === "claude") { const el = bloco("msg claude", `<div class="corpo">${md(m.texto)}</div>`); decora(el); if (m.uuid) el.dataset.uuid = m.uuid; acoesResposta(el, m.texto, ""); window.camadas?.(el); }
+    else if (m.papel === "claude") { const el = bloco("msg claude", `<div class="corpo">${md(m.texto)}</div>`); decora(el, true); if (m.uuid) el.dataset.uuid = m.uuid; acoesResposta(el, m.texto, ""); window.camadas?.(el); }
     else if (m.papel === "resultado") { ferramentaFim(m.id, m.erro, m.saida + (m.maior ? "…" : "")); planoResultado(m.id, m.tarefa); }
     else { const id = m.id || crypto.randomUUID(); ferramenta(id, m.nome, m.entrada, "ok"); planoUsa(id, m.nome, m.entrada); }
   }
@@ -987,7 +1203,8 @@ async function novaConversa() {
   if (!(await vivo.nova())) return;
   window.transicaoDither?.();
   trocaFila(null);
-  sessaoAtual = null; $("titulo").textContent = "Nova conversa";
+  limpaRascunhos();
+  sessaoAtual = null; $("titulo").textContent = "Nova conversa"; mostraSugestao("");
   turnoVisto = null; turnoN = 0; setRodando(false);
   ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true; entrada.focus();
 }
@@ -1002,9 +1219,10 @@ async function novaNoProjeto(cwd) {
 const mostraPasta = (p) => { $("pastaNome").textContent = p.split(/[\\/]/).pop() || p; $("pasta").title = p; const b = col.querySelector(".boas-pasta span"); if (b) b.textContent = $("pastaNome").textContent; };
 // Choices belong to this conversation; what a running turn cannot take applies from the next message.
 const guardaEscolha = (m) => vivo.config(m).then((r) => { if (rodando && r?.depois?.length) nota("Vale a partir da próxima mensagem."); });
-const mostraEscolhas = (c) => { $("modo").value = c.modo || "default"; $("modelo").value = c.model || ""; $("esforco").value = c.esforco || ""; ultracode = !!c.ultracode; atualizaEscolhas(); };
+let modoPendente = null, computador = false;
+const mostraEscolhas = (c) => { if (c.modo === modoPendente) modoPendente = null; $("modo").value = c.modo || "default"; $("modelo").value = c.model || ""; $("esforco").value = c.esforco || ""; ultracode = !!c.ultracode; computador = !!c.computador; atualizaEscolhas(); };
 $("modelo").onchange = () => guardaEscolha({ model: $("modelo").value });
-$("modo").onchange = () => guardaEscolha({ modo: $("modo").value });
+$("modo").onchange = () => { modoPendente = null; guardaEscolha({ modo: $("modo").value }); };
 $("esforco").onchange = () => guardaEscolha({ esforco: $("esforco").value });
 
 // ---- composer choices ------------------------------------------------------------
@@ -1017,6 +1235,7 @@ const ESCOLHAS = {
     acceptEdits: "Edita arquivos sem perguntar; comandos ainda pedem aprovação.",
     plan: "Só lê e planeja. Não muda nada até você aprovar o plano.",
     auto: "Aprova sozinho o que é seguro e pergunta o resto.",
+    bypassPermissions: "Edita arquivos e roda comandos sem pedir aprovação. Só para projetos em que você confia.",
   } },
   modelo: { titulo: "Modelo", itens: {
     "": "O modelo padrão do seu Claude Code.",
@@ -1038,12 +1257,13 @@ const caixaSelects = document.createElement("div");
 caixaSelects.hidden = true; document.body.append(caixaSelects);
 const seta = svg('<path d="m8 10 4 4 4-4"/>');
 let popAberto = null;
-const fechaEscolhas = () => { popAberto?.classList.remove("on"); popAberto?.previousElementSibling?.setAttribute("aria-expanded", "false"); popAberto = null; };
+const gatilhoDe = (pop) => pop?.closest(".escolha")?.querySelector(":scope > button");
+const fechaEscolhas = () => { popAberto?.classList.remove("on"); gatilhoDe(popAberto)?.setAttribute("aria-expanded", "false"); popAberto = null; };
 function abreEscolha(pop) {
   const ja = popAberto === pop; fechaEscolhas(); if (ja) return;
-  pop.classList.add("on"); pop.previousElementSibling.setAttribute("aria-expanded", "true"); popAberto = pop;
+  pop.classList.add("on"); gatilhoDe(pop).setAttribute("aria-expanded", "true"); popAberto = pop;
 }
-const escolhas = [];
+const escolhas = [], botoesEscolha = {};
 function montaEscolha(id, desenhaPop, rotulo, iconeDe) {
   const sel = $(id), velho = sel.closest(".chip"), icone = velho.querySelector("svg").outerHTML;
   const caixa = document.createElement("div"), btn = document.createElement("button"), pop = document.createElement("div");
@@ -1051,7 +1271,8 @@ function montaEscolha(id, desenhaPop, rotulo, iconeDe) {
   pop.className = "escolha-pop"; pop.setAttribute("role", "dialog");
   caixa.append(btn, pop); velho.replaceWith(caixa); caixaSelects.append(sel);
   const escolhe = (v) => { sel.value = v; sel.dispatchEvent(new Event("change")); atualiza(); };
-  const atualiza = () => { btn.innerHTML = `${iconeDe ? iconeDe(sel) : icone}<span>${esc(rotulo(sel))}</span>${seta}`; btn.title = ESCOLHAS[id]?.titulo || "Esforço"; desenhaPop(pop, sel, escolhe); };
+  botoesEscolha[id] = btn;
+  const atualiza = () => { btn.classList.toggle("perigo", sel.value === "bypassPermissions"); btn.innerHTML = `${iconeDe ? iconeDe(sel) : icone}<span>${esc(rotulo(sel))}</span>${seta}`; btn.title = ESCOLHAS[id]?.titulo || "Esforço"; desenhaPop(pop, sel, escolhe); };
   btn.onclick = (e) => { e.stopPropagation(); abreEscolha(pop); };
   pop.onclick = (e) => e.stopPropagation();
   escolhas.push(atualiza); atualiza();
@@ -1062,11 +1283,17 @@ const ICONES_MODO = {
   acceptEdits: svg('<path d="M14.5 5.5 18.5 9.5 9 19H5v-4z"/><path d="m13 7 4 4"/>'),
   plan: svg('<rect x="4.5" y="4" width="15" height="16.5" rx="2"/><path d="M8.5 9h7M8.5 12.5h7M8.5 16h4"/>'),
   auto: svg('<path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.6 2.6M15.4 15.4 18 18M6 18l2.6-2.6M15.4 8.6 18 6"/>'),
+  bypassPermissions: svg('<path d="M12 4 3.5 19h17z"/><path d="M12 10v4M12 16.8v.2"/>'),
 };
 const menuEscolha = (id) => (pop, sel, escolhe) => {
   const info = ESCOLHAS[id], icones = id === "modo" ? ICONES_MODO : null;
   pop.innerHTML = `<div class="pop-titulo">${info.titulo}</div>` + [...sel.options].map((o) => `<button class="opcao${o.value === sel.value ? " on" : ""}${icones ? " com-icone" : ""}" data-v="${esc(o.value)}">${icones ? `<span class="op-icone">${icones[o.value] || ""}</span>` : ""}<b>${esc(o.textContent)}</b><small>${esc(info.itens[o.value] || "")}</small>${ICONE.ok}</button>`).join("");
-  pop.querySelectorAll(".opcao").forEach((b) => (b.onclick = () => { escolhe(b.dataset.v); fechaEscolhas(); }));
+  pop.querySelectorAll(".opcao").forEach((b) => (b.onclick = () => { escolhe(b.dataset.v); fechaEscolhas(); if (!document.activeElement || document.activeElement === document.body) entrada.focus(); }));
+  if (id === "modo") {
+    // Computer control belongs to this conversation, like Ultracode; it reopens the conversation's Claude Code.
+    pop.insertAdjacentHTML("beforeend", `<div class="esf-ultra"><div><b>Controle do computador</b><small>O Claude vê a tela e usa o mouse e o teclado, só no Windows. Cada app pede a sua aprovação.</small></div><button class="chave" role="switch" aria-checked="${computador}" title="Ligar ou desligar"><i></i></button></div>`);
+    pop.querySelector(".esf-ultra .chave").onclick = () => { computador = !computador; guardaEscolha({ computador }); atualizaEscolhas(); };
+  }
 };
 montaEscolha("modo", menuEscolha("modo"), (s) => s.selectedOptions[0]?.textContent || "", (s) => ICONES_MODO[s.value] || ICONES_MODO.default);
 montaEscolha("modelo", menuEscolha("modelo"), (s) => s.selectedOptions[0]?.textContent || "");
@@ -1148,12 +1375,60 @@ $("expandir").onclick = () => recolhe(false);
 addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n") { e.preventDefault(); vivo.janelaNova(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "n") { e.preventDefault(); novaConversa(); }
-  if (e.ctrlKey && e.key.toLowerCase() === "b") { e.preventDefault(); recolhe(!document.body.classList.contains("recolhido")); }
+  if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "b") { e.preventDefault(); recolhe(!document.body.classList.contains("recolhido")); }
   if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); pulaPrompt(e.key === "ArrowUp" ? -1 : 1); }
   if (e.ctrlKey && e.key === "/") { e.preventDefault(); creditos.classList.contains("on") ? fechaCreditos() : abreAtalhos(); }
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); recolhe(false); $("busca").focus(); $("busca").select(); }
-  if (e.key === "Escape") { fechaPicker(); fechaMenu(); fechaComandos(); fechaEscolhas(); fechaCreditos(); fechaPersonal(); somPop.classList.remove("on"); remotoPop.classList.remove("on"); }
+  if (e.ctrlKey && e.shiftKey && !e.altKey) {
+    const acao = { KeyM: cicloModo, KeyI: () => abreEscolhaDe("modelo"), KeyE: () => abreEscolhaDe("esforco"), KeyP: () => abreEscolhaDe("modo") }[e.code];
+    if (acao) { e.preventDefault(); acao(); return; }
+  }
+  if (e.key === "Escape") {
+    if (e.isComposing || e.keyCode === 229 || e.repeat) return;
+    if (document.activeElement?.closest?.(".cm-caixa")) return;
+    const fechou = fechaAlgo();
+    if (fechou === "fechou") {
+      const a = document.activeElement;
+      if (!a || a === document.body || a.closest(".escolha-pop:not(.on)")) entrada.focus();
+    } else if (!fechou && !inputAlheio(e)) interrompe();
+  }
 });
+
+// ---- Esc and picker shortcuts ------------------------------------------------------------
+// Esc closes whatever is open first; with nothing open it interrupts the running turn.
+const interrompe = () => { if (rodando) vivo.parar(); };
+const inputAlheio = (e) => e.target.closest?.("input, textarea") && e.target !== entrada;
+const tarefasAbertaSemFoco = () => tfSheet && !tfSheet.j.el.classList.contains("fixa") && document.activeElement === document.body;
+// True when Esc had something to close. What this file owns is closed here; the radial menu,
+// floating windows and tasks sheet are only detected, their own handlers close them.
+function fechaAlgo() {
+  const aberto = picker.classList.contains("open") || menu.classList.contains("on") || comandosEl.classList.contains("on") || mencoesEl.classList.contains("on") || popAberto
+    || creditos.classList.contains("on") || $("personal").classList.contains("on") || somPop.classList.contains("on") || remotoPop.classList.contains("on");
+  if (aberto) {
+    fechaPicker(); fechaMenu(); fechaComandos(); fechaMencoes(); fechaEscolhas(); fechaCreditos(); fechaPersonal();
+    somPop.classList.remove("on"); remotoPop.classList.remove("on");
+    return "fechou";
+  }
+  return !!document.querySelector(".radial.on, .janelinha:not(.fixa):focus-within") || !!tarefasAbertaSemFoco();
+}
+function abreEscolhaDe(id) {
+  const btn = botoesEscolha[id]; if (!btn) return;
+  btn.click();
+  if (btn.getAttribute("aria-expanded") !== "true") { entrada.focus(); return; }
+  const pop = btn.nextElementSibling;
+  (pop.querySelector(".opcao.on, .esf-col.sel, .esf-auto.sel") || pop.querySelector("button"))?.focus();
+}
+// Ask, Accept edits, Plan, Auto and around; bypass is never reached from here.
+function cicloModo() {
+  const ordem = ["default", "acceptEdits", "plan", "auto"], sel = $("modo");
+  const proximo = ordem[(ordem.indexOf(modoPendente ?? sel.value) + 1) % ordem.length];
+  sel.value = proximo;
+  sel.dispatchEvent(new Event("change"));
+  modoPendente = proximo;
+  setTimeout(() => { if (modoPendente === proximo) modoPendente = null; }, 3000);
+  atualizaEscolhas();
+  nota(t("Modo: {0}", sel.selectedOptions[0]?.textContent || ""));
+}
 
 // ---- wallpaper and themes ---------------------------------------------------
 const OPT_BIG = { cw: 14, ch: 20, ss: 3 };
@@ -1371,7 +1646,6 @@ $("bibN").textContent = PECAS.size;
 }
 let timerBusca = null;
 $("bibBusca").addEventListener("input", () => { clearTimeout(timerBusca); timerBusca = setTimeout(filtraBib, 160); });
-$("bibBusca").addEventListener("keydown", (e) => { if (e.key === "Escape") fechaPicker(); });
 function filtraBib() {
   // Each word matches the start of a word (so "cat" finds cats, not "location").
   const termos = $("bibBusca").value.toLowerCase().split(/\s+/).filter(Boolean).map((t) => new RegExp("(^|[^a-z0-9])" + t.replace(/[^a-z0-9à-ú-]/g, "")));
@@ -1573,7 +1847,7 @@ async function abreCreditos() {
     <section><h3>A ideia</h3>
       <p>Inspirado no conceito <i>“theme for Claude Code but every wallpaper is alive”</i>, de Marko Vineli, ${link("https://x.com/handsher_NGU/status/2115618341675319417", "visto no X")}. O Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.</p></section>
     <section><h3>Temas animados <small>${THEMES.length}</small></h3>
-      <p>${THEMES.map((t) => esc(t.name)).join(" · ")}</p>
+      <p>${THEMES.map((th) => esc(window.t(th.name))).join(" · ")}</p>
       <p class="fraco">Desenhados para o Claudinho (o app original): motor de mosaico ASCII, interações e música gerada no próprio app. A Honu Lagoon e os temas de água seguem a linguagem visual do vídeo de Marko Vineli. A Galáxia Distante é arte original, sem marcas de terceiros.</p></section>
     <section><h3>Biblioteca ASCII Magic <small>${PECAS.size}</small></h3>
       <p>Animações de ${link("https://www.ascii-magic.com/ascii", "ASCII Magic")} (© 2026 ASCII Magic), licença MIT. <b>Ocean Sunset</b> é baseada numa foto de César Couto e <b>Starry Ridge</b> numa foto de Vincentiu Solomon, ambas sob a ${link("https://unsplash.com/license", "Licença Unsplash")}.</p>
@@ -1581,7 +1855,7 @@ async function abreCreditos() {
     <section><h3>Suas animações <small>${meus.length}</small></h3>
       <p>${meus.length ? meus.map((m) => esc(m.nome)).join(" · ") + ". " : "Nenhuma ainda. "}Feitas por você no ${link("https://www.ascii-motion.com", "ASCII Motion")}, editor de animações ASCII de Cameron Foxly (código aberto, MIT).</p></section>
     <section><h3>Por baixo</h3>
-      <p>${link("https://github.com/anthropics/claude-agent-sdk-typescript", "Claude Agent SDK")} (Anthropic) · ${link("https://www.electronjs.org", "Electron")} (MIT) · ${link("https://marked.js.org", "marked")} (MIT) · ${link("https://zod.dev", "Zod")} (MIT) · fontes ${link("https://rsms.me/inter/", "Inter")} e ${link("https://vercel.com/font", "Geist Mono")} (SIL Open Font License).</p></section>`;
+      <p>${link("https://github.com/anthropics/claude-agent-sdk-typescript", "Claude Agent SDK")} (Anthropic) · ${link("https://www.electronjs.org", "Electron")} (MIT) · ${link("https://marked.js.org", "marked")} (MIT) · ${link("https://mermaid.js.org", "Mermaid")} (MIT) · ${link("https://zod.dev", "Zod")} (MIT) · fontes ${link("https://rsms.me/inter/", "Inter")} e ${link("https://vercel.com/font", "Geist Mono")} (SIL Open Font License).</p></section>`;
   creditosCaixa.querySelector("#fechaCreditos").onclick = fechaCreditos;
   creditos.classList.add("on");
 }
@@ -1603,18 +1877,18 @@ function trocaFila(id) {
 }
 function desenhaFila() {
   const el = $("fila");
-  el.innerHTML = fila.map((f, i) => `<div class="na-fila"><span class="rot">Na fila</span><span class="txt">${esc(f.t || f.junto.map((x) => x.nome).join(", "))}</span><button class="icone" data-i="${i}" title="Tirar da fila">${ICONE.erro}</button></div>`).join("");
+  el.innerHTML = fila.map((f, i) => `<div class="na-fila"><span class="rot">Na fila</span><span class="txt">${esc(f.t || reais(f.junto).map((x) => x.nome).join(", "))}</span><button class="icone" data-i="${i}" title="Tirar da fila">${ICONE.erro}</button></div>`).join("");
   el.querySelectorAll("button").forEach((b) => (b.onclick = () => { fila.splice(+b.dataset.i, 1); desenhaFila(); }));
 }
 async function proximaDaFila() {
   if (rodando || !fila.length) return;
   const { t, junto } = fila.shift(); desenhaFila();
   if (!sessaoAtual && t) $("titulo").textContent = t.length > 60 ? t.slice(0, 60) + "…" : t;
-  const { texto: final, enviados } = juntaColados(t, junto);
+  const { texto: final, enviados, apps } = juntaColados(t, junto);
   meu(t, junto); window.somEvento?.("enviar");
   const bolha = col.lastElementChild;
   setRodando(true); turnoVisto = "novo"; turnoN = 0;
-  if (!(await vivo.enviar(final, enviados))) { setRodando(false); turnoVisto = null; bolha?.remove(); fila.unshift({ t, junto }); desenhaFila(); }
+  if (!(await vivo.enviar(final, enviados, apps))) { setRodando(false); turnoVisto = null; bolha?.remove(); fila.unshift({ t, junto }); desenhaFila(); }
 }
 
 // ---- plan ------------------------------------------------------------------------------
@@ -1696,6 +1970,16 @@ function mostraUso({ contexto, janela, saida }) {
   el.title = `Contexto: ${milhar(contexto)} de ${milhar(janela)} tokens (${p}%).\nÚltima resposta: ${milhar(saida)} tokens escritos.${p >= 80 ? "\nEstá enchendo: /compact resume a conversa." : ""}`;
 }
 
+// ---- computer control ------------------------------------------------------------------
+// Shown while any conversation has an action running (Esc is a global stop key just then).
+const computadorAtivos = new Map(); // tid -> stop key name
+function mostraComputador({ ativo, tecla, tid }) {
+  if (ativo) computadorAtivos.set(tid, tecla || ""); else computadorAtivos.delete(tid);
+  const el = $("computadorAtivo"), teclas = [...computadorAtivos.values()].filter(Boolean);
+  el.hidden = !computadorAtivos.size;
+  if (computadorAtivos.size) el.querySelector("span").textContent = teclas.length ? window.t("Claude está usando o computador, aperte {0} para parar", teclas[0]) : window.t("Claude está usando o computador (sem tecla de parada)");
+}
+
 // ---- prompt cache ----------------------------------------------------------------------
 // Time left before the prompt cache expires: a message sent before then reuses
 // the context instead of reading it all again.
@@ -1736,9 +2020,13 @@ function avisaSistema(titulo, corpo) {
 }
 
 // ---- shortcuts ---------------------------------------------------------------------------
+// The Quick Entry shortcut as written for people ("Ctrl + Alt + Espaço"); empty when it is off.
+let entradaRapidaAtalho = "";
+window.rotuloAtalho = (acel) => String(acel).split("+").map((k) => ({ Control: "Ctrl", Space: window.t("Espaço") })[k] || k).join(" + ");
+window.mostraAtalhoRapida = (c) => { entradaRapidaAtalho = c?.ligada ? window.rotuloAtalho(c.atalho) : ""; };
 function abreAtalhos() {
   const A = [["Enter", "Enviar (com o Claude trabalhando, entra na resposta em andamento)"], ["Ctrl + X, Ctrl + S", "Enviar agora"], ["Shift + Enter", "Nova linha"], ["/", "Comandos do app e do Claude Code"], ["Ctrl + N", "Nova conversa"], ["Ctrl + Shift + N", "Nova janela"], ["Ctrl + K", "Buscar nas conversas"],
-    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Fechar menus e painéis"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"]];
+    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Ctrl + Shift + B", "Mostrar ou fechar o navegador"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Interromper a resposta (se nada estiver aberto, fecha menus e painéis)"], ["Ctrl + Shift + M", "Alternar o modo de permissão"], ["Ctrl + Shift + I", "Escolher o modelo"], ["Ctrl + Shift + E", "Escolher o esforço"], ["Ctrl + Shift + P", "Escolher as permissões"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"], ...(entradaRapidaAtalho ? [[entradaRapidaAtalho, "Entrada rápida: enviar uma mensagem ao Claude de qualquer lugar"]] : [])];
   creditosCaixa.innerHTML = `<div class="cred-topo"><span class="marca"><b>Atalhos</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <section class="atalhos">${A.map(([k, d]) => `<div><kbd>${esc(k)}</kbd><span>${esc(d)}</span></div>`).join("")}</section>`;
   creditosCaixa.querySelector("#fechaCreditos").onclick = fechaCreditos;
@@ -1753,6 +2041,7 @@ $("atalhosBtn").onclick = abreAtalhos;
   const e = await vivo.estado();
   mostraPasta(e.cwd);
   mostraEscolhas(e);
+  window.mostraAtalhoRapida(e.entradaRapida);
   let salvo = ""; try { salvo = localStorage.getItem("tema") || ""; } catch {}
   if (salvo.includes(":")) aplicaChave(salvo); else if (idx(salvo) >= 0) aplica(idx(salvo));
   vivo.motionLista().then((l) => ($("meusN").textContent = l.length));
@@ -1764,10 +2053,12 @@ $("atalhosBtn").onclick = abreAtalhos;
     await carregaSessoes();
     if (sessao) await abreSessao(sessao, sessoes.find((x) => x.id === sessao)?.titulo || "Conversa");
     entrada.focus();
+    vivo.janelaPronta();
   } else {
     carregaSessoes();
     boasVindas(() => {
       document.body.classList.remove("entrando"); entrada.focus();
+      vivo.janelaPronta();
       // Once per launch: a reload of this window doesn't ask again.
       if (!sessionStorage.getItem("claudeChecado")) { sessionStorage.setItem("claudeChecado", "1"); preparaClaude(); }
     });

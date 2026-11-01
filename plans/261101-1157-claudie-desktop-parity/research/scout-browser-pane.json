@@ -1,0 +1,197 @@
+{
+ "feature": "browser-pane: in-app WebContentsView browser, MCP browser tools with per-site approval, launch.json dev servers",
+ "integration_points": [
+  {
+   "file": "src/main.js",
+   "line": 7,
+   "what": "Electron import line 6 needs WebContentsView and session added; SDK import at line 7 already has createSdkMcpServer and tool"
+  },
+  {
+   "file": "src/main.js",
+   "line": 115,
+   "what": "janelas Map of per-window j = { win, sessionId, atual, cwd, term }. Add j.nav = { view, bounds, procs: Map, sitesSessao: Set } lazily, the same way j.term is held (terminalLiga at 1515)"
+  },
+  {
+   "file": "src/main.js",
+   "line": 118,
+   "what": "pendentes Map (permission id -> { resolve, suggestions, input, t, toolName }). The site-approval card reuses it with an extra site field; the existing ipcMain 'permissao' handler (944-955) gets one branch for p.site that persists the host on decisao 'sempre'"
+  },
+  {
+   "file": "src/main.js",
+   "line": 30,
+   "what": "resolveExe(nome): PATH lookup for the dev-server runtimeExecutable on Windows (npm -> npm.cmd). A .cmd needs spawn with shell:true or cmd.exe /c, so wrap the name"
+  },
+  {
+   "file": "src/main.js",
+   "line": 84,
+   "what": "config.json shape. Add config.navegador = { sites: [hosts allowed always] }, written with salvarConfig() (187, atomic tmp+rename)"
+  },
+  {
+   "file": "src/main.js",
+   "line": 202,
+   "what": "servidorTemasPara(t) is the createSdkMcpServer 'claudie' (t.ev emits chat events, t.j is the window). Spread ...ferramentasNavegador(t) into its tools array (line 210-225) and append a browser sentence to its instructions. Do not create a second server: mcp_acao (1040) and the painel already special-case the name 'claudie'"
+  },
+  {
+   "file": "src/main.js",
+   "line": 227,
+   "what": "FERRAMENTAS_TEMA is the allowedTools list with no card. Add FERRAMENTAS_NAVEGADOR (browser_* tools, gated by the host check inside the handler). Leave the server-control tools (servidor_iniciar, servidor_parar) out of the list so canUseTool shows the generic card with the command"
+  },
+  {
+   "file": "src/main.js",
+   "line": 240,
+   "what": "ajustaImagem(dados, mime) shrinks an image under 5 MB base64 and 8000 px. Reuse it on the screenshot before returning the MCP image block"
+  },
+  {
+   "file": "src/main.js",
+   "line": 608,
+   "what": "query options: allowedTools: [...FERRAMENTAS_TEMA, ...FERRAMENTAS_PLANO] gets ...FERRAMENTAS_NAVEGADOR. canUseTool at 609-620 is the permission card flow (pendentes.set + t.pendentes.set + ev(pedido) + avisaTurnos + signal abort). Extract it into pedeAprovacao(t, dados) and call it from the browser tools"
+  },
+  {
+   "file": "src/main.js",
+   "line": 807,
+   "what": "criarJanela(sessao): creates the BrowserWindow (sandbox true, preload preload.cjs). Closed handler at 839-846 calls terminalMata(j): add navegadorFecha(j) next to it, which kills dev servers and destroys the view. The new WebContentsView is added with win.contentView.addChildView"
+  },
+  {
+   "file": "src/main.js",
+   "line": 879,
+   "what": "win.webContents.setWindowOpenHandler opens https in the system browser. Leave it for the app window. Add an equivalent on the view's webContents that loads the URL in the same view (deny the popup) and blocks non-http(s)"
+  },
+  {
+   "file": "src/main.js",
+   "line": 1026,
+   "what": "claudeCli(args, cwd): execFile pattern with windowsHide (reference, not reused). Dev servers use spawn like terminalLiga"
+  },
+  {
+   "file": "src/main.js",
+   "line": 1422,
+   "what": "mesmoCaminho(a,b); dentroDaPasta(pasta, rel) at 53 resolves the configuration cwd inside the project and returns null if it escapes, so launch.json cwd cannot point outside the project folder"
+  },
+  {
+   "file": "src/main.js",
+   "line": 1506,
+   "what": "terminalMata(j, sincrono): taskkill /PID /T /F on win32, process.kill(-pid) on posix. Extract the tree-kill into matarArvore(p, sincrono) and have both terminal and dev servers call it"
+  },
+  {
+   "file": "src/main.js",
+   "line": 1515,
+   "what": "terminalLiga(j): spawn with detached on non-win32, windowsHide, stdout/stderr data forwarded via enviarEvento(j, {tipo:'terminal'}), exit and error handlers. Template for dev-server spawn"
+  },
+  {
+   "file": "src/main.js",
+   "line": 1674,
+   "what": "ipcMain.handle('link') opens https externally. Keep it. The conversation links in the renderer (app.js:690 abreLinkDaConversa) get a modifier: plain click or a local URL goes to vivo.navAbrir(url) when the pane is open"
+  },
+  {
+   "file": "src/main.js",
+   "line": 1832,
+   "what": "app.on('before-quit') kills terminals synchronously. Add for (const j of janelas.values()) navegadorFecha(j, true) so the dev servers die with the app (taskkill /T /F via execFileSync)"
+  },
+  {
+   "file": "src/main.js",
+   "line": 1840,
+   "what": "window-all-closed quits the app. Closing a window already runs navegadorFecha from the closed handler, and before-quit covers the rest"
+  },
+  {
+   "file": "src/preload.cjs",
+   "line": 70,
+   "what": "Add exposed calls near termEnviar/termParar: navAbrir(url), navAcao('voltar'|'avancar'|'recarregar'), navArea(rect|null), navEstado(), navServidores(), navServidorIniciar(nome), navServidorParar(nome). Events come over the existing aoEvento stream (tipos nav_estado, nav_servidor)"
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 302,
+   "what": "permissao(ev) builds the card. For ev.site add a line with the host and rename the 'Sempre nesta sessão' button (line 318) to 'Sempre neste site'. The event switch at 357 needs no change: it already routes 'permissao'"
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 184,
+   "what": "ROTULO/PEDIDO/icon maps (lines 35, 179-189): add labels for mcp__claudie__browser_* and servidor_* so cards say 'Abriu página', 'Tirou captura' and so on. They then show up in the i18n scan"
+  },
+  {
+   "file": "src/renderer/os.js",
+   "line": 16,
+   "what": "janelinha() floating windows are DOM. A native WebContentsView always paints above the DOM, so a floating DOM janelinha would be covered by the pane. Pick a docked pane (new aside in the grid like .info). ACOES_RADIAL (os.js:233) can get a 'Navegador' action"
+  },
+  {
+   "file": "src/renderer/terminal.js",
+   "line": 18,
+   "what": "Pattern for a new button before #infoBtn (botaoTerm.before) and a panel inserted in the layout. New src/renderer/navegador.js follows it. Add <script src=\"navegador.js\"></script> in index.html after terminal.js (line 168)"
+  },
+  {
+   "file": "src/renderer/app.css",
+   "line": 872,
+   "what": "Grid: .app columns var(--lado) 1fr var(--info); .info occupies column 3. Add a column 4 (--nav width, body.nav-aberto) with .navegador {grid-column:4; grid-row:1/3}. The placeholder div .nav-tela inside it is what navArea() measures with getBoundingClientRect (ResizeObserver) so the main process can setBounds"
+  },
+  {
+   "file": "src/renderer/painel.js",
+   "line": 14,
+   "what": "Menu to start dev servers: the pane toolbar hosts a servers dropdown. Optionally also a section in the details panel (secao() at line 27) listing running servers with Parar. Use the pane menu only, for KISS"
+  },
+  {
+   "file": "src/renderer/i18n/parts",
+   "what": "New file navegador.json with pt key -> en/vi for every new UI string (format as remoto.json). The portuguese key is the source text"
+  },
+  {
+   "file": "README.md",
+   "line": 126,
+   "what": "Testing section: document how to check the pane (VIVO_JS=\"vivo.navAbrir('http://localhost:PORT')\" with VIVO_FOTO) and the launch.json support"
+  }
+ ],
+ "design": "New file src/navegador.js (ESM, plain JS, like tarefas.js: takes injected deps so main.js stays the owner of state). Exports iniciaNavegador(deps) returning { navegadorFecha, ferramentasNavegador, registraIpc }.\n\nPane (per window, lazily created, stored in j.nav):\n- navegadorGarante(j): new WebContentsView({ webPreferences: { partition: \"persist:preview\", sandbox: true, contextIsolation: true, nodeIntegration: false } }); j.win.contentView.addChildView(view); view.setVisible(false) until the renderer reports a rect.\n- Session hardening once: session.fromPartition(\"persist:preview\").setPermissionRequestHandler((_,__,cb)=>cb(false)); view.webContents 'will-navigate' and 'will-redirect' reject any scheme except http/https; setWindowOpenHandler loads the URL in the same view and returns deny.\n- Events on view.webContents (did-navigate, did-navigate-in-page, page-title-updated, did-start-loading, did-stop-loading, did-fail-load) feed navegadorEstado(j) -> enviarEvento(j, {tipo:'nav_estado', url, titulo, voltar: wc.navigationHistory.canGoBack(), avancar: canGoForward(), carregando}).\n- IPC (ipcMain.handle, J(e) like the others): nav_abrir(url) (normalizes: bare host becomes https://, localhost/127.0.0.1/[::1] becomes http://; person-typed, no approval), nav_acao(voltar|avancar|recarregar) via wc.navigationHistory.goBack/goForward/reload, nav_area(rect|null) which does view.setBounds(rounded rect) + setVisible(!!rect), nav_estado.\n- Renderer src/renderer/navegador.js: aside.navegador in grid column 4 (body.nav-aberto sets --nav: 520px), toolbar with back/forward/reload buttons, URL input (Enter calls vivo.navAbrir), a servers dropdown, and a placeholder div.nav-tela. A ResizeObserver plus window resize send getBoundingClientRect to vivo.navArea; closing the pane or opening a modal overlay sends navArea(null) to hide the native view. Toggle button before #infoBtn (pattern of botaoTerm in terminal.js) and shortcut Ctrl+Shift+B in interface.js keymap. The pane is docked, not a floating janelinha, because native views draw above DOM.\n\nMCP tools (added to servidorTemasPara via ...ferramentasNavegador(t), each { alwaysLoad: true }, zod schemas):\n- browser_navigate({url}): garanteSite(t, url), then wc.loadURL and wait for did-stop-loading (15 s cap); opens the pane (enviarEvento 'nav_mostrar').\n- browser_screenshot(): wc.capturePage() -> toPNG -> ajustaImagem(base64,'image/png') (main.js:241) -> { content:[{type:'image', data, mimeType}] }.\n- browser_read({seletor?}): wc.executeJavaScript on document.body.innerText (cap 20000 chars) plus the URL and title; optional mode 'arvore' uses debugger Accessibility.getFullAXTree flattened to role/name lines with element refs.\n- browser_click({seletor | x,y}) and browser_type({seletor, texto, enviar?}): wc.debugger.attach('1.3') once per view; resolve the selector with Runtime.evaluate (getBoundingClientRect center, scrollIntoView), then Input.dispatchMouseEvent mousePressed/mouseReleased; type focuses the element and uses Input.insertText, then Input.dispatchKeyEvent Enter when enviar is true. Detach on view destroy.\n- Every browser_* handler other than navigate first calls garanteSite(t, wc.getURL()), so a redirect or a page the person navigated to is gated too.\n- garanteSite(t, url): host = new URL(url).hostname; allowed without a card if loopback, a host of a running launch.json server, in j.nav.sitesSessao, or in config.navegador.sites. Otherwise pedeAprovacao(t, { tipo:'permissao', ferramenta:'mcp__claudie__browser', entrada:{url}, motivo:'Claude quer abrir ' + host, temSempre:true, site: host }) which returns the same Promise as canUseTool; pendentes entry carries site. A deny returns isError text 'A pessoa negou o acesso a <host>'. Decision 'sim' adds host to sitesSessao only for this tool call's page (once); 'sempre' persists host in config.navegador.sites + salvarConfig(). Extract the canUseTool body (main.js:609-620) into pedeAprovacao so both share it (DRY).\n\nDev servers (<cwd>/.claude/launch.json, schema version + configurations[{name, runtimeExecutable, runtimeArgs, port, url, cwd, env}]):\n- leLaunch(j): fs.readFileSync(path.join(j.cwd,'.claude','launch.json')), JSON.parse in try/catch, validate array and strings, return [] on any error; cwd from the entry resolved with dentroDaPasta(j.cwd, cfg.cwd) (main.js:53) falling back to j.cwd.\n- servidorIniciar(j, nome): refuse if j.nav.procs has nome (reuse, no duplicate); if config.port is already accepting on 127.0.0.1 (net.connect probe) return an error naming the busy port instead of picking another (process-management rule); spawn(resolveExe(runtimeExecutable) wrapped in cmd.exe /c for .cmd/.bat, runtimeArgs, { cwd, env:{...process.env, ...cfg.env, PORT:String(port)}, windowsHide:true, detached: process.platform!=='win32' }) as terminalLiga does (main.js:1519); keep { p, port, url, log: ring buffer 200 lines } in j.nav.procs; poll the port (500 ms, 60 s cap) then enviarEvento(j,{tipo:'nav_servidor', nome, estado:'rodando', url}) and load url || http://localhost:port in the pane. exit/error handlers delete the entry and emit estado 'parado'.\n- servidorParar(j, nome) and navegadorFecha(j, sincrono): matarArvore(p, sincrono), the function extracted from terminalMata (main.js:1506-1514). Called from the window 'closed' handler (main.js:839), before-quit (main.js:1832), and by destroying the view with view.webContents.close().\n- IPC: nav_servidores (list launch.json names with running state) / nav_servidor_iniciar / nav_servidor_parar for the pane menu; MCP tools servidor_listar, servidor_iniciar, servidor_parar, servidor_logs for Claude (the start/stop ones are not in allowedTools so the normal card shows the command before it runs).\n\nWiring: main.js imports { iniciaNavegador } from './navegador.js' near line 18 and calls it with { J, janelas, enviarEvento, pendentes, config getter, salvarConfig, resolveExe, dentroDaPasta, matarArvore, ajustaImagem, pedeAprovacao, ipcMain, WebContentsView, session }. Changes to the existing link handlers: keep shell.openExternal at main.js:879 and 1674 (links in the chat open the system browser, as today); add to the pane's own link behavior only. Optionally a renderer link-click with Alt calls vivo.navAbrir. UI strings in Portuguese keys with src/renderer/i18n/parts/navegador.json (en, vi).",
+ "files_to_create": [
+  "src/navegador.js",
+  "src/renderer/navegador.js",
+  "src/renderer/i18n/parts/navegador.json"
+ ],
+ "files_to_modify": [
+  "src/main.js",
+  "src/preload.cjs",
+  "src/renderer/app.js",
+  "src/renderer/app.css",
+  "src/renderer/index.html",
+  "src/renderer/interface.js",
+  "src/renderer/os.js",
+  "README.md"
+ ],
+ "reuse": [
+  "src/main.js:30 resolveExe (PATH lookup on Windows, avoids project-planted exes)",
+  "src/main.js:53 dentroDaPasta (confine launch.json cwd to the project)",
+  "src/main.js:187 salvarConfig (atomic config write) for config.navegador.sites",
+  "src/main.js:202 servidorTemasPara + tool(..., { alwaysLoad: true }) pattern and src/main.js:198 texto() helper",
+  "src/main.js:241 ajustaImagem for screenshots",
+  "src/main.js:609-620 canUseTool card flow and src/main.js:944 'permissao' IPC for the site approval card",
+  "src/main.js:1506 terminalMata and 1515 terminalLiga for process spawn, tree kill and per-window tracking",
+  "src/main.js:190 enviarEvento for nav_estado and nav_servidor events",
+  "src/renderer/terminal.js:18 button-before-infoBtn and panel pattern",
+  "src/renderer/app.js:302 permissao() card renderer",
+  "src/renderer/i18n/parts/remoto.json format"
+ ],
+ "new_dependencies": [],
+ "risks": [
+  "A WebContentsView paints above all DOM: floating janelinhas, menus and the radial menu are hidden behind it inside its rect. Mitigation: dock it in its own grid column, and hide it (navArea(null)) while a modal or overlay is open. A true floating pane is not possible without a separate BrowserWindow.",
+  "The window uses offscreen when VIVO_GRAVAR is set (main.js:814), where child views may not render; the recording mode should skip the pane.",
+  "Prompt injection: page text returned by browser_read is untrusted data going to Claude. Per-site approval, no file: scheme and denied permissions limit it, but Claude reading a site and then typing into another still needs the same card on each host.",
+  "Spawning a runtimeExecutable from a project file runs project code. Claude-initiated starts go through the normal approval card; the person's own menu click is consent. Env values and cwd come from the file, so cwd is confined with dentroDaPasta and env is merged as strings only.",
+  "On Windows npm/pnpm are .cmd shims and spawn without a shell fails with EINVAL on recent Node; the wrapper must use cmd.exe /c with args quoted, and tree kill must be taskkill /T /F (npm spawns grandchildren).",
+  "Port-busy check races with the process starting; if the port is held by a stale server not tracked by Claudie it is reported to the person, not killed (process-management rules say do not kill what you did not start).",
+  "Debugger attach fails if devtools is open or already attached; keep one attach per view and re-attach on 'detach' event.",
+  "Each window has its own view and its own dev servers; the persist:preview partition is shared across windows (cookies shared, as in Claude Desktop 'keep cookies').",
+  "before-quit sync kill must run for every window including ones already closed; navegadorFecha has to be idempotent."
+ ],
+ "verification": [
+  "node --check src/main.js && node --check src/navegador.js && node --check src/preload.cjs && node --check src/renderer/navegador.js",
+  "VIVO_JS=\"vivo.navAbrir('https://example.com').then(()=>new Promise(r=>setTimeout(r,2500)))\" VIVO_FOTO=nav.png npm start, then view nav.png: pane docked with the page and url bar",
+  "Dev server: create a temp folder with .claude/launch.json {\"version\":\"0.0.1\",\"configurations\":[{\"name\":\"web\",\"runtimeExecutable\":\"node\",\"runtimeArgs\":[\"-e\",\"require('http').createServer((q,r)=>r.end('ok')).listen(5199)\"],\"port\":5199}]}, launch with VIVO_PASTA=that folder and VIVO_JS=\"vivo.navServidorIniciar('web')\", then curl http://localhost:5199 and check the pane URL",
+  "Quit the app, then netstat -ano | findstr 5199 must show nothing (no orphan), and also after closing only a window",
+  "VIVO_LOG=1 VIVO_PASTA=folder VIVO_TESTE=\"Open https://example.com in the browser pane, read it and screenshot it\" npm start: expect a permission card for example.com, then browser_navigate/read/screenshot tool events, and 'Sempre neste site' persists the host in %APPDATA%\\Claudie-teste\\config.json",
+  "Deny path: answer Negar on the card and check the tool returns the isError text and the page does not load",
+  "Check start of a second server on an occupied port returns the busy-port error without spawning",
+  "Check typing a file:// or javascript: URL in the url bar is rejected"
+ ],
+ "open_questions": [
+  "Docked only, or must a floating pane be supported? Native views can't be floated among DOM janelinhas, so the design docks it (column 4); floating would need a child BrowserWindow.",
+  "Should loopback sites and launch.json servers skip the approval card (assumed yes)?",
+  "Should links clicked in the conversation open in the pane instead of the system browser (assumed: stay external unless Alt-click, to keep today's behavior)?",
+  "autoPort/autoVerify from Claude Desktop's launch.json are out of the requested schema and not planned.",
+  "Is the Claude in Chrome flag (main.js:72) to stay on alongside the new tools? Claude may then have two browser toolsets; a systemPrompt hint on preference may be needed."
+ ]
+}

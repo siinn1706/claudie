@@ -1,0 +1,398 @@
+{
+  "Nada registrado ainda.": {
+    "en": "Nothing logged yet.",
+    "vi": "Chưa có nhật ký nào."
+  },
+  "Conectado.": {
+    "en": "Connected.",
+    "vi": "Đã kết nối."
+  },
+  "O login não terminou.": {
+    "en": "The sign-in did not finish.",
+    "vi": "Đăng nhập chưa hoàn tất."
+  },
+  "Siga as instruções no navegador que abriu…": {
+    "en": "Follow the steps in the browser that opened…",
+    "vi": "Làm theo hướng dẫn trong trình duyệt vừa mở…"
+  },
+  "Termine no terminal: abra o Claude Code e rode o comando de plugin lá.": {
+    "en": "Finish in a terminal: open Claude Code and run the plugin command there.",
+    "vi": "Hoàn tất trong terminal: mở Claude Code và chạy lệnh plugin ở đó."
+  },
+  "Instale o Claude Code neste computador para gerenciar isso (o app usa o comando claude).": {
+    "en": "Install Claude Code on this computer to manage this (the app uses the claude command).",
+    "vi": "Hãy cài Claude Code trên máy này để quản lý mục này (ứng dụng dùng lệnh claude)."
+  },
+  "Plugins": {
+    "en": "Plugins",
+    "vi": "Plugin"
+  },
+  "Plugins trazem comandos, skills e conectores. Eles vêm de marketplaces e rodam código de terceiros: confie na fonte antes de instalar.": {
+    "en": "Plugins bring commands, skills and connectors. They come from marketplaces and run third-party code: trust the source before installing.",
+    "vi": "Plugin mang đến lệnh, skill và trình kết nối. Chúng đến từ các marketplace và chạy mã của bên thứ ba: hãy tin tưởng nguồn trước khi cài."
+  },
+  "Marketplaces": {
+    "en": "Marketplaces",
+    "vi": "Marketplace"
+  },
+  "Remover um marketplace desinstala os plugins que vieram dele.": {
+    "en": "Removing a marketplace uninstalls the plugins that came from it.",
+    "vi": "Gỡ một marketplace sẽ gỡ cài đặt các plugin đến từ nó."
+  },
+  "Nenhum marketplace adicionado.": {
+    "en": "No marketplace added.",
+    "vi": "Chưa thêm marketplace nào."
+  },
+  "usuario/repositorio, https://… ou uma pasta": {
+    "en": "owner/repo, https://… or a folder",
+    "vi": "chủ-sở-hữu/kho, https://… hoặc một thư mục"
+  },
+  "Atualizar todos": {
+    "en": "Update all",
+    "vi": "Cập nhật tất cả"
+  },
+  "Adicionar o marketplace {0} em «{1}»? Os plugins dele rodam código de terceiros.": {
+    "en": "Add the marketplace {0} to “{1}”? Its plugins run third-party code.",
+    "vi": "Thêm marketplace {0} vào «{1}»? Các plugin của nó chạy mã của bên thứ ba."
+  },
+  "Confirmar": {
+    "en": "Confirm",
+    "vi": "Xác nhận"
+  },
+  "Instalados": {
+    "en": "Installed",
+    "vi": "Đã cài"
+  },
+  "sincronizado do claude.ai": {
+    "en": "synced from claude.ai",
+    "vi": "đồng bộ từ claude.ai"
+  },
+  "ativo": {
+    "en": "active",
+    "vi": "đang bật"
+  },
+  "desativado": {
+    "en": "disabled",
+    "vi": "đã tắt"
+  },
+  "Desativar": {
+    "en": "Disable",
+    "vi": "Tắt"
+  },
+  "Desinstalar": {
+    "en": "Uninstall",
+    "vi": "Gỡ cài đặt"
+  },
+  "Nenhum plugin instalado.": {
+    "en": "No plugin installed.",
+    "vi": "Chưa cài plugin nào."
+  },
+  "Disponíveis": {
+    "en": "Available",
+    "vi": "Có sẵn"
+  },
+  "Buscar plugins": {
+    "en": "Search plugins",
+    "vi": "Tìm plugin"
+  },
+  "Instalar": {
+    "en": "Install",
+    "vi": "Cài đặt"
+  },
+  "Mostrando {0} de {1}. Use a busca para achar o resto.": {
+    "en": "Showing {0} of {1}. Use search to find the rest.",
+    "vi": "Hiển thị {0} trên {1}. Dùng ô tìm kiếm để tìm phần còn lại."
+  },
+  "Nenhum plugin encontrado.": {
+    "en": "No plugin found.",
+    "vi": "Không tìm thấy plugin nào."
+  },
+  "Marketplace adicionado.": {
+    "en": "Marketplace added.",
+    "vi": "Đã thêm marketplace."
+  },
+  "Marketplace atualizado.": {
+    "en": "Marketplace updated.",
+    "vi": "Đã cập nhật marketplace."
+  },
+  "Marketplace removido.": {
+    "en": "Marketplace removed.",
+    "vi": "Đã gỡ marketplace."
+  },
+  "Plugin instalado.": {
+    "en": "Plugin installed.",
+    "vi": "Đã cài plugin."
+  },
+  "Plugin ativado.": {
+    "en": "Plugin enabled.",
+    "vi": "Đã bật plugin."
+  },
+  "Plugin desativado.": {
+    "en": "Plugin disabled.",
+    "vi": "Đã tắt plugin."
+  },
+  "Plugin atualizado.": {
+    "en": "Plugin updated.",
+    "vi": "Đã cập nhật plugin."
+  },
+  "Plugin desinstalado.": {
+    "en": "Plugin uninstalled.",
+    "vi": "Đã gỡ cài đặt plugin."
+  },
+  "Skills": {
+    "en": "Skills",
+    "vi": "Skill"
+  },
+  "Uma skill é uma pasta com um arquivo SKILL.md que ensina o Claude a fazer algo do seu jeito. Ligar e desligar skills não é possível aqui: apague a que não quer mais.": {
+    "en": "A skill is a folder with a SKILL.md file that teaches Claude to do something your way. Turning skills on and off is not possible here: delete the one you no longer want.",
+    "vi": "Skill là một thư mục có tệp SKILL.md dạy Claude làm việc theo cách của bạn. Ở đây không thể bật/tắt skill: hãy xóa skill bạn không muốn nữa."
+  },
+  "Nova skill": {
+    "en": "New skill",
+    "vi": "Skill mới"
+  },
+  "Abrir pasta das suas skills": {
+    "en": "Open your skills folder",
+    "vi": "Mở thư mục skill của bạn"
+  },
+  "Abrir pasta das skills do projeto": {
+    "en": "Open the project skills folder",
+    "vi": "Mở thư mục skill của dự án"
+  },
+  "nome-da-skill": {
+    "en": "skill-name",
+    "vi": "ten-skill"
+  },
+  "Quando o Claude deve usar esta skill (uma linha)": {
+    "en": "When Claude should use this skill (one line)",
+    "vi": "Khi nào Claude nên dùng skill này (một dòng)"
+  },
+  "Para todos os projetos": {
+    "en": "For all projects",
+    "vi": "Cho mọi dự án"
+  },
+  "Só para este projeto": {
+    "en": "For this project only",
+    "vi": "Chỉ cho dự án này"
+  },
+  "Criar": {
+    "en": "Create",
+    "vi": "Tạo"
+  },
+  "suas": {
+    "en": "yours",
+    "vi": "của bạn"
+  },
+  "do projeto": {
+    "en": "project",
+    "vi": "của dự án"
+  },
+  "Abrir": {
+    "en": "Open",
+    "vi": "Mở"
+  },
+  "Nenhuma skill sua ainda.": {
+    "en": "No skills of yours yet.",
+    "vi": "Bạn chưa có skill nào."
+  },
+  "Comandos e skills de plugins": {
+    "en": "Plugin commands and skills",
+    "vi": "Lệnh và skill của plugin"
+  },
+  "Skill criada: {0}": {
+    "en": "Skill created: {0}",
+    "vi": "Đã tạo skill: {0}"
+  },
+  "Skill apagada: {0}": {
+    "en": "Skill deleted: {0}",
+    "vi": "Đã xóa skill: {0}"
+  },
+  "Conectores dão ao Claude acesso a outros serviços. Adicionar não envia nenhuma credencial: o login é feito pelo próprio Claude Code.": {
+    "en": "Connectors give Claude access to other services. Adding one sends no credentials: the sign-in is done by Claude Code itself.",
+    "vi": "Trình kết nối cho Claude truy cập các dịch vụ khác. Thêm trình kết nối không gửi thông tin đăng nhập nào: việc đăng nhập do chính Claude Code thực hiện."
+  },
+  "Catálogo": {
+    "en": "Catalog",
+    "vi": "Danh mục"
+  },
+  "Adicionado": {
+    "en": "Added",
+    "vi": "Đã thêm"
+  },
+  "Abrir no terminal": {
+    "en": "Open in terminal",
+    "vi": "Mở trong terminal"
+  },
+  "Logs": {
+    "en": "Logs",
+    "vi": "Nhật ký"
+  },
+  "Esconder logs": {
+    "en": "Hide logs",
+    "vi": "Ẩn nhật ký"
+  },
+  "Conectores desta conversa": {
+    "en": "Connectors in this conversation",
+    "vi": "Trình kết nối của cuộc trò chuyện này"
+  },
+  "{0} adicionado. Clique em Entrar para fazer o login.": {
+    "en": "{0} added. Click Sign in to log in.",
+    "vi": "Đã thêm {0}. Bấm Đăng nhập để đăng nhập."
+  },
+  "entrando…": {
+    "en": "signing in…",
+    "vi": "đang đăng nhập…"
+  },
+  "Produtividade": {
+    "en": "Productivity",
+    "vi": "Năng suất"
+  },
+  "Gestão de projetos": {
+    "en": "Project management",
+    "vi": "Quản lý dự án"
+  },
+  "Monitoramento": {
+    "en": "Monitoring",
+    "vi": "Giám sát"
+  },
+  "Pagamentos": {
+    "en": "Payments",
+    "vi": "Thanh toán"
+  },
+  "Design": {
+    "en": "Design",
+    "vi": "Thiết kế"
+  },
+  "Infraestrutura": {
+    "en": "Infrastructure",
+    "vi": "Hạ tầng"
+  },
+  "Documentação": {
+    "en": "Documentation",
+    "vi": "Tài liệu"
+  },
+  "Buscar e editar páginas e bancos de dados do Notion": {
+    "en": "Search and edit Notion pages and databases",
+    "vi": "Tìm và chỉnh sửa trang và cơ sở dữ liệu Notion"
+  },
+  "Consultar e criar tarefas e projetos do Linear": {
+    "en": "Query and create Linear issues and projects",
+    "vi": "Tra cứu và tạo công việc, dự án trong Linear"
+  },
+  "Investigar erros e problemas de desempenho do Sentry": {
+    "en": "Investigate Sentry errors and performance issues",
+    "vi": "Điều tra lỗi và vấn đề hiệu năng trong Sentry"
+  },
+  "Repositórios, issues e pull requests do GitHub (precisa de um token pessoal)": {
+    "en": "GitHub repositories, issues and pull requests (needs a personal token)",
+    "vi": "Kho mã, issue và pull request của GitHub (cần token cá nhân)"
+  },
+  "Jira e Confluence da sua organização": {
+    "en": "Your organization's Jira and Confluence",
+    "vi": "Jira và Confluence của tổ chức bạn"
+  },
+  "Tarefas, projetos e metas do Asana": {
+    "en": "Asana tasks, projects and goals",
+    "vi": "Công việc, dự án và mục tiêu trong Asana"
+  },
+  "Clientes, cobranças e documentação da Stripe": {
+    "en": "Stripe customers, charges and documentation",
+    "vi": "Khách hàng, khoản thanh toán và tài liệu của Stripe"
+  },
+  "Pedidos, faturas e transações do PayPal": {
+    "en": "PayPal orders, invoices and transactions",
+    "vi": "Đơn hàng, hóa đơn và giao dịch của PayPal"
+  },
+  "Ler designs do Figma para gerar código": {
+    "en": "Read Figma designs to generate code",
+    "vi": "Đọc thiết kế Figma để tạo mã"
+  },
+  "Workers, KV, R2 e D1 da sua conta Cloudflare": {
+    "en": "Workers, KV, R2 and D1 of your Cloudflare account",
+    "vi": "Workers, KV, R2 và D1 của tài khoản Cloudflare"
+  },
+  "Documentação atualizada de bibliotecas (a chave de API é opcional)": {
+    "en": "Up-to-date library documentation (the API key is optional)",
+    "vi": "Tài liệu thư viện mới nhất (khóa API là tùy chọn)"
+  },
+  "Projetos, deploys e logs da Vercel": {
+    "en": "Vercel projects, deployments and logs",
+    "vi": "Dự án, bản triển khai và nhật ký của Vercel"
+  },
+  "O Claude Code demorou demais para responder.": {
+    "en": "Claude Code took too long to answer.",
+    "vi": "Claude Code phản hồi quá lâu."
+  },
+  "Este plugin pede uma confirmação no terminal.": {
+    "en": "This plugin asks for a confirmation in a terminal.",
+    "vi": "Plugin này yêu cầu xác nhận trong terminal."
+  },
+  "Não deu certo.": {
+    "en": "It did not work.",
+    "vi": "Không thành công."
+  },
+  "Resposta inesperada do Claude Code.": {
+    "en": "Unexpected answer from Claude Code.",
+    "vi": "Phản hồi bất ngờ từ Claude Code."
+  },
+  "Já há um login de conector em andamento.": {
+    "en": "A connector sign-in is already in progress.",
+    "vi": "Đang có một phiên đăng nhập trình kết nối."
+  },
+  "Os conectores de plugins são geridos pelo plugin.": {
+    "en": "Plugin connectors are managed by the plugin.",
+    "vi": "Trình kết nối của plugin do chính plugin quản lý."
+  },
+  "Nome de conector inválido.": {
+    "en": "Invalid connector name.",
+    "vi": "Tên trình kết nối không hợp lệ."
+  },
+  "Não encontrei um terminal neste computador.": {
+    "en": "I could not find a terminal on this computer.",
+    "vi": "Không tìm thấy terminal trên máy này."
+  },
+  "Identificador de plugin inválido.": {
+    "en": "Invalid plugin identifier.",
+    "vi": "Mã plugin không hợp lệ."
+  },
+  "Fonte inválida: use usuario/repositorio, um endereço https ou uma pasta existente.": {
+    "en": "Invalid source: use owner/repo, an https address or an existing folder.",
+    "vi": "Nguồn không hợp lệ: dùng chủ-sở-hữu/kho, địa chỉ https hoặc một thư mục có sẵn."
+  },
+  "Nome de marketplace inválido.": {
+    "en": "Invalid marketplace name.",
+    "vi": "Tên marketplace không hợp lệ."
+  },
+  "Origem de skill inválida.": {
+    "en": "Invalid skill origin.",
+    "vi": "Nguồn skill không hợp lệ."
+  },
+  "Nome de skill inválido.": {
+    "en": "Invalid skill name.",
+    "vi": "Tên skill không hợp lệ."
+  },
+  "Use só letras minúsculas, números e hífen no nome (até 64).": {
+    "en": "Use only lowercase letters, numbers and hyphens in the name (up to 64).",
+    "vi": "Chỉ dùng chữ thường, số và dấu gạch ngang trong tên (tối đa 64)."
+  },
+  "Descreva a skill em uma linha de até 500 caracteres.": {
+    "en": "Describe the skill in one line of up to 500 characters.",
+    "vi": "Mô tả skill trong một dòng tối đa 500 ký tự."
+  },
+  "Escolha onde guardar a skill.": {
+    "en": "Choose where to keep the skill.",
+    "vi": "Chọn nơi lưu skill."
+  },
+  "Já existe uma skill com esse nome.": {
+    "en": "A skill with that name already exists.",
+    "vi": "Đã có skill với tên này."
+  },
+  "Essa pasta não é uma skill.": {
+    "en": "That folder is not a skill.",
+    "vi": "Thư mục đó không phải là skill."
+  },
+  "Um caminho com % não abre no terminal do Windows.": {
+    "en": "A path containing % cannot be opened in the Windows terminal.",
+    "vi": "Đường dẫn chứa % không thể mở trong terminal của Windows."
+  }
+}

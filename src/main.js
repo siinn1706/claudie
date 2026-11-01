@@ -3,7 +3,7 @@
 // messages are forwarded to the window as small events, and tool permission
 // requests wait for the person's answer in the window.
 
-import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, nativeImage, protocol, net, safeStorage } from "electron";
+import { app, BrowserWindow, Menu, Tray, Notification, powerSaveBlocker, powerMonitor, ipcMain, dialog, shell, globalShortcut, nativeImage, protocol, net, safeStorage, session, WebContentsView, screen } from "electron";
 import { query as querySdk, listSessions, getSessionMessages, renameSession, deleteSession, forkSession, createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import atualizador from "electron-updater";
@@ -15,6 +15,11 @@ import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { acharClaudeExe, acharClaudeExeAsync, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
+import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo, listaApps, appsMencionados, preAprova, linhaApps } from "./computador.js";
+import { iniciaNavegador, FERRAMENTAS_NAVEGADOR, PROMPT_NAVEGADOR } from "./navegador.js";
+import { iniciaAgenda, traduzErro, validaRepete, proximaExecucao } from "./agendadas.js";
+import { nomeMcpValido, idPluginValido, fonteMercadoValida, lerSkills, criarSkill, apagarSkill, caminhoSkill, pastaDeSkills, catalogo, ansi, redige, ringLog } from "./extensoes.js";
+import { iniciaCaptura } from "./captura.js";
 import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -54,25 +59,52 @@ function acharClaude() {
 }
 // Warms the same cache without blocking the main thread (the sync lookup runs the probes inline).
 function aquecerClaude() {
-  if (claudeExe !== undefined) return;
-  acharClaudeExeAsync().then((r) => { if (claudeExe === undefined) { claudeExe = r.exe; claudeTentativas = r.tentativas; } }).catch(() => {});
+  if (claudeExe !== undefined) return Promise.resolve();
+  return acharClaudeExeAsync().then((r) => { if (claudeExe === undefined) { claudeExe = r.exe; claudeTentativas = r.tentativas; } }).catch(() => {});
 }
 const temClaudeEmbutido = () => { try { return fs.existsSync(path.join(path.dirname(fileURLToPath(import.meta.resolve("@anthropic-ai/claude-agent-sdk"))), "..", "claude-agent-sdk-" + process.platform + "-" + process.arch)); } catch { return false; } };
 function chaveApi() {
   if (!config.chaveApi) return "";
   try { return safeStorage.decryptString(Buffer.from(config.chaveApi, "base64")); } catch { return ""; }
 }
+// What Claude Code prints about its connectors, kept in memory per conversation folder and
+// server (cwd|name, cwd|* for lines that name none), capped, ANSI-stripped and redacted. Only
+// conversation queries pass logMcp: the throwaway helper queries would fill it with start-up noise.
+const logsMcp = new Map(), nomesMcp = new Map(); // nomesMcp: cwd -> names of its connectors
+// whole-name match, so "git" does not claim a line about "github"
+function citaNome(l, n) {
+  for (let i = l.indexOf(n); i >= 0; i = l.indexOf(n, i + 1)) {
+    if (!/[\w.-]/.test(l[i - 1] ?? " ") && !/[\w.-]/.test(l[i + n.length] ?? " ")) return true;
+  }
+  return false;
+}
+// a folder nobody has open any more keeps no connector names or logs
+function esquecePastaMcp(cwd) {
+  nomesMcp.delete(cwd);
+  for (const m of [logsMcp, ultimaFalhaMcp]) for (const k of [...m.keys()]) if (k.startsWith(cwd + "|")) m.delete(k);
+}
+function alimentaLogMcp(cwd, chunk) {
+  const nomes = nomesMcp.get(cwd);
+  for (const l of ansi(chunk).split(/\r?\n/)) {
+    if (!/mcp/i.test(l)) continue;
+    const nome = /MCP server "([^"]+)"/.exec(l)?.[1] || (nomes && [...nomes].find((n) => citaNome(l, n)));
+    ringLog(logsMcp, `${cwd}|${nome || "*"}`, l);
+  }
+}
+// Without it Claude Code skips next-prompt suggestions near the usage limit and in many sessions.
+process.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION ??= "true";
 // every query goes through here: the person's Claude Code and the chosen sign-in
-function query(args) {
+function query({ logMcp, ...args }) {
   const exe = acharClaude();
   if (!exe && !temClaudeEmbutido()) throw new Error(claudeTentativas.length
     ? t("Não consegui iniciar o Claude Code neste computador. Tentei: {0}. Instale a versão nativa em code.claude.com/docs/en/setup (ou defina CLAUDE_CODE_PATH) e abra o Claudie de novo.", claudeTentativas.slice(0, 4).join("; "))
     : t("Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o Claudie de novo."));
   // SDK runs are non-interactive, where Claude Code loads Claude in Chrome only with --chrome
   const extra = { extraArgs: { chrome: null } };
+  if (logMcp) { extra.extraArgs["debug-to-stderr"] = null; extra.extraArgs.debug = "mcp"; extra.stderr = (d) => alimentaLogMcp(logMcp, String(d)); }
   if (exe) extra.pathToClaudeCodeExecutable = exe;
   const chave = config.entrar === "chave" ? chaveApi() : "";
-  if (chave) extra.env = { ...process.env, ANTHROPIC_API_KEY: chave };
+  if (chave) extra.env = { ...process.env, ANTHROPIC_API_KEY: chave, ...(config.urlApi ? { ANTHROPIC_BASE_URL: config.urlApi } : {}) };
   return querySdk({ ...args, options: { ...extra, ...args.options } });
 }
 const configPath = () => path.join(app.getPath("userData"), "config.json");
@@ -106,7 +138,7 @@ function buscaMagia(busca = "", categoria = "") {
 }
 
 const PADROES = { model: "claude-opus-5-5", modo: "auto", esforco: "medium" };
-let config = { cwd: path.join(app.getPath("home"), "projetos"), ...PADROES, ultracode: false, padroes: 0 };
+let config = { cwd: path.join(app.getPath("home"), "projetos"), ...PADROES, ultracode: false, padroes: 0, entradaRapida: { atalho: "Control+Alt+Space", ligada: true } };
 // Each window holds its own conversation: the session it shows and that
 // conversation's Claude Code, if one is open (atual; atual.ativo while a turn
 // runs). Every conversation sent to keeps its Claude Code open until Claudie
@@ -120,28 +152,49 @@ const turnos = new Set();    // every open Claude Code: { tid, j, q, ac, caixa, 
 let ultimoLimite = null;     // the last rate_limit_info any Claude Code reported (its window and reset time)
 const vivaDe = (id) => id && [...turnos].find((t) => t.sessionId === id && !t.caixa?.fechada);
 const turnoDe = (id) => { const t = vivaDe(id); return t?.ativo ? t : undefined; };
-// Model, permission mode, effort and ultracode belong to each conversation
+// Model, permission mode, effort, ultracode and computer control belong to each conversation
 // (config.porSessao); the top-level values are only what a new one starts with.
-const MODOS = ["default", "acceptEdits", "plan", "auto"];
-const cfgSessao = (id) => ({ model: config.model || "", modo: config.modo || "default", esforco: config.esforco || "", ultracode: !!config.ultracode, ...(id && config.porSessao?.[id]) });
-const cfgJ = (j) => cfgSessao(j?.sessionId);
-const guardaCfg = (id, c) => { (config.porSessao ||= {})[id] = { model: c.model || "", modo: c.modo || "default", esforco: c.esforco || "", ultracode: !!c.ultracode }; };
+const MODOS = ["default", "acceptEdits", "plan", "auto", "bypassPermissions"];
+const BYPASS = "bypassPermissions";
+const ROTULO_MODO = { default: "Perguntar", acceptEdits: "Aceitar edições", plan: "Modo plano", auto: "Automático", bypassPermissions: "Ignorar permissões" };
+// The default for new conversations is never bypass, even if a hand-edited config says so.
+const cfgSessao = (id) => {
+  const x = { model: config.model || "", modo: config.modo === BYPASS ? "default" : config.modo || "default", esforco: config.esforco || "", ultracode: !!config.ultracode, computador: false, ...(id && config.porSessao?.[id]) };
+  return { ...x, modo: MODOS.includes(x.modo) ? x.modo : "default" };
+};
+// Bypass of a conversation that has no session yet lives on the window, never in config.
+// Computer control chosen before the first message waits on the window too (the global default stays off).
+const cfgJ = (j) => ({ ...cfgSessao(j?.sessionId), ...(!j?.sessionId && j?.modoBypass ? { modo: BYPASS } : {}), ...(!j?.sessionId && j?.computadorPendente ? { computador: true } : {}) });
+// Forgets the conversation a window held (and a bypass or computer control chosen for it).
+const limpaConversa = (j) => { j.sessionId = null; j.atual = null; j.modoBypass = false; j.computadorPendente = false; };
+const guardaCfg = (id, c) => { (config.porSessao ||= {})[id] = { model: c.model || "", modo: c.modo || "default", esforco: c.esforco || "", ultracode: !!c.ultracode, computador: !!c.computador }; };
 // Pushes a change into a running turn; what the CLI refuses waits for the next message.
 async function aplicaNoTurno(t, m) {
   const falhou = [];
   const tenta = async (chave, fn) => { try { await fn(); } catch { falhou.push(chave); } };
-  if ("modo" in m) await tenta("modo", () => t.q.setPermissionMode(m.modo || "default"));
+  if ("modo" in m) {
+    // The bypass switch is only honored by a Claude Code started with it, so entering or leaving it reopens.
+    const entra = m.modo === BYPASS && !t.comBypass, sai = m.modo !== BYPASS && t.comBypass;
+    if (entra || sai) falhou.push("modo");
+    else await tenta("modo", () => t.q.setPermissionMode(m.modo || "default"));
+  }
   if ("model" in m) await tenta("model", () => t.q.setModel(m.model || undefined));
   if ("esforco" in m) await tenta("esforco", () => t.q.applyFlagSettings({ effortLevel: m.esforco || null }));
   // A Claude Code started without Dynamic Workflows can't take ultracode live; it reopens with them on.
   if ("ultracode" in m) await tenta("ultracode", () => { if (m.ultracode && !t.workflows) throw new Error(); return t.q.applyFlagSettings({ ultracode: !!m.ultracode }); });
+  // The computer-use server is part of what a Claude Code opens with: it reopens.
+  if ("computador" in m) await tenta("computador", () => { throw new Error(); });
   return falhou;
 }
 const AVISO_SEM_WORKFLOWS = "O ultracode precisa de Dynamic Workflows, que o Claude Code não liberou nesta conta ou versão. Esta conversa segue sem ele.";
+// Scheduled tasks, tray and keep-awake (ctrl exists once the app is ready; sairDeVez is set on every way out).
+let ctrl = null, bandeja = null, sairDeVez = false, bloqueioEnergia = null, menuBandejaChave = "";
+const notificacoes = new Set(); // a toast that is garbage-collected loses its click handler
 function avisaTurnos() {
-  const rodando = [...turnos].filter((t) => t.sessionId && t.ativo).map((t) => t.sessionId);
+  const rodando = [...turnos].filter((t) => t.sessionId && t.ativo).map((t) => t.sessionId).concat(ctrl?.idsRodando() || []);
   const aguardando = [...turnos].filter((t) => t.sessionId && t.pendentes.size).map((t) => t.sessionId);
   for (const o of janelas.values()) enviarEvento(o, { tipo: "turnos", rodando, aguardando });
+  mudouAtividade();
 }
 
 // Paths that come from the window or from a file we don't own are only trusted
@@ -184,9 +237,11 @@ function lerConfig() {
   if ((config.padroes || 0) < 2) { Object.assign(config, PADROES, { padroes: 2 }); salvarConfig(); }
   if (!fs.existsSync(config.cwd)) config.cwd = app.getPath("home");
 }
-function salvarConfig() {
-  try { fs.mkdirSync(path.dirname(configPath()), { recursive: true }); fs.writeFileSync(configPath() + ".tmp", JSON.stringify(config, null, 2)); fs.renameSync(configPath() + ".tmp", configPath()); } catch {}
+// A JSON file written whole through a temporary file, so a crash never leaves half of it.
+function gravaJson(arquivo, obj) {
+  try { fs.mkdirSync(path.dirname(arquivo), { recursive: true }); fs.writeFileSync(arquivo + ".tmp", JSON.stringify(obj, null, 2)); fs.renameSync(arquivo + ".tmp", arquivo); } catch {}
 }
+function salvarConfig() { gravaJson(configPath(), config); }
 const enviarEvento = (j, ev) => {
   if (process.env.VIVO_LOG) console.log("[evento]", ev.tipo, ev.tema || ev.nome || ev.ferramenta || ev.modelo || ev.detalhe || ev.texto || "");
   if (j?.win && !j.win.isDestroyed()) j.win.webContents.send("evento", ev);
@@ -199,14 +254,17 @@ const texto = (t) => ({ content: [{ type: "text", text: t }] });
 const peca = (slug) => MAGIA.pecas.get(String(slug).trim().toLowerCase());
 const semPeca = (slug) => ({ ...texto(`Não existe a peça "${slug}". Use buscar_fundo para achar o nome certo.`), isError: true });
 // Cards belong to the turn's conversation; applying a theme is for the whole window.
+// The browser tools exist only for a real turn (t.pendentes), never for the idle queries of comConsulta (t is a window there).
 const servidorTemasPara = (t) => createSdkMcpServer({
   name: "claudie",
   version: "0.2.0",
   instructions: `Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os ${Object.keys(TEMAS).length} temas do Claudie (interativos, com música) e a biblioteca ASCII Magic, com ` +
     `${MAGIA.pecas.size} animações. Quando a pessoa pedir um tema ou um visual, prefira um tema do Claudie se algum combinar; senão use buscar_fundo (em inglês: os nomes e tags da biblioteca são em inglês) e depois sugerir_fundo ou aplicar_fundo. ` +
     "Responda sempre no idioma em que a pessoa escreve. " +
+    "Quando a pessoa pedir uma revisão das mudanças no app, chame report_findings uma vez em vez de escrever a lista de achados. " +
     "Use as ferramentas de sugerir para mostrar um cartão (a pessoa decide aplicar), e as de aplicar só se ela pedir para aplicar direto. Temas da Claudie: " +
-    Object.entries(TEMAS).map(([id, nome]) => `${id} (${nome})`).join(", ") + ". Categorias da biblioteca: " + Object.entries(MAGIA.cats).map(([id, nome]) => `${id} (${nome})`).join(", ") + ".",
+    Object.entries(TEMAS).map(([id, nome]) => `${id} (${nome})`).join(", ") + ". Categorias da biblioteca: " + Object.entries(MAGIA.cats).map(([id, nome]) => `${id} (${nome})`).join(", ") + "." +
+    (t?.pendentes ? " O painel do navegador do app mostra páginas ao lado da conversa: use browser_navigate, browser_screenshot, browser_read, browser_click e browser_type; servidor_listar, servidor_logs, servidor_iniciar e servidor_parar cuidam dos servidores de .claude/launch.json." : ""),
   tools: [
     tool("sugerir_tema", "Mostra na conversa um cartão do tema, com prévia animada e os botões Aplicar e Prévia.", { tema: z.enum(Object.keys(TEMAS)) },
       async ({ tema }) => { t.ev({ tipo: "cartao_tema", tema }); return texto(`Cartão do tema ${TEMAS[tema]} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
@@ -222,9 +280,24 @@ const servidorTemasPara = (t) => createSdkMcpServer({
       async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); t.ev({ tipo: "cartao_arte", chave: `magia:${p.slug}` }); return texto(`Cartão de ${p.nome} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
     tool("aplicar_fundo", "Aplica uma animação da biblioteca no fundo do app agora.", { peca: z.string().describe("Id da peça, de buscar_fundo") },
       async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); enviarEvento(t.j, { tipo: "aplicar_arte", chave: `magia:${p.slug}` }); return texto(`${p.nome} aplicada no fundo.`); }, { alwaysLoad: true }),
+    tool("report_findings",
+      "Mostra na conversa um cartão de revisão com os achados (arquivo, linha, severidade, resumo, sugestão). Chame uma vez ao terminar uma revisão e não repita a lista em texto.",
+      {
+        achados: z.array(z.object({
+          file: z.string().max(2000),
+          line: z.coerce.number().int().min(1).nullish(),
+          severity: z.enum(["critical", "high", "medium", "low", "info"]),
+          summary: z.string().max(2000),
+          suggestion: z.string().max(2000).nullish(),
+        })).max(200),
+        resumo: z.string().max(2000).optional(),
+      },
+      async ({ achados, resumo }) => texto(`${achados.length} achados mostrados na conversa.${resumo ? " Resumo: " + resumo : ""} Não repita a lista em texto.`),
+      { alwaysLoad: true }),
+    ...ferramentasNavegador(t),
   ],
 });
-const FERRAMENTAS_TEMA = ["sugerir_tema", "aplicar_tema", "buscar_fundo", "sugerir_fundo", "aplicar_fundo"].map((n) => `mcp__claudie__${n}`);
+const FERRAMENTAS_TEMA = ["sugerir_tema", "aplicar_tema", "buscar_fundo", "sugerir_fundo", "aplicar_fundo", "report_findings"].map((n) => `mcp__claudie__${n}`);
 // Newer models get the task tools only when a session names them; they are
 // bookkeeping (the plan the window shows), so they also need no approval.
 const FERRAMENTAS_PLANO = ["TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TodoWrite"];
@@ -252,7 +325,7 @@ function ajustaImagem(dados, mime) {
   }
   return null;
 }
-function montaPrompt(texto, anexos = [], uuid, avisa = () => {}) {
+function montaPrompt(texto, anexos = [], uuid, avisa = () => {}, extra = "") {
   if (!anexos.length && texto.startsWith("/")) return { type: "user", uuid, message: { role: "user", content: texto }, parent_tool_use_id: null };
   const imagens = [], caminhos = [], largadas = [];
   for (const a of anexos) {
@@ -272,6 +345,7 @@ function montaPrompt(texto, anexos = [], uuid, avisa = () => {}) {
     else largadas.push(a.nome || (a.caminho && path.basename(a.caminho)) || "imagem");
   }
   let corpo = texto;
+  if (extra) corpo += `${corpo ? "\n\n" : ""}${extra}`;
   if (caminhos.length) corpo += `${corpo ? "\n\n" : ""}Arquivos anexados:\n${caminhos.map((c) => `- ${c}`).join("\n")}`;
   if (largadas.length) {
     avisa(`${largadas.map((n) => t("Imagem grande demais para enviar: {0}", n)).join("\n")}`);
@@ -519,11 +593,16 @@ async function importaWallpaperEngine(pasta) {
   return listaWeb().find((i) => i.id === id);
 }
 // The window icon: the person's own, or the mosaic mark.
-function aplicaIcone() {
+function iconeAtual() {
   const id = config.visual?.icone;
   let img = id ? nativeImage.createFromPath(arquivoPessoal("icone", id)) : null;
   if (!img || img.isEmpty()) img = nativeImage.createFromPath(path.join(here, "icone.png"));
+  return img;
+}
+function aplicaIcone() {
+  const img = iconeAtual();
   for (const j of janelas.values()) try { j.win.setIcon(img); } catch {}
+  try { bandeja?.setImage(img.resize({ width: 32, height: 32 })); } catch {}
 }
 
 // A turn belongs to its conversation, not to the window: the person may open
@@ -538,6 +617,7 @@ function comecaTurno(t, uuid, comando) {
 }
 // The turn is over; the conversation's Claude Code stays open for the next one.
 function fimDoTurno(t, aviso) {
+  liberaControle(t);
   // A turn that ends (or a process that dies while idle) must not leave cards waiting for an answer.
   for (const id of [...t.pendentes.keys()]) {
     pendentes.get(id)?.resolve({ behavior: "deny", message: "Cancelado." }); pendentes.delete(id);
@@ -556,14 +636,39 @@ function fimDoTurno(t, aviso) {
 const encerra = (t) => t.caixa?.fecha();
 // Closes them for good and waits (a few seconds at most) until they exit.
 const fechaEspera = (ts) => { for (const t of ts) { encerra(t); t.ac.abort(); } return Promise.race([Promise.all(ts.map((t) => t.saiu)), new Promise((ok) => setTimeout(ok, 4000))]); };
+// A card in the conversation's window that waits for the person's answer (or asks a question). Used by
+// canUseTool and by the computer-use gate, whose tools are allowed in advance and so never reach it.
+function pedePermissao(t, toolName, input, { signal, suggestions, decisionReason, site } = {}) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve({ behavior: "deny", message: "Cancelado." });
+    if (!t.ativo) comecaTurno(t, crypto.randomUUID(), true);
+    const id = crypto.randomUUID();
+    pendentes.set(id, { resolve, suggestions, input, t, toolName, site });
+    // Claude asking the person something: the choices become a form.
+    const pedido = toolName === "AskUserQuestion" ? { tipo: "pergunta", id, perguntas: input.questions || [] }
+      : { tipo: "permissao", id, ferramenta: toolName, entrada: input, motivo: decisionReason ?? null, temSempre: !!suggestions?.length };
+    t.pendentes.set(id, pedido); t.ev(pedido); avisaTurnos();
+    signal?.addEventListener("abort", () => {
+      if (pendentes.delete(id)) { t.pendentes.delete(id); resolve({ behavior: "deny", message: "Cancelado." }); t.ev({ tipo: "permissao_fim", id }); avisaTurnos(); }
+    });
+  });
+}
+const depsComputador = { pedePermissao, enviarEvento, config: () => config, janelas, tr };
+const { navegadorFecha, ferramentasNavegador, esqueceSites } = iniciaNavegador({ ipcMain, session, WebContentsView, J, janelas, enviarEvento, resolveExe, dentroDaPasta, matarArvore, ajustaImagem, pedePermissao, texto, tr, tool, z });
 // texto null opens the conversation's Claude Code without a message (Remote Control).
-async function turno(j, texto, anexos) {
+// The mentioned apps a message grants (none for a slash command, whose text goes out as typed);
+// they are approved with preAprova once the message is accepted.
+const appsDaMensagem = (t, texto, apps) => (texto.startsWith("/") ? [] : appsMencionados(t, apps, config));
+async function turno(j, texto, anexos, apps) {
+  if (ocupadaPorAgenda(j, j.sessionId)) return;
   const viva = vivaDe(j.sessionId);
   if (viva && !viva.ativo && !viva.reiniciar && viva.cwd === j.cwd) {
     const uuid = crypto.randomUUID();
-    viva.j = j; j.atual = viva;
+    viva.j = j; j.atual = viva; viva.remoto = false;
     comecaTurno(viva, uuid, !anexos.length && texto.startsWith("/"));
-    viva.caixa.poe(montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m })));
+    const concedidos = await appsDaMensagem(viva, texto, apps);
+    viva.caixa.poe(montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m }), linhaApps(concedidos)));
+    preAprova(viva, concedidos);
     return;
   }
   if (viva) encerra(viva);
@@ -584,17 +689,23 @@ async function turno(j, texto, anexos) {
   if (novo) t.primeiro = texto;
   let contexto = 0, pedidoEm = 0;
   t.cfg = { ...cfgJ(j) };
+  t.comBypass = t.cfg.modo === BYPASS;
   // Until the query exists the window follows no tagged stream, so a setup failure is sent untagged.
   const aviso = (x) => (t.q ? ev(x) : enviarEvento(t.j, x));
   try {
-  t.caixa = caixaDeEntrada(texto === null ? null : montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m })));
+  const concedidos = texto === null ? [] : await appsDaMensagem(t, texto, apps);
+  t.caixa = caixaDeEntrada(texto === null ? null : montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m }), linhaApps(concedidos)));
+  preAprova(t, concedidos);
   const q = t.q = query({
+    logMcp: t.cwd,
     prompt: t.caixa.gerador,
     options: {
       cwd: t.cwd,
       model: t.cfg.model || undefined,
       resume: t.sessionId || undefined,
       permissionMode: t.cfg.modo,
+      // Only a process opened in bypass can be switched into it (a Remote Control client included).
+      allowDangerouslySkipPermissions: t.cfg.modo === BYPASS ? true : undefined,
       effort: t.cfg.esforco || undefined,
       // Ultracode: Claude plans a workflow of many agents for each real task. It
       // only works with Dynamic Workflows on, so Claudie turns that on for this session.
@@ -602,22 +713,13 @@ async function turno(j, texto, anexos) {
       enableFileCheckpointing: true,
       thinking: geral.raciocinio === false ? undefined : { type: "adaptive", display: "summarized" },
       includePartialMessages: true,
+      // After each turn Claude Code predicts the next prompt; it shows in the composer.
+      promptSuggestions: true,
       abortController: ac,
-      systemPrompt: { type: "preset", preset: "claude_code" },
-      mcpServers: { claudie: servidorTemasPara(t) },
-      allowedTools: [...FERRAMENTAS_TEMA, ...FERRAMENTAS_PLANO],
-      canUseTool: (toolName, input, { signal, suggestions, decisionReason }) => new Promise((resolve) => {
-        if (!t.ativo) comecaTurno(t, crypto.randomUUID(), true);
-        const id = crypto.randomUUID();
-        pendentes.set(id, { resolve, suggestions, input, t, toolName });
-        // Claude asking the person something: the choices become a form.
-        const pedido = toolName === "AskUserQuestion" ? { tipo: "pergunta", id, perguntas: input.questions || [] }
-          : { tipo: "permissao", id, ferramenta: toolName, entrada: input, motivo: decisionReason ?? null, temSempre: !!suggestions?.length };
-        t.pendentes.set(id, pedido); ev(pedido); avisaTurnos();
-        signal.addEventListener("abort", () => {
-          if (pendentes.delete(id)) { t.pendentes.delete(id); resolve({ behavior: "deny", message: "Cancelado." }); ev({ tipo: "permissao_fim", id }); avisaTurnos(); }
-        });
-      }),
+      systemPrompt: { type: "preset", preset: "claude_code", append: [PROMPT_NAVEGADOR, ...(t.cfg.computador ? [PROMPT_COMPUTADOR] : [])].join("\n\n") },
+      mcpServers: { claudie: servidorTemasPara(t), ...(t.cfg.computador ? { "computer-use": servidorComputadorPara(t, depsComputador) } : {}) },
+      allowedTools: [...FERRAMENTAS_TEMA, ...FERRAMENTAS_PLANO, ...FERRAMENTAS_NAVEGADOR, ...(t.cfg.computador ? FERRAMENTAS_COMPUTADOR : [])],
+      canUseTool: (toolName, input, opcoes) => pedePermissao(t, toolName, input, opcoes),
     },
   });
   turnos.add(t);
@@ -631,15 +733,15 @@ async function turno(j, texto, anexos) {
       // A message sent from claude.ai/code or the Claude app shows here as the person's own.
       if (!t.ativo && msg.type === "user" && !msg.parent_tool_use_id && !msg.isReplay) {
         const c = msg.message?.content, txt = typeof c === "string" ? c : Array.isArray(c) ? c.filter((b) => b.type === "text").map((b) => b.text).join("\n") : "";
-        if (txt.trim()) { comecaTurno(t, crypto.randomUUID(), true); ev({ tipo: "remoto_msg", texto: txt }); }
+        if (txt.trim()) { comecaTurno(t, crypto.randomUUID(), true); t.remoto = true; ev({ tipo: "remoto_msg", texto: txt }); }
       }
       // Claude can start a turn by itself while idle (a background task finished,
       // a message sent as the last turn ended); the window showing it follows it.
-      if (!t.ativo && !msg.parent_tool_use_id && (msg.type === "assistant" || msg.type === "stream_event" && msg.event?.type === "message_start")) comecaTurno(t, crypto.randomUUID(), true);
+      if (!t.ativo && !msg.parent_tool_use_id && (msg.type === "assistant" || msg.type === "stream_event" && msg.event?.type === "message_start")) { comecaTurno(t, crypto.randomUUID(), true); t.remoto = true; }
       if (msg.session_id && msg.session_id !== t.sessionId) {
         t.sessionId = msg.session_id;
         if (novo && !config.porSessao?.[t.sessionId]) { guardaCfg(t.sessionId, t.cfg); salvarConfig(); }
-        if (t.j.atual === t) t.j.sessionId = t.sessionId;
+        if (t.j.atual === t) { t.j.sessionId = t.sessionId; t.j.modoBypass = false; t.j.computadorPendente = false; }
         ev({ tipo: "sessao", id: t.sessionId }); avisaTurnos();
       }
       if (msg.type === "system" && msg.subtype === "bridge_state") {
@@ -648,6 +750,19 @@ async function turno(j, texto, anexos) {
         ev({ tipo: "pensando", tokens: msg.estimated_tokens });
       } else if (msg.type === "system" && msg.subtype === "init") {
         ev({ tipo: "info", modelo: msg.model, cwd: msg.cwd, modo: msg.permissionMode });
+        // The first init says what the CLI really started with (it can refuse bypass); the window follows it.
+        if (msg.permissionMode && msg.permissionMode !== t.cfg.modo) {
+          const era = t.cfg.modo;
+          t.comBypass = msg.permissionMode === BYPASS;
+          // A bypass the CLI reports is never saved: only the confirmation dialog can store it.
+          if (!t.comBypass) {
+            t.cfg = { ...t.cfg, modo: msg.permissionMode };
+            if (t.sessionId) guardaCfg(t.sessionId, { ...cfgSessao(t.sessionId), modo: msg.permissionMode });
+            salvarConfig(); avisaConfig();
+          }
+          ev({ tipo: "aviso", texto: tr("O Claude Code não aceitou o modo pedido ({0}) e abriu em outro modo.", tr(ROTULO_MODO[era] || era)) });
+        }
+        if (Array.isArray(msg.mcp_servers)) nomesMcp.set(t.cwd, new Set(msg.mcp_servers.map((s) => s.name)));
         t.workflows = !!msg.tools?.includes("Workflow");
         if (t.cfg.ultracode && !t.workflows) ev({ tipo: "aviso", texto: AVISO_SEM_WORKFLOWS });
       } else if (trataMensagem(t, msg)) {
@@ -701,6 +816,9 @@ async function turno(j, texto, anexos) {
           if (b.type === "tool_use") ev({ tipo: "sub_ferramenta", pai, id: b.id, nome: b.name, entrada: enxuto(b.input) });
           else if (b.type === "tool_result") ev({ tipo: "sub_ferramenta_fim", pai, id: b.tool_use_id, erro: !!b.is_error });
         }
+      } else if (msg.type === "prompt_suggestion") {
+        // Arrives after the result, when the turn is already over: it goes to the window by conversation, not by turn.
+        if (msg.suggestion) enviarEvento(t.j, { tipo: "sugestao", sid: t.sessionId, texto: String(msg.suggestion).slice(0, 2000) });
       } else if (msg.type === "rate_limit_event") {
         ultimoLimite = msg.rate_limit_info || ultimoLimite;
         if (msg.rate_limit_info?.status === "rejected") t.limiteDito = t.tid;
@@ -722,7 +840,9 @@ async function turno(j, texto, anexos) {
   } finally {
     // Claude Code closed (quit, restart, stop or crash): what it still ran died with it.
     t.caixa?.fecha();
+    liberaControle(t);
     turnos.delete(t);
+    if (t.j.fechada && ![...turnos].some((o) => o.cwd === t.cwd)) esquecePastaMcp(t.cwd);
     // The bridge went with it; it comes back when the conversation opens again.
     if (remotos.has(t.sessionId)) avisaRemoto(t.sessionId, { estado: "desligado", url: "", texto: "" });
     if (t.j.atual === t) t.j.atual = null;
@@ -811,6 +931,8 @@ function criarJanela(sessao) {
     title: config.visual?.nome || "Claudie",
     titleBarStyle: "hidden",
     titleBarOverlay: { color: "#00000000", symbolColor: "#e9e6e1", height: 44 },
+    // started at login (--oculto) the first window waits in the tray, when there is one
+    show: !(process.argv.includes("--oculto") && bandeja && !principal && !process.env.VIVO_JS),
     webPreferences: { preload: path.join(here, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: !!process.env.VIVO_GRAVAR },
   });
   // VIVO_GRAVAR="pasta" (tests and demo videos): the window renders offscreen
@@ -836,13 +958,30 @@ function criarJanela(sessao) {
   const j = { win, sessionId: null, atual: null, cwd: (!principal && process.env.VIVO_PASTA) || config.cwd }, id = win.webContents.id;
   janelas.set(id, j);
   if (!principal) principal = j;
+  // events for the renderer wait until it has finished starting (a reload starts it again)
+  win.webContents.on("did-start-navigation", (d) => { if (d.isMainFrame && !d.isSameDocument) j.pronta = false; });
+  win.on("focus", () => { ultimaFocada = j; });
+  // The last window hides to the tray while something still has to run; a hidden window keeps its turns.
+  win.on("close", (ev) => {
+    if (sairDeVez || !ultimaVisivel(j) || !deveFicarNaBandeja()) return;
+    ev.preventDefault(); win.hide(); avisaBandeja();
+  });
+  // Windows logoff or shutdown: the close that follows must not be held back.
+  win.on("session-end", () => { sairDeVez = true; });
+  // Dev servers and the page view go with the window itself (a hidden window keeps them).
+  win.on("close", (ev) => { if (!ev.defaultPrevented) navegadorFecha(j); });
   win.on("closed", () => {
     // A turn running here stops; an idle Claude Code stays open for the conversation.
     for (const t of turnos) if (t.j === j && t.ativo) t.ac.abort();
     j.fechada = true;
     janelas.delete(id);
     terminalMata(j);
+    navegadorFecha(j);
+    for (const p of filhosMcp) if (p.janela === j) matarArvore(p);
     if (principal === j) principal = janelas.values().next().value || null;
+    if (ultimaFocada === j) ultimaFocada = null;
+    // A hidden Quick Entry or overlay would keep the process alive after the last window.
+    if (!janelas.size) { rapida?.destroy(); rapida = null; captura.fechaOverlay(); if (!deveFicarNaBandeja()) app.quit(); }
   });
   win.loadFile(path.join(here, "renderer", "index.html"), sessao ? { query: { sessao } } : undefined);
   aplicaIcone();
@@ -872,7 +1011,11 @@ function criarJanela(sessao) {
       }
       // VIVO_QUADRO="expressão" runs in every frame inside the window (web wallpapers)
       if (process.env.VIVO_QUADRO) for (const f of win.webContents.mainFrame.frames) try { console.log("[quadro]", f.url, JSON.stringify(await f.executeJavaScript(process.env.VIVO_QUADRO, true))); } catch (e) { console.log("[quadro] erro:", e.message); }
-      if (process.env.VIVO_FOTO) fs.writeFileSync(process.env.VIVO_FOTO, (await win.webContents.capturePage()).toPNG());
+      if (process.env.VIVO_FOTO) {
+        fs.writeFileSync(process.env.VIVO_FOTO, (await win.webContents.capturePage()).toPNG());
+        // the page view is a separate surface: capturePage of the window does not include it
+        try { if (j.nav?.view) fs.writeFileSync(process.env.VIVO_FOTO.replace(/\.png$/i, "") + "-nav.png", (await j.nav.view.webContents.capturePage()).toPNG()); } catch (e) { console.log("[foto] erro:", e.message); }
+      }
     }, 4500);
     if (process.env.VIVO_TESTE) turno(j, process.env.VIVO_TESTE, process.env.VIVO_ANEXO ? [{ caminho: process.env.VIVO_ANEXO }] : []);
   });
@@ -881,25 +1024,40 @@ function criarJanela(sessao) {
 }
 // A conversation running in another window can't be opened to send here too.
 const emOutra = (j, id) => { const t = turnoDe(id); return !!t && t.j !== j && !t.j.fechada; };
+// A scheduled run still writing a session: a second Claude Code on it would write the same transcript.
+function ocupadaPorAgenda(j, id) {
+  if (!id || !ctrl?.idsRodando().includes(id)) return false;
+  enviarEvento(j, { tipo: "erro", texto: t("Esta execução agendada ainda está em andamento") });
+  enviarEvento(j, { tipo: "agendada_ocupada", id });
+  return true;
+}
 
-ipcMain.handle("estado", (e) => ({ ...config, ...cfgJ(J(e)), cwd: J(e).cwd, sessionId: J(e).sessionId, rodando: !!J(e).atual?.ativo, temas: TEMAS, janelas: janelas.size }));
-ipcMain.handle("enviar", (e, texto, anexos) => {
+ipcMain.handle("estado", (e) => ({ ...config, ...cfgJ(J(e)), cwd: J(e).cwd, sessionId: J(e).sessionId, rodando: !!J(e).atual?.ativo, temas: TEMAS, janelas: janelas.size, entradaRapida: cfgRapida(), rapidaErro }));
+ipcMain.handle("enviar", (e, texto, anexos, apps) => {
   const j = J(e);
   if (j.atual?.ativo || (turnoDe(j.sessionId) && !emOutra(j, j.sessionId))) return false;
+  if (ocupadaPorAgenda(j, j.sessionId)) return false;
   if (j.sessionId && emOutra(j, j.sessionId)) { enviarEvento(j, { tipo: "erro", texto: "Essa conversa está rodando em outra janela. Espere ela terminar." }); return false; }
-  turno(j, String(texto), Array.isArray(anexos) ? anexos : []); return j.atual?.tid || true;
+  turno(j, String(texto), Array.isArray(anexos) ? anexos : [], Array.isArray(apps) ? apps : []); return j.atual?.tid || true;
 });
 // A message for the turn running in this window; false once it can no longer take one.
-ipcMain.handle("injetar", (e, texto, anexos) => {
+ipcMain.handle("injetar", async (e, texto, anexos, apps) => {
   const t = J(e).atual, s = String(texto || "");
   if (!t?.ativo || !t.caixa || t.caixa.fechada || (!Array.isArray(anexos) || !anexos.length) && s.startsWith("/")) return false;
-  const m = montaPrompt(s, Array.isArray(anexos) ? anexos : [], crypto.randomUUID(), (x) => enviarEvento(t.j, { tipo: "erro", texto: x }));
-  return typeof m !== "string" && t.caixa.poe(m);
+  const concedidos = await appsDaMensagem(t, s, Array.isArray(apps) ? apps : []);
+  const m = montaPrompt(s, Array.isArray(anexos) ? anexos : [], crypto.randomUUID(), (x) => enviarEvento(t.j, { tipo: "erro", texto: x }), linhaApps(concedidos));
+  if (typeof m === "string" || t.caixa.fechada || !t.caixa.poe(m)) return false;
+  preAprova(t, concedidos);
+  return true;
 });
 // Paths the preload read from real dropped File objects; the window can't forge these.
 ipcMain.on("anexo_soltou", (_e, p) => { if (typeof p === "string" && p) anexosPermitidos.add(p); });
 ipcMain.handle("janela_nova", (_e, sessao) => { criarJanela(sessao || undefined); });
 ipcMain.handle("arquivos", async (e, atualiza) => { try { return await arquivos(J(e), !!atualiza); } catch (err) { console.log("[arquivos]", err?.message || err); return []; } });
+// The apps the @ picker offers while computer control is on (empty elsewhere than Windows).
+ipcMain.handle("apps_computador", async (e) => {
+  try { return (await listaApps(config, !!cfgJ(J(e)).computador)).map(({ nome, exe, nivel, icone }) => ({ nome, exe, nivel, icone })); } catch (err) { console.log("[apps]", err?.message || err); return []; }
+});
 ipcMain.handle("comandos", async (e) => { try { return await comandos(J(e)); } catch (e) { console.log("[comandos]", e?.message || e); return []; } });
 ipcMain.handle("anexar", async (e) => {
   const r = await dialog.showOpenDialog(J(e).win, { title: t("Anexar arquivos"), defaultPath: J(e).cwd, properties: ["openFile", "multiSelections"] });
@@ -944,11 +1102,13 @@ ipcMain.handle("parar_tarefa", async (e, id) => {
 ipcMain.handle("permissao", (_e, { id, decisao, texto, modo }) => {
   const p = pendentes.get(id); if (!p) return;
   pendentes.delete(id); p.t.pendentes.delete(id); avisaTurnos();
+  // A site card has no "always": only a plain yes lets the page load.
+  if (p.site) return p.resolve(decisao === "sim" ? { behavior: "allow" } : { behavior: "deny", message: "A pessoa negou." });
   const feedback = String(texto || "").trim().slice(0, 2000), plano = p.toolName === "ExitPlanMode";
-  if (decisao === "negar") p.resolve({ behavior: "deny", message: feedback ? (plano ? `A pessoa quer ajustar o plano antes de seguir: ${feedback}` : `A pessoa negou e pediu: ${feedback}`) : "A pessoa negou." });
+  if (decisao !== "sim" && decisao !== "sempre") p.resolve({ behavior: "deny", message: feedback ? (plano ? `A pessoa quer ajustar o plano antes de seguir: ${feedback}` : `A pessoa negou e pediu: ${feedback}`) : "A pessoa negou." });
   else if (plano) {
     // Approving a plan leaves plan mode for the mode the person chose, in the running turn and in the saved choice.
-    const novo = MODOS.includes(modo) && modo !== "plan" ? modo : "default";
+    const novo = MODOS.includes(modo) && modo !== "plan" && modo !== BYPASS ? modo : "default";
     p.resolve({ behavior: "allow", updatedPermissions: [{ type: "setMode", mode: novo, destination: "session" }] });
     mudaConfig(p.t.j, { modo: novo }, p.t.sessionId);
   } else p.resolve({ behavior: "allow", updatedPermissions: decisao === "sempre" ? p.suggestions : undefined });
@@ -1023,21 +1183,121 @@ async function aplicaDesligados(q, cwd, st) {
   return alvo.length > 0;
 }
 const esquecePainel = () => { for (const k of respostas.keys()) if (k.startsWith("painel|")) respostas.delete(k); };
-function claudeCli(args, cwd) {
+function claudeCli(args, cwd, { timeout = 45000, max = 1500, maxBuffer = 1 << 20 } = {}) {
   const exe = acharClaude();
   if (!exe) return Promise.resolve({ erro: "Não encontrei o Claude Code neste computador." });
   const c = comandoClaude(exe, args);
-  return new Promise((ok) => execFile(c.cmd, c.args, { cwd, encoding: "utf8", windowsHide: true, timeout: 45000, maxBuffer: 1 << 20, env: c.env },
-    (erro, saida, err) => ok(erro ? { erro: String(err || saida || erro.message).trim().slice(0, 1500) } : { saida: String(saida).trim().slice(0, 1500) })));
+  return new Promise((ok) => execFile(c.cmd, c.args, { cwd, encoding: "utf8", windowsHide: true, timeout, maxBuffer, env: c.env },
+    (erro, saida, err) => ok(erro ? { erro: String(err || saida || erro.message).trim().slice(0, max) } : { saida: String(saida).trim().slice(0, max) })));
 }
+// Same CLI for the Customize tabs: --json results, long output, and children that never wait for input.
+// The last stdout line of an action holds its result ({outcome, message, failureCode, shownCommand});
+// a list prints the whole document. A non-zero exit still carries a result, so it is parsed first.
+function leJson(txt) {
+  const s = String(txt || "").trim();
+  if (!s) return null;
+  try { return JSON.parse(s); } catch {}
+  const linhas = s.split(/\r?\n/);
+  try { return JSON.parse(linhas.filter(Boolean).pop()); } catch {}
+  // a notice printed before the document: parse from the first line that opens it
+  const i = linhas.findIndex((l) => /^[{[]/.test(l));
+  if (i > 0) { try { return JSON.parse(linhas.slice(i).join("\n")); } catch {} }
+  return null;
+}
+function claudeJson(args, cwd, { timeout = 45000 } = {}) {
+  const exe = acharClaude();
+  if (!exe) return Promise.resolve({ erro: "Não encontrei o Claude Code neste computador.", semClaude: true });
+  const c = comandoClaude(exe, args);
+  return new Promise((ok) => {
+    let estourou = false, timer;
+    const filho = execFile(c.cmd, c.args, { cwd, encoding: "utf8", windowsHide: true, maxBuffer: 16 << 20, env: c.env, detached: process.platform !== "win32" }, (erro, saida, err) => {
+      clearTimeout(timer);
+      if (estourou) return ok({ erro: "O Claude Code demorou demais para responder.", terminal: true });
+      const dados = leJson(saida);
+      if (dados && !Array.isArray(dados) && typeof dados === "object" && "outcome" in dados) {
+        return ok(dados.outcome === "ok" ? { dados } : { dados, erro: String(dados.message || err || "Não deu certo.").slice(0, 1500), codigo: dados.failureCode });
+      }
+      if (dados != null) return ok({ dados });
+      if (!erro) return ok({ dados: null, texto: String(saida).trim().slice(0, 1500) });
+      ok({ erro: String(err || saida || erro?.message || "Resposta inesperada do Claude Code.").trim().slice(0, 1500) });
+    });
+    filho.stdin?.end();
+    timer = setTimeout(() => { estourou = true; matarArvore(filho); }, timeout);
+  });
+}
+
 // command line of a stdio server: split on spaces, keeping "quoted parts" together
 const quebraComando = (txt) => [...txt.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
 const ESCOPOS_MCP = ["user", "project", "local"];
 // Claude Code reads its connectors when it starts: idle ones close now, running ones after the turn.
 const reabreConversas = () => { for (const t of turnos) if (t.ativo) t.reiniciar = true; else encerra(t); };
+// One connector sign-in at a time: `claude mcp login` opens a loopback callback, so two would fight over it.
+let entrandoMcp = null;
+const filhosMcp = new Set();
+function mcpEntrar(j, nome) {
+  const exe = acharClaude();
+  if (!exe) return { erro: "Não encontrei o Claude Code neste computador." };
+  if (entrandoMcp) return { erro: "Já há um login de conector em andamento." };
+  const c = comandoClaude(exe, ["mcp", "login", nome]);
+  const p = spawn(c.cmd, c.args, { cwd: j.cwd, env: c.env, windowsHide: true, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+  p.janela = j; entrandoMcp = p; filhosMcp.add(p);
+  const linha = linhasPara(j, (l) => ({ tipo: "mcp_login", nome, linha: redige(l) }));
+  p.stdout.on("data", linha); p.stderr.on("data", linha);
+  let acabou = false;
+  const timer = setTimeout(() => matarArvore(p), 3 * 60e3);
+  const fim = async (codigo) => {
+    if (acabou) return;
+    acabou = true; clearTimeout(timer); filhosMcp.delete(p);
+    if (entrandoMcp === p) entrandoMcp = null;
+    if (codigo === 0) {
+      esquecePainel();
+      try { await comConsulta(j, (q) => q.reconnectMcpServer(nome)); } catch {}
+      esquecePainel(); reabreConversas();
+    }
+    enviarEvento(j, { tipo: "mcp_login", nome, fim: true, codigo });
+  };
+  p.on("error", (err) => { linha(Buffer.from(String(err.message || err) + "\n")); matarArvore(p); fim(-1); });
+  p.on("close", (codigo) => fim(codigo ?? -1));
+  return { ok: true };
+}
+// The same login in a terminal window of its own, for the case that needs a prompt (paste the redirect URL).
+const TERMINAIS_LINUX = [["x-terminal-emulator", "-e"], ["gnome-terminal", "--"], ["konsole", "-e"], ["xterm", "-e"]];
+const terminalLinux = () => {
+  for (const [exe, flag] of TERMINAIS_LINUX) for (const d of (process.env.PATH || "").split(path.delimiter)) if (d && fs.existsSync(path.join(d, exe))) return [exe, flag];
+  return null;
+};
+const terminalExterno = () => process.platform === "win32" || process.platform === "darwin" || !!terminalLinux();
+function mcpTerminal(j, nome) {
+  const exe = acharClaude();
+  if (!exe) return { erro: "Não encontrei o Claude Code neste computador." };
+  const c = comandoClaude(exe, ["mcp", "login", nome]);
+  const op = { cwd: j.cwd, env: c.env, detached: true, stdio: "ignore" };
+  let p;
+  if (process.platform === "win32") {
+    // start "" cmd /k "<command>": the empty quoted argument is the window title, the outer quotes keep the command in one piece
+    // cmd expands %NAME% even inside quotes and has no escape for it on a command line
+    if ([c.cmd, ...c.args, j.cwd].some((x) => x.includes("%"))) return { erro: "Um caminho com % não abre no terminal do Windows." };
+    const q = (x) => (/[\s&()^|<>]/.test(x) ? `"${x}"` : x);
+    p = spawn(resolveExe("cmd"), ["/c", "start", '""', "cmd", "/k", `"${[c.cmd, ...c.args].map(q).join(" ")}"`], { ...op, windowsVerbatimArguments: true });
+  } else if (process.platform === "darwin") {
+    const sh = (x) => "'" + x.replace(/'/g, "'\\''") + "'";
+    const cmd = `cd ${sh(j.cwd)} && ` + [c.cmd, ...c.args].map(sh).join(" ");
+    p = spawn("osascript", ["-e", `tell application "Terminal" to do script "${cmd.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`, "-e", 'tell application "Terminal" to activate'], op);
+  } else {
+    const t = terminalLinux();
+    if (!t) return { erro: "Não encontrei um terminal neste computador." };
+    p = spawn(t[0], [t[1], c.cmd, ...c.args], op);
+  }
+  p.on("error", () => {});
+  p.unref();
+  return { ok: true };
+}
 ipcMain.handle("mcp_acao", async (e, { acao, nome, escopo }) => {
   const j = J(e);
-  if (typeof nome !== "string" || !nome || nome.startsWith("claude.ai ") || nome === "claudie") return { erro: "Esse conector não pode ser mudado aqui." };
+  if (typeof nome !== "string" || !nome || nome.startsWith("claude.ai ") || nome === "claudie" || nome === "computer-use") return { erro: "Esse conector não pode ser mudado aqui." };
+  // a name reaches the CLI as an argument: only plain names. The SDK calls take any name the session reports (plugins name theirs plugin:x:y).
+  const soSdk = acao === "ligar" || acao === "desligar" || acao === "reconectar";
+  if (!soSdk && !nomeMcpValido(nome)) return { erro: nome.startsWith("plugin:") ? "Os conectores de plugins são geridos pelo plugin." : "Nome de conector inválido." };
   try {
     if (acao === "remover") {
       if (!ESCOPOS_MCP.includes(escopo)) return { erro: "Esse conector não vem de um arquivo de configuração." };
@@ -1052,12 +1312,20 @@ ipcMain.handle("mcp_acao", async (e, { acao, nome, escopo }) => {
       return {};
     }
     if (acao === "reconectar") { await comConsulta(j, (q) => q.reconnectMcpServer(nome)); esquecePainel(); return {}; }
+    if (acao === "entrar") return mcpEntrar(j, nome);
+    if (acao === "terminal") return mcpTerminal(j, nome);
+    if (acao === "sair") {
+      const r = await claudeCli(["mcp", "logout", nome], j.cwd);
+      if (!r.erro) { esquecePainel(); reabreConversas(); }
+      return r;
+    }
   } catch (err) { esquecePainel(); return { erro: String(err?.message || err) }; }
   return { erro: "Ação desconhecida." };
 });
-ipcMain.handle("mcp_adicionar", async (e, d) => {
-  const j = J(e), nome = String(d?.nome || "").trim(), escopo = d?.escopo;
-  if (!/^[\w.-]{1,64}$/.test(nome)) return { erro: "Use só letras, números, ponto, hífen e sublinhado no nome." };
+// Adds a connector through the CLI (the form and the catalog both land here).
+async function adicionaMcp(j, d) {
+  const nome = String(d?.nome || "").trim(), escopo = d?.escopo;
+  if (!/^[\w.-]{1,64}$/.test(nome) || nome.startsWith("-")) return { erro: "Use só letras, números, ponto, hífen e sublinhado no nome." };
   if (!ESCOPOS_MCP.includes(escopo)) return { erro: "Escolha o escopo." };
   const linhas = (x) => String(x || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const env = linhas(d.env), cab = linhas(d.cabecalhos);
@@ -1076,7 +1344,136 @@ ipcMain.handle("mcp_adicionar", async (e, d) => {
   const r = await claudeCli(args, j.cwd);
   if (!r.erro) { esquecePainel(); reabreConversas(); }
   return r;
+}
+ipcMain.handle("mcp_adicionar", (e, d) => adicionaMcp(J(e), d));
+// What Claude Code printed for one connector of this conversation's folder.
+ipcMain.handle("mcp_logs", (e, { nome } = {}) => {
+  if (!nomeMcpValido(nome)) return { erro: "Nome de conector inválido." };
+  return { linhas: logsMcp.get(`${J(e).cwd}|${nome}`) || [] };
 });
+ipcMain.handle("mcp_logs_limpar", (e, { nome } = {}) => {
+  if (!nomeMcpValido(nome)) return { erro: "Nome de conector inválido." };
+  logsMcp.delete(`${J(e).cwd}|${nome}`);
+  return { linhas: [] };
+});
+// The catalog, each entry marked when this folder already has that server (by URL or by name).
+ipcMain.handle("conectores_catalogo", async (e) => {
+  const j = J(e);
+  let st = null, timer;
+  try { st = await Promise.race([comConsulta(j, (q) => q.mcpServerStatus()), new Promise((r) => (timer = setTimeout(() => r(null), 3000)))]); } catch {}
+  clearTimeout(timer);
+  const nomes = new Set((st || []).map((c) => c.name)), urls = new Set((st || []).map((c) => c.config?.url).filter(Boolean));
+  return { semClaude: !acharClaude(), itens: catalogo().map((c) => ({ ...c, jaAdicionado: nomes.has(c.id) || urls.has(c.url) })) };
+});
+
+// ---- plugins ---------------------------------------------------------------------------
+// Everything goes through the Claude Code CLI so the plugin settings stay Claude Code's own.
+// Writes run one at a time: a double click or a second window never edits the settings twice at once.
+let filaPlugins = Promise.resolve();
+const naFila = (fn) => (filaPlugins = filaPlugins.then(fn, fn));
+const VERBOS_PLUGIN = { instalar: "install", ativar: "enable", desativar: "disable", desinstalar: "uninstall", atualizar: "update" };
+const invalidaPlugins = () => {
+  for (const k of respostas.keys()) if (k.startsWith("plugins|") || k.startsWith("comandos|")) respostas.delete(k);
+  esquecePainel(); reabreConversas();
+};
+// What the CLI says about a write: done, or an error; consent that needs a terminal is never accepted for the person.
+function resultadoPlugin(r) {
+  if (r.dados?.shownCommand) return { erro: r.dados.message || r.erro || "Este plugin pede uma confirmação no terminal.", terminal: true };
+  if (r.terminal) return { erro: r.erro, terminal: true };
+  if (r.erro && r.codigo !== "already_in_goal_state") return { erro: r.erro };
+  invalidaPlugins();
+  return { ok: true, mensagem: r.dados?.message || r.texto || "" };
+}
+ipcMain.handle("plugins_lista", async (e) => {
+  const j = J(e);
+  if (!acharClaude()) return { semClaude: true };
+  try {
+    return await comCache(`plugins|${j.cwd}`, 20e3, async () => {
+      const [a, m] = await Promise.all([claudeJson(["plugin", "list", "--json", "--available"], j.cwd), claudeJson(["plugin", "marketplace", "list", "--json"], j.cwd)]);
+      if (a.erro || !a.dados) throw new Error(a.erro || "Resposta inesperada do Claude Code.");
+      return {
+        instalados: (a.dados?.installed || []).map((p) => ({ id: p.id, versao: p.version || "", escopo: p.scope || "", ativo: !!p.enabled })),
+        disponiveis: (a.dados?.available || []).map((p) => ({ id: p.pluginId, nome: p.name, descricao: String(p.description || "").slice(0, 300), mercado: p.marketplaceName || "", versao: p.version || "" })),
+        mercados: (Array.isArray(m.dados) ? m.dados : []).map((x) => ({ nome: x.name, fonte: x.repo || x.url || x.path || x.source || "" })),
+      };
+    });
+  } catch (err) { return { erro: String(err?.message || err) }; }
+});
+ipcMain.handle("plugin_acao", (e, d) => {
+  const j = J(e), verbo = VERBOS_PLUGIN[d?.acao];
+  if (!verbo) return { erro: "Ação desconhecida." };
+  if (!idPluginValido(d.id)) return { erro: "Identificador de plugin inválido." };
+  if (!ESCOPOS_MCP.includes(d.escopo)) return { erro: "Escolha o escopo." };
+  const args = ["plugin", verbo, d.id, "--scope", d.escopo, ...(verbo === "uninstall" ? ["--keep-data"] : []), "--json"];
+  return naFila(async () => resultadoPlugin(await claudeJson(args, j.cwd, { timeout: verbo === "install" || verbo === "update" ? 180e3 : 45e3 })));
+});
+ipcMain.handle("mercado_acao", (e, d) => {
+  const j = J(e), nome = typeof d?.nome === "string" ? d.nome.trim() : "";
+  let args;
+  if (d?.acao === "add") {
+    if (!fonteMercadoValida(d.fonte)) return { erro: "Fonte inválida: use usuario/repositorio, um endereço https ou uma pasta existente." };
+    if (!ESCOPOS_MCP.includes(d.escopo)) return { erro: "Escolha o escopo." };
+    args = ["plugin", "marketplace", "add", d.fonte.trim(), "--scope", d.escopo, "--json"];
+  } else if (d?.acao === "remove" || d?.acao === "update") {
+    if (nome ? !idPluginValido(nome) : d.acao === "remove") return { erro: "Nome de marketplace inválido." };
+    args = d.acao === "remove" ? ["plugin", "marketplace", "remove", nome, "--json"] : ["plugin", "marketplace", "update", ...(nome ? [nome, "--json"] : [])];
+  } else return { erro: "Ação desconhecida." };
+  return naFila(async () => {
+    const r = await claudeJson(args, j.cwd, { timeout: 180e3 });
+    return resultadoPlugin(r);
+  });
+});
+
+// ---- skills ----------------------------------------------------------------------------
+const aposSkills = () => { for (const k of respostas.keys()) if (k.startsWith("comandos|")) respostas.delete(k); reabreConversas(); };
+ipcMain.handle("skills_lista", async (e) => {
+  const j = J(e);
+  let cmds = [], timer;
+  try { cmds = await Promise.race([comandos(j), new Promise((r) => (timer = setTimeout(() => r([]), 6000)))]); } catch {}
+  clearTimeout(timer);
+  return { semClaude: !acharClaude(), skills: lerSkills(j.cwd), comandosPlugin: cmds.filter((c) => c.nome.includes(":")).map((c) => ({ nome: c.nome, descricao: c.descricao })) };
+});
+ipcMain.handle("skill_criar", (e, d) => {
+  try {
+    const r = criarSkill({ nome: d?.nome, descricao: d?.descricao, escopo: d?.escopo }, J(e).cwd);
+    if (r.ok) aposSkills();
+    return r;
+  } catch (err) { return { erro: String(err?.message || err) }; }
+});
+ipcMain.handle("skill_apagar", (e, d) => {
+  try {
+    const r = apagarSkill(d?.origem, d?.pasta, J(e).cwd);
+    if (r.ok) aposSkills();
+    return r;
+  } catch (err) { return { erro: String(err?.message || err) }; }
+});
+ipcMain.handle("skills_pasta", async (e, d) => {
+  const dir = pastaDeSkills(d?.origem, J(e).cwd);
+  if (!dir) return { erro: "Origem de skill inválida." };
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (err) { return { erro: String(err?.message || err) }; }
+  const falha = await shell.openPath(dir);
+  return falha ? { erro: falha } : { ok: true };
+});
+ipcMain.handle("skill_abrir", (e, d) => {
+  try {
+    const arq = path.join(caminhoSkill(d?.origem, d?.pasta, J(e).cwd), "SKILL.md");
+    if (!fs.existsSync(arq)) return { erro: "Essa pasta não é uma skill." };
+    shell.showItemInFolder(arq);
+    return { ok: true };
+  } catch (err) { return { erro: String(err?.message || err) }; }
+});
+// The reason a server failed goes into its log once per distinct text, and the names feed the log attribution.
+const ultimaFalhaMcp = new Map();
+function registraFalhasMcp(cwd, status) {
+  nomesMcp.set(cwd, new Set(status.map((c) => c.name)));
+  for (const c of status) {
+    const chave = `${cwd}|${c.name}`;
+    if (c.status !== "failed" || !c.error) { ultimaFalhaMcp.delete(chave); continue; }
+    if (ultimaFalhaMcp.get(chave) === c.error) continue;
+    ultimaFalhaMcp.set(chave, c.error);
+    ringLog(logsMcp, chave, c.error);
+  }
+}
 ipcMain.handle("painel", async (e) => {
   const j = J(e);
   const ambiente = { computador: os.hostname(), pasta: j.cwd, ramo: ramoGit(j.cwd), modelo: cfgJ(j).model || "" };
@@ -1092,10 +1489,12 @@ ipcMain.handle("painel", async (e) => {
     });
     // a running turn is asked live; only an idle conversation is cached
     const [contexto, conectores] = j.atual?.ativo || turnoDe(j.sessionId) ? await consulta() : await comCache(`painel|${j.cwd}|${cfgJ(j).model || ""}|${j.sessionId || ""}`, 20e3, consulta);
+    registraFalhasMcp(j.cwd, conectores || []);
     return {
       ambiente: { ...ambiente, modelo: contexto?.model || ambiente.modelo },
       contexto: contexto && { total: contexto.totalTokens, max: contexto.maxTokens, pct: contexto.percentage, categorias: (contexto.categories || []).map((c) => ({ nome: c.name, tokens: c.tokens, cor: c.color, tipo: c.kind || (c.isDeferred ? "deferred" : "used") })), memoria: (contexto.memoryFiles || []).map((m) => ({ caminho: m.path, tokens: m.tokens })) },
-      conectores: (conectores || []).map((c) => ({ nome: c.name, estado: c.status, erro: c.error || "", escopo: c.scope || c.source || "", ferramentas: c.tools?.length ?? null, tipo: c.config?.type || "", embutido: c.source === "sdk" || c.name === "claudie" })),
+      conectores: (conectores || []).map((c) => ({ nome: c.name, estado: c.status, erro: c.error || "", escopo: c.scope || c.source || "", ferramentas: c.tools?.length ?? null, tipo: c.config?.type || "", embutido: c.source === "sdk" || c.name === "claudie" || c.name === "computer-use" })),
+      terminalExterno: terminalExterno(),
       rodando: !!(j.atual?.ativo || turnoDe(j.sessionId)),
     };
   } catch (err) { return { ambiente, erro: String(err?.message || err) }; }
@@ -1135,6 +1534,23 @@ ipcMain.handle("novidades", async () => {
 });
 // Files Claude changed open in their own app, or show in their folder.
 ipcMain.handle("abrir_arquivo", (_e, caminho, naPasta) => abreArquivo(caminho, naPasta));
+// Text of an html/svg/markdown file Claude wrote, for the Artifacts window. Read-only, same
+// roots as "abrir_arquivo", plain preview types only and a size cap.
+ipcMain.handle("artefato_ler", (e, caminho) => {
+  if (typeof caminho !== "string" || !caminho) return { erro: "fora" };
+  const j = J(e), base = j?.atual?.cwd || j?.cwd || config.cwd;
+  const abs = path.resolve(base, caminho), real = caminhoRealSeguro(abs);
+  const TIPO = /\.(html?|svg|md|markdown)$/i;
+  // a file that no longer exists has no real path: inside an allowed folder it is a failed read
+  if (!real) return { erro: dentroDeRaizPermitida(abs) && TIPO.test(abs) ? "leitura" : "fora" };
+  if (!dentroDeRaizPermitida(real)) return { erro: "fora" };
+  if (!TIPO.test(real)) return { erro: "tipo" };
+  try {
+    const st = fs.statSync(real);
+    if (!st.isFile() || st.size > 2 * 1024 * 1024) return { erro: "grande" };
+    return { texto: fs.readFileSync(real, "utf8"), nome: path.basename(real) };
+  } catch { return { erro: "leitura" }; }
+});
 // A file named in a reply (relative to the conversation's folder, absolute, file:// or
 // percent-encoded by the markdown). Images come back as a URL for the preview; the rest
 // opens as "abrir_arquivo" would. Same roots, so a link can't reach outside the folders.
@@ -1252,7 +1668,7 @@ ipcMain.handle("desfazer", async (e, { uuid, simular }) => {
   finally { solta(); ac.abort(); q.return?.().catch(() => {}); }
 });
 // A running turn keeps going in the background; the window starts afresh.
-ipcMain.handle("nova", (e) => { const j = J(e); j.sessionId = null; j.atual = null; enviarEvento(j, { tipo: "config", ...cfgJ(j) }); return true; });
+ipcMain.handle("nova", (e) => { const j = J(e); limpaConversa(j); enviarEvento(j, { tipo: "config", ...cfgJ(j) }); return true; });
 // The Claude app (Code tab) keeps its own record of each conversation — the
 // title it shows, whether it is archived — next to the transcript Claude Code
 // writes. Reading those records lets the list use the same names the person
@@ -1315,7 +1731,7 @@ ipcMain.handle("saida", (e, id) => saidasCheias.get(String(id)) ?? null);
 ipcMain.handle("abrir_sessao", async (e, id, cwd) => {
   const j = J(e);
   if (cwd && cwd !== j.cwd && fs.existsSync(cwd)) j.cwd = cwd;
-  j.sessionId = id; j.atual = null;
+  j.sessionId = id; j.atual = null; j.modoBypass = false;
   let hist = [];
   try { hist = await historico(id, cwd || j.cwd); } catch {}
   if (j.sessionId !== id) return null;
@@ -1336,8 +1752,8 @@ ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {
   try {
     const dir = cwd && fs.existsSync(cwd) ? cwd : j.cwd;
     const r = await forkSession(origem, { dir, upToMessageId: uuid || undefined, title: titulo || undefined });
-    guardaCfg(r.sessionId, cfgSessao(origem)); salvarConfig();
-    j.cwd = dir; j.sessionId = r.sessionId;
+    guardaCfg(r.sessionId, { ...cfgSessao(origem), modo: cfgSessao(origem).modo === BYPASS ? "default" : cfgSessao(origem).modo, computador: false }); salvarConfig();
+    j.cwd = dir; j.sessionId = r.sessionId; j.modoBypass = false;
     return { id: r.sessionId, titulo: titulo || "Ramo", cwd: dir };
   } catch (e) { console.log("[ramificar]", e?.message || e); return null; }
 });
@@ -1389,33 +1805,37 @@ ipcMain.handle("buscar", async (e, termo, todas) => {
   return achados;
 });
 ipcMain.handle("focar", (e) => { const w = J(e).win; if (w.isMinimized()) w.restore(); w.show(); w.focus(); });
-ipcMain.handle("renomear", async (e, { id, titulo, cwd }) => { try { await renameSession(id, titulo, { dir: cwd || J(e).cwd }); return true; } catch { return false; } });
+ipcMain.handle("renomear", async (e, { id, titulo, cwd }) => { if (ctrl?.idsRodando().includes(id)) return false; try { await renameSession(id, titulo, { dir: cwd || J(e).cwd }); return true; } catch { return false; } });
 ipcMain.handle("apagar", async (e, id, cwd) => {
-  if (turnoDe(id)) return false;
+  if (turnoDe(id) || ctrl?.idsRodando().includes(id)) return false;
   const viva = vivaDe(id); if (viva) await fechaEspera([viva]);
   try {
     await deleteSession(id, { dir: cwd || J(e).cwd });
-    textoDasSessoes.delete(id); esqueceTarefas(id);
+    textoDasSessoes.delete(id); esqueceTarefas(id); esqueceSites(id);
     if (config.porSessao?.[id]) { delete config.porSessao[id]; salvarConfig(); }
-    for (const o of janelas.values()) if (o.sessionId === id) { o.sessionId = null; if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
+    for (const o of janelas.values()) if (o.sessionId === id) { limpaConversa(o); if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
     return true;
   } catch { return false; }
 });
-ipcMain.handle("pasta", async (e) => {
+ipcMain.handle("pasta", async (e, soEscolher) => {
   const j = J(e);
   const r = await dialog.showOpenDialog(j.win, { title: t("Pasta do projeto"), defaultPath: j.cwd, properties: ["openDirectory"] });
   if (r.canceled || !r.filePaths[0]) return null;
+  if (soEscolher) return r.filePaths[0]; // a folder for something else (a scheduled task): the conversation stays as it is
   // A turn running here keeps its own folder and goes on in the background.
-  config.cwd = j.cwd = r.filePaths[0]; j.sessionId = null; j.atual = null; salvarConfig(); return j.cwd;
+  config.cwd = j.cwd = r.filePaths[0]; limpaConversa(j); salvarConfig(); return j.cwd;
 });
-// A new conversation straight in a project from the sidebar, no folder dialog.
-ipcMain.handle("nova_em", (e, cwd) => {
-  const j = J(e);
-  if (!cwd || !fs.existsSync(cwd)) return null;
-  config.cwd = j.cwd = cwd; j.sessionId = null; j.atual = null; salvarConfig();
+// A new conversation in a folder of this window. From the sidebar (global) the folder also becomes the
+// default for new windows; a folder that came from a link (not global) is checked strictly and never saved.
+function defineCwd(j, cwd, { global = true } = {}) {
+  if (global ? !cwd || !fs.existsSync(cwd) : !validaCwd(cwd)) return null;
+  j.cwd = cwd; limpaConversa(j);
+  if (global) { config.cwd = cwd; salvarConfig(); }
   enviarEvento(j, { tipo: "config", ...cfgJ(j) });
   return j.cwd;
-});
+}
+// A new conversation straight in a project from the sidebar, no folder dialog.
+ipcMain.handle("nova_em", (e, cwd) => defineCwd(J(e), cwd));
 // Worktrees: a new conversation on its own branch in its own folder. It goes
 // under <repo>/.claude/worktrees when the project already uses that, else next
 // to the repo in <repo>-worktrees. Git runs with argument arrays only.
@@ -1445,7 +1865,7 @@ ipcMain.handle("worktree_criar", async (e, texto) => {
   }
   const r = await git(j.cwd, ["worktree", "add", "-b", ramo, dir]);
   if (r.erro) return { erro: (r.err || String(r.erro.message)).trim().split("\n").pop() };
-  config.cwd = j.cwd = dir; j.sessionId = null; salvarConfig();
+  config.cwd = j.cwd = dir; limpaConversa(j); salvarConfig();
   return { cwd: dir, ramo };
 });
 ipcMain.handle("worktree_remover", async (e, cwd) => {
@@ -1462,7 +1882,7 @@ ipcMain.handle("worktree_remover", async (e, cwd) => {
   // from the main repo, so the folder being removed is not git's own cwd; no --force: uncommitted work keeps it
   const r = await git(w.raiz, ["worktree", "remove", w.topo]);
   if (r.erro) return { erro: (r.err || String(r.erro.message)).trim().split("\n").pop() };
-  for (const o of janelas.values()) if (mesmoCaminho(o.cwd, w.topo)) { o.cwd = w.raiz; o.sessionId = null; if (config.cwd && mesmoCaminho(config.cwd, w.topo)) config.cwd = w.raiz; }
+  for (const o of janelas.values()) if (mesmoCaminho(o.cwd, w.topo)) { o.cwd = w.raiz; limpaConversa(o); if (config.cwd && mesmoCaminho(config.cwd, w.topo)) config.cwd = w.raiz; }
   salvarConfig();
   return { cwd: w.raiz };
 });
@@ -1503,14 +1923,18 @@ function comandoDoTerminal() {
   const pwsh = resolveExe("pwsh");
   return [path.isAbsolute(pwsh) ? pwsh : resolveExe("powershell.exe"), ["-NoLogo", "-NoProfile", "-NoExit", "-Command", "-"]];
 }
+// A child process and everything it started (taskkill /T on Windows, the process group elsewhere).
+function matarArvore(p, sincrono) {
+  if (!p?.pid || p.exitCode !== null) return;
+  if (process.platform === "win32") {
+    const args = ["/pid", String(p.pid), "/T", "/F"];
+    if (sincrono) { try { execFileSync("taskkill", args, { windowsHide: true, stdio: "ignore" }); } catch {} } else execFile("taskkill", args, { windowsHide: true }, () => {});
+  } else { try { process.kill(-p.pid, "SIGTERM"); } catch { p.kill("SIGTERM"); } }
+}
 function terminalMata(j, sincrono) {
   const term = j.term;
   j.term = null;
-  if (!term?.p.pid || term.p.exitCode !== null) return;
-  if (process.platform === "win32") {
-    const args = ["/pid", String(term.p.pid), "/T", "/F"];
-    if (sincrono) { try { execFileSync("taskkill", args, { windowsHide: true, stdio: "ignore" }); } catch {} } else execFile("taskkill", args, { windowsHide: true }, () => {});
-  } else { try { process.kill(-term.p.pid, "SIGTERM"); } catch { term.p.kill("SIGTERM"); } }
+  if (term) matarArvore(term.p, sincrono);
 }
 function terminalLiga(j) {
   if (j.term && mesmoCaminho(j.term.cwd, j.cwd) && j.term.p.exitCode === null) return j.term;
@@ -1536,15 +1960,21 @@ ipcMain.handle("term_enviar", (e, linha) => {
 });
 ipcMain.handle("term_parar", (e) => { const j = J(e); if (!j) return false; terminalMata(j); terminalLiga(j); return true; });
 
-// A change of model, mode, effort or ultracode goes to the conversation it was made in (or, in a new
+// A change of model, mode, effort, ultracode or computer control goes to the conversation it was made in (or, in a new
 // one, to the defaults) and into the turns running there; the rest of config is shared.
 async function mudaConfig(j, mudanca, id = j.sessionId) {
   const m = {};
-  for (const k of ["model", "modo", "esforco", "ultracode"]) if (k in mudanca) m[k] = k === "ultracode" ? !!mudanca[k] : String(mudanca[k] || "");
+  for (const k of ["model", "modo", "esforco", "ultracode", "computador"]) if (k in mudanca) m[k] = k === "ultracode" || k === "computador" ? !!mudanca[k] : String(mudanca[k] || "");
   if (m.modo && !MODOS.includes(m.modo)) delete m.modo;
   const turnosAfetados = [...turnos].filter((t) => t.q && !t.caixa?.fechada && ((id && t.sessionId === id) || (!id && t === j.atual)));
   if (id) guardaCfg(id, { ...cfgSessao(id), ...m });
-  else Object.assign(config, m);
+  else {
+    // A conversation not yet started can be in bypass, but the default for new ones never is.
+    if ("modo" in m) j.modoBypass = m.modo === BYPASS;
+    if ("computador" in m) j.computadorPendente = m.computador;
+    const { modo, computador, ...resto } = m;
+    Object.assign(config, resto, modo && modo !== BYPASS ? { modo } : {});
+  }
   for (const t of turnosAfetados) t.cfg = { ...t.cfg, ...m };
   salvarConfig(); avisaConfig();
   const falhou = new Set();
@@ -1555,10 +1985,25 @@ async function mudaConfig(j, mudanca, id = j.sessionId) {
   }
   return [...falhou];
 }
+async function confirmaBypass(j) {
+  const r = await dialog.showMessageBox(j.win, {
+    type: "warning", noLink: true, buttons: [t("Cancelar"), t("Ativar")], defaultId: 0, cancelId: 0,
+    message: t("Ignorar todas as permissões?"),
+    detail: t("O Claude vai editar arquivos e rodar comandos sem pedir aprovação. Use só em pastas e projetos em que você confia.\n\nPasta: {0}", j.cwd || ""),
+  });
+  return r.response === 1;
+}
 ipcMain.handle("config", async (e, mudanca) => {
-  const { model, modo, esforco, ultracode, ...resto } = mudanca || {}, j = J(e);
+  const { model, modo, esforco, ultracode, computador, ...resto } = mudanca || {}, j = J(e);
+  if (modo === BYPASS && cfgJ(j).modo !== BYPASS) {
+    const devolve = () => ({ ...config, ...cfgJ(j), depois: [] });
+    if (j.confirmandoBypass) return devolve();
+    const id = j.sessionId; j.confirmandoBypass = true;
+    const ok = await confirmaBypass(j).finally(() => { j.confirmandoBypass = false; });
+    if (!ok || j.sessionId !== id) { avisaConfig(); return devolve(); }
+  }
   if (Object.keys(resto).length) { config = { ...config, ...resto }; salvarConfig(); }
-  const depois = await mudaConfig(j, Object.fromEntries(Object.entries({ model, modo, esforco, ultracode }).filter(([, v]) => v !== undefined)));
+  const depois = await mudaConfig(j, Object.fromEntries(Object.entries({ model, modo, esforco, ultracode, computador }).filter(([, v]) => v !== undefined)));
   return { ...config, ...cfgJ(j), depois };
 });
 // Each window shows the choices of the conversation it holds.
@@ -1569,8 +2014,12 @@ ipcMain.handle("visual", () => config.visual || {});
 ipcMain.on("i18n", (e) => { e.returnValue = { idioma: idioma(), dicionario: DICIONARIO }; });
 ipcMain.handle("visual_salvar", (_e, visual) => {
   const antes = config.visual || {};
-  config.visual = visual && typeof visual === "object" ? visual : {}; salvarConfig();
+  config.visual = visual && typeof visual === "object" ? visual : {};
+  // Apps Claude may never control by computer use: the comma-separated field of Customize, as lowercased names.
+  config.computerUse = { ...config.computerUse, bloqueados: String(config.visual.geral?.computerBloqueio || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean) };
+  salvarConfig();
   if (antes.icone !== config.visual.icone) aplicaIcone();
+  aplicaGeral();
   if (config.visual.nome) for (const o of janelas.values()) o.win.setTitle(config.visual.nome);
   for (const o of janelas.values()) if (o !== J(_e)) enviarEvento(o, { tipo: "visual", visual: config.visual });
   return config.visual;
@@ -1596,9 +2045,20 @@ ipcMain.handle("pessoal_apagar", (_e, tipo, id) => {
     return true;
   } catch { return false; }
 });
-ipcMain.handle("conta", () => ({ entrar: config.entrar || "login", temChave: !!config.chaveApi, claude: acharClaude(), cifra: safeStorage.isEncryptionAvailable() }));
-ipcMain.handle("conta_salvar", (_e, { entrar, chave }) => {
+ipcMain.handle("conta", () => ({ entrar: config.entrar || "login", temChave: !!config.chaveApi, urlApi: config.urlApi || "", claude: acharClaude(), cifra: safeStorage.isEncryptionAvailable() }));
+ipcMain.handle("conta_salvar", (_e, { entrar, chave, url }) => {
   if (entrar === "login" || entrar === "chave") config.entrar = entrar;
+  // The API key's endpoint (ANTHROPIC_BASE_URL): a proxy or gateway; empty goes back to Anthropic's.
+  if (typeof url === "string") {
+    const u = url.trim();
+    if (!u) delete config.urlApi;
+    else {
+      let p = null;
+      try { p = new URL(u); } catch {}
+      if (!p || !/^https?:$/.test(p.protocol) || p.username || p.password) return { erro: "Endereço inválido: use um http:// ou https:// sem usuário e senha." };
+      config.urlApi = p.href.replace(/\/+$/, "");
+    }
+  }
   if (typeof chave === "string") {
     const c = chave.trim();
     if (!c) delete config.chaveApi;
@@ -1606,7 +2066,7 @@ ipcMain.handle("conta_salvar", (_e, { entrar, chave }) => {
     else config.chaveApi = safeStorage.encryptString(c).toString("base64");
   }
   salvarConfig();
-  return { entrar: config.entrar || "login", temChave: !!config.chaveApi };
+  return { entrar: config.entrar || "login", temChave: !!config.chaveApi, urlApi: config.urlApi || "" };
 });
 // ---- first launch check: Claude Code installed and signed in --------------------------
 // The window asks once when the app opens. Missing Claude Code is installed with
@@ -1631,13 +2091,14 @@ ipcMain.handle("claude_checa", async () => {
   return { instalado: true, versao, logado: s.loggedIn, metodo: s.authMethod, email: s.email || "" };
 });
 let instalando = null, entrando = null;
-const linhasPara = (e, fonte) => {
+// Reads a child's output line by line (ANSI stripped, 2000 chars at most) and sends each as the event evento(line) builds.
+const linhasPara = (j, evento) => {
   let resto = "";
   return (b) => {
     const partes = (resto + b.toString()).split(/\r?\n/); resto = partes.pop();
     // the login prompt has no newline: send what is left when it looks like one
     if (/>\s*$/.test(resto)) { partes.push(resto); resto = ""; }
-    for (const l of partes) if (l.trim()) enviarEvento(J(e), { tipo: "claude_setup", fonte, linha: l.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").slice(0, 2000) });
+    for (const l of partes) if (l.trim()) enviarEvento(j, evento(ansi(l).slice(0, 2000)));
   };
 };
 ipcMain.handle("claude_instalar", (e) => instalando ??= new Promise((ok) => {
@@ -1645,7 +2106,7 @@ ipcMain.handle("claude_instalar", (e) => instalando ??= new Promise((ok) => {
   const p = win
     ? spawn(resolveExe("powershell"), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "irm https://claude.ai/install.ps1 | iex"], { windowsHide: true })
     : spawn("/bin/bash", ["-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
-  const linha = linhasPara(e, "instalar");
+  const linha = linhasPara(J(e), (linha) => ({ tipo: "claude_setup", fonte: "instalar", linha }));
   p.stdout.on("data", linha); p.stderr.on("data", linha);
   const fim = async (codigo) => { instalando = null; claudeExe = undefined; const exe = await achaClaudeAsync(); ok({ ok: !!exe, codigo, exe }); };
   p.on("error", (err) => { linha(Buffer.from(String(err.message || err) + "\n")); fim(-1); });
@@ -1657,7 +2118,7 @@ ipcMain.handle("claude_entrar", async (e, { console: daConsole } = {}) => {
   try { entrando?.kill(); } catch {}
   const c = comandoClaude(exe, ["auth", "login", ...(daConsole ? ["--console"] : [])]);
   const p = entrando = spawn(c.cmd, c.args, { env: c.env, windowsHide: true });
-  const linha = linhasPara(e, "entrar");
+  const linha = linhasPara(J(e), (linha) => ({ tipo: "claude_setup", fonte: "entrar", linha }));
   p.stdout.on("data", linha); p.stderr.on("data", linha);
   p.on("error", (err) => linha(Buffer.from(String(err.message || err) + "\n")));
   p.on("close", (codigo) => { if (entrando === p) entrando = null; enviarEvento(J(e), { tipo: "claude_setup", fonte: "entrar", fim: true, codigo }); });
@@ -1697,15 +2158,395 @@ function vigiaSessoes() {
   for (const d of pastasDoApp()) vigia(d, avisa);
 }
 
+// ---- tray, scheduled tasks, keep-awake -----------------------------------------------------------------
+// Brings a window up from wherever it is (hidden in the tray, minimized, behind others), or opens one.
+function mostraJanela(win = principal?.win) {
+  if (!win || win.isDestroyed()) { if (!janelas.size) criarJanela(); win = principal?.win; if (!win) return; }
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+}
+// Runs fn on the main window once its page has loaded (a window the tray just opened is still loading).
+function naJanelaPronta(fn) {
+  const j = principal; if (!j) return;
+  const w = j.win.webContents;
+  if (w.isLoading()) w.once("did-finish-load", () => fn(j)); else fn(j);
+}
+const ultimaVisivel = (j) => ![...janelas.values()].some((o) => o !== j && (o.win.isVisible() || o.win.isMinimized()));
+const emAtividade = () => [...turnos].some((x) => x.ativo) || (ctrl?.rodandoQtd() || 0) > 0;
+const deveFicarNaBandeja = () => config.visual?.geral?.fecharNaBandeja !== false && (emAtividade() || (ctrl?.ativasQtd() || 0) > 0);
+// A toast in the main process (the window may be hidden). Held in a Set until it closes so its click still works.
+function notifica(titulo, corpo, aoClicar) {
+  if (config.visual?.geral?.notificacoes === false || !Notification.isSupported()) return;
+  const n = new Notification({ title: titulo, body: corpo, icon: iconeAtual() });
+  notificacoes.add(n);
+  const solta = () => { notificacoes.delete(n); if (!notificacoes.size) mudouAtividade(); };
+  n.on("click", () => { solta(); aoClicar?.(); });
+  n.on("close", solta);
+  setTimeout(solta, 10 * 60e3);
+  n.show();
+}
+function avisaBandeja() {
+  if (config.avisouBandeja) return;
+  config.avisouBandeja = true; salvarConfig();
+  notifica("Claudie", t("Claudie continua na bandeja"), () => mostraJanela());
+}
+const LOCAL = { pt: "pt-BR", en: "en-US", vi: "vi-VN" };
+function montaMenuBandeja() {
+  if (!bandeja) return;
+  const ativos = [...turnos].filter((x) => x.ativo).length + (ctrl?.rodandoQtd() || 0), proximas = ctrl?.proximas(5) || [];
+  const chave = JSON.stringify([idioma(), ativos, proximas]);
+  if (chave === menuBandejaChave) return;
+  menuBandejaChave = chave;
+  const abreAgendadas = () => { mostraJanela(); naJanelaPronta((j) => enviarEvento(j, { tipo: "abrir_agendadas" })); };
+  const quando = (ms) => new Date(ms).toLocaleString(LOCAL[idioma()], { dateStyle: "short", timeStyle: "short" });
+  const rotulo = (s) => String(s).replace(/&/g, "&&");
+  try {
+    bandeja.setContextMenu(Menu.buildFromTemplate([
+      { label: t("Mostrar o Claudie"), click: () => mostraJanela() },
+      { label: t("Nova janela"), click: () => criarJanela() },
+      { label: t("Nova conversa"), click: () => { mostraJanela(); naJanelaPronta((j) => enviarEvento(j, { tipo: "foco_entrada", nova: true })); } },
+      { label: t("Tarefas agendadas"), submenu: [
+        { label: t("Abrir tarefas agendadas"), click: abreAgendadas },
+        ...(proximas.length ? [{ type: "separator" }, ...proximas.map((p) => ({ label: rotulo(`${p.nome} - ${quando(p.proxima)}`), click: abreAgendadas }))] : []),
+      ] },
+      ...(ativos ? [{ type: "separator" }, { label: t("{0} em execução", ativos), enabled: false }] : []),
+      { type: "separator" },
+      { label: t("Sair"), click: () => { sairDeVez = true; app.quit(); } },
+    ]));
+  } catch (e) { console.log("[bandeja]", e.message); }
+}
+function criaBandeja() {
+  try {
+    bandeja = new Tray(iconeAtual().resize({ width: 32, height: 32 }));
+    bandeja.setToolTip("Claudie");
+    bandeja.on("click", () => mostraJanela());
+    montaMenuBandeja();
+  } catch (e) { bandeja = null; console.log("[bandeja] sem ícone:", e.message); }
+}
+// The computer stays awake while Claude works (a turn or a scheduled run), if the person wants that.
+function atualizaEnergia() {
+  const quer = config.visual?.geral?.manterAcordado !== false && emAtividade();
+  if (quer && bloqueioEnergia === null) bloqueioEnergia = powerSaveBlocker.start("prevent-app-suspension");
+  else if (!quer && bloqueioEnergia !== null) { powerSaveBlocker.stop(bloqueioEnergia); bloqueioEnergia = null; }
+  if (process.env.VIVO_LOG) console.log("[energia]", bloqueioEnergia !== null && powerSaveBlocker.isStarted(bloqueioEnergia) ? "ativa" : "desligada");
+}
+// A hidden app that has nothing left to do (the last turn ended, no task is enabled) closes instead of lingering.
+function mudouAtividade() {
+  atualizaEnergia(); montaMenuBandeja();
+  if (sairDeVez || !bandeja || !janelas.size || deveFicarNaBandeja() || notificacoes.size) return;
+  if (![...janelas.values()].some((o) => o.win.isVisible() || o.win.isMinimized())) app.quit();
+}
+// The settings that live outside the window: start at login (installed app only), the tray menu and the energy state.
+let loginAplicado;
+function aplicaGeral() {
+  const abrir = !!config.visual?.geral?.abrirNoLogin;
+  if (app.isPackaged && loginAplicado === undefined) { try { loginAplicado = app.getLoginItemSettings({ args: ["--oculto"] }).openAtLogin; } catch { loginAplicado = false; } }
+  if (app.isPackaged && abrir !== loginAplicado) {
+    loginAplicado = abrir;
+    try { app.setLoginItemSettings({ openAtLogin: abrir, args: ["--oculto"] }); } catch {}
+    if (process.env.VIVO_LOG) console.log("[login]", JSON.stringify(app.getLoginItemSettings({ args: ["--oculto"] })));
+  }
+  montaMenuBandeja(); atualizaEnergia();
+}
+function iniciaAgendadas() {
+  ctrl = iniciaAgenda({
+    arquivo: path.join(app.getPath("userData"), "agendadas.json"), grava: gravaJson,
+    rodaQuery: query, criaCaixa: caixaDeEntrada,
+    renomeia: (id, titulo, cwd) => renameSession(id, titulo, { dir: cwd }),
+    guardaCfgSessao: (id, c) => { guardaCfg(id, c); salvarConfig(); },
+    existePasta: (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } },
+    avisa: () => { for (const o of janelas.values()) enviarEvento(o, { tipo: "agendadas", lista: ctrl?.lista() || [] }); avisaTurnos(); },
+    notifica: (tarefa, r) => {
+      if (process.env.VIVO_LOG) console.log("[agenda] fim:", tarefa.nome, r.estado, r.erro || "");
+      notifica(tarefa.nome, t(r.estado === "ok" ? "Concluída" : "Falhou"), () => {
+        mostraJanela();
+        if (r.sessionId) naJanelaPronta((j) => enviarEvento(j, { tipo: "abrir_sessao_pedido", id: r.sessionId, cwd: tarefa.cwd }));
+      });
+    },
+    tr: t, modos: MODOS.filter((m) => m !== BYPASS), aoMudarEnergia: mudouAtividade,
+    log: (...a) => { if (process.env.VIVO_LOG) console.log(...a); },
+  });
+  powerMonitor.on("resume", ctrl.acorda);
+  for (const o of janelas.values()) enviarEvento(o, { tipo: "agendadas", lista: ctrl.lista() });
+  avisaTurnos();
+  // VIVO_AGENDA_AGORA="id" runs that task as soon as the app starts (a test of the headless run)
+  if (process.env.VIVO_AGENDA_AGORA) console.log("[agenda] agora:", process.env.VIVO_AGENDA_AGORA, ctrl.rodar(process.env.VIVO_AGENDA_AGORA));
+}
+const idTexto = (v) => (typeof v === "string" ? v : "");
+ipcMain.handle("agendadas", () => ctrl?.lista() || []);
+ipcMain.handle("agendada_salvar", (_e, dados) => { try { return { tarefa: ctrl.salvar(dados) }; } catch (e) { return { erro: traduzErro(e, t) }; } });
+ipcMain.handle("agendada_apagar", (_e, id) => !!ctrl?.apagar(idTexto(id)));
+ipcMain.handle("agendada_pausar", (_e, id, pausada) => !!ctrl?.pausar(idTexto(id), !!pausada));
+ipcMain.handle("agendada_rodar", (_e, id) => !!ctrl?.rodar(idTexto(id)));
+ipcMain.handle("agendada_parar", (_e, id) => !!ctrl?.parar(idTexto(id)));
+ipcMain.handle("agendada_historico", (_e, id) => ctrl?.historico(idTexto(id)) || []);
+// The next three runs of a repeat rule, for the preview in the editor.
+ipcMain.handle("agendada_proxima", (_e, repete) => {
+  try {
+    const r = validaRepete(repete), proximas = [];
+    for (let d = Date.now(), i = 0; i < 3; i++) { d = proximaExecucao(r, d); if (!d) break; proximas.push(d); }
+    return { proximas };
+  } catch (e) { return { erro: traduzErro(e, t) }; }
+});
+
 // Ctrl+Shift+Space brings the window up from anywhere (and hides it again).
 function atalhoGlobal() {
   globalShortcut.register("Control+Shift+Space", () => {
     const win = (BrowserWindow.getFocusedWindow() && janelas.get(BrowserWindow.getFocusedWindow().webContents.id)?.win) || principal?.win;
-    if (!win) return;
-    if (win.isFocused()) win.minimize();
-    else { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
+    if (win?.isFocused()) win.minimize();
+    else mostraJanela(win);
   });
 }
+
+// ---- Quick Entry, claudie:// links and screen capture ---------------------------------------------------------
+// Quick Entry is a small frameless window on its own shortcut: a line of text (and pictures) that goes to the
+// last window used, as a new conversation or into its current one. Its IPC and the capture overlay's are never
+// resolved through J(e): the sender and its page are checked instead.
+let rapida = null, rapidaErro = "", rapidaGraca = 0, acelRapida = null, ultimaFocada = null;
+let capturaGesto = 0, fontesPermitidas = null, linkPendente = null, abrindoLink = false;
+const filaLinks = [];
+const ARQ_RAPIDA = path.join(here, "rapida.html");
+const URL_RAPIDA = pathToFileURL(ARQ_RAPIDA).href.toLowerCase();
+// config.json is hand-editable: a bad shortcut falls back to the default and only an explicit false turns it off.
+const cfgRapida = () => {
+  const c = config.entradaRapida || {};
+  return { atalho: (typeof c.atalho === "string" && normalizaAtalho(c.atalho).acel) || "Control+Alt+Space", ligada: c.ligada !== false };
+};
+const captura = iniciaCaptura({ pasta: here, preload: path.join(here, "preload-rapida.cjs"), trava: travaNavegacao });
+
+// These pages never navigate (a dropped file would otherwise replace them) and open no windows.
+function travaNavegacao(w) {
+  const bloqueia = (e) => e.preventDefault();
+  w.webContents.on("will-navigate", bloqueia);
+  w.webContents.on("will-frame-navigate", bloqueia);
+  w.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+}
+const daRapida = (e) => !!rapida && !rapida.isDestroyed() && e.sender === rapida.webContents && String(e.senderFrame?.url || "").toLowerCase() === URL_RAPIDA;
+// The window a Quick Entry message or a link goes to: the last one used, else the main one, else a new one.
+function alvo() {
+  if (ultimaFocada && !ultimaFocada.fechada) return ultimaFocada;
+  if (principal && !principal.fechada) return principal;
+  return [...janelas.values()][0] || criarJanela();
+}
+const mostraAlvo = (j) => { if (j.win.isDestroyed()) return; if (j.win.isMinimized()) j.win.restore(); j.win.show(); j.win.focus(); };
+// Events for a window's page wait in line until it has said it is ready (after the intro).
+function despachaParaJanela(j, ev) {
+  if (j.pronta) enviarEvento(j, ev); else { (j.fila ||= []).push(ev); if (j.fila.length > 20) j.fila.shift(); }
+}
+ipcMain.handle("janela_pronta", (e) => {
+  const j = J(e); if (!j) return;
+  j.pronta = true;
+  for (const ev of j.fila?.splice(0) || []) enviarEvento(j, ev);
+  if (j === principal && linkPendente) { const l = linkPendente; linkPendente = null; tratarLink(l); }
+});
+const todasJanelas = () => [...janelas.values()].map((j) => j.win).concat(rapida ? [rapida] : []);
+
+function criaRapida() {
+  const w = new BrowserWindow({
+    width: 640, height: 168, frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true, resizable: false, show: false, hasShadow: false,
+    webPreferences: { preload: path.join(here, "preload-rapida.cjs"), sandbox: true, contextIsolation: true },
+  });
+  w.setAlwaysOnTop(true, "screen-saver");
+  travaNavegacao(w);
+  // Focus can flicker right after it opens, and the screen picker takes it on purpose: neither hides it.
+  w.on("blur", () => { if (Date.now() < rapidaGraca || captura.ocupado()) return; escondeRapida(); });
+  w.on("closed", () => { if (rapida === w) rapida = null; });
+  w.loadFile(ARQ_RAPIDA);
+  return w;
+}
+function escondeRapida() { if (rapida && !rapida.isDestroyed() && rapida.isVisible()) rapida.hide(); }
+function mostraRapida() {
+  if (!rapida || rapida.isDestroyed()) rapida = criaRapida();
+  const a = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea, [largura] = rapida.getSize();
+  rapida.setPosition(Math.round(a.x + (a.width - largura) / 2), Math.round(a.y + a.height * 0.28));
+  rapidaGraca = Date.now() + 200;
+  rapida.show(); rapida.focus();
+  const abre = () => { if (rapida && !rapida.isDestroyed()) rapida.webContents.send("rapida:abre", { novaPadrao: true }); };
+  if (rapida.webContents.isLoading()) rapida.webContents.once("did-finish-load", abre); else abre();
+}
+function alternaRapida() {
+  if (captura.ocupado()) return;
+  if (rapida && !rapida.isDestroyed() && rapida.isVisible()) escondeRapida(); else mostraRapida();
+}
+// Back from a capture started in Quick Entry: shown and focused again, with the usual grace against the focus flicker.
+function voltaRapida() {
+  if (!rapida || rapida.isDestroyed()) return;
+  rapidaGraca = Date.now() + 200; rapida.show(); rapida.focus();
+}
+
+const TECLAS_ATALHO = ["Space", "Tab", "Enter", "Up", "Down", "Left", "Right", "Home", "End", "PageUp", "PageDown", "Insert", "Delete"];
+const RE_ATALHO = /^((Control|Ctrl|Alt|Shift|Super|CommandOrControl)\+)+([A-Z0-9]|F\d{1,2}|Space|Tab|Enter|Up|Down|Left|Right|Home|End|PageUp|PageDown|Insert|Delete)$/i;
+const ATALHO_GLOBAL = "Control+Shift+Space";
+// Modifiers in one canonical order and the key spelled the Electron way; the shortcut needs Control, Alt or Super
+// (Shift alone would swallow a letter) and cannot be the one that shows the window.
+function normalizaAtalho(bruto) {
+  const s = String(bruto || "").trim();
+  if (!RE_ATALHO.test(s)) return { erro: t("Atalho inválido. Use modificadores e uma tecla, como Ctrl+Alt+Espaço.") };
+  const partes = s.split("+"), tecla = partes.pop();
+  const mods = new Set(partes.map((m) => { m = m.toLowerCase(); return /^(ctrl|control|commandorcontrol)$/.test(m) ? "Control" : m === "alt" ? "Alt" : m === "shift" ? "Shift" : "Super"; }));
+  if (!["Control", "Alt", "Super"].some((m) => mods.has(m))) return { erro: t("Inclua Ctrl, Alt ou a tecla Windows no atalho.") };
+  const f = /^f(\d{1,2})$/i.exec(tecla);
+  if (f && (+f[1] < 1 || +f[1] > 24)) return { erro: t("Atalho inválido. Use modificadores e uma tecla, como Ctrl+Alt+Espaço.") };
+  const nome = f ? "F" + +f[1] : TECLAS_ATALHO.find((k) => k.toLowerCase() === tecla.toLowerCase()) || tecla.toUpperCase();
+  const acel = [...["Control", "Alt", "Shift", "Super"].filter((m) => mods.has(m)), nome].join("+");
+  if (acel === ATALHO_GLOBAL) return { erro: t("Esse atalho já mostra o Claudie de qualquer lugar.") };
+  return { acel };
+}
+// Registers the shortcut (or only releases it when off); a taken one leaves the error for Customize.
+function registraRapida(acel = cfgRapida().atalho, ligada = cfgRapida().ligada) {
+  if (acelRapida) { globalShortcut.unregister(acelRapida); acelRapida = null; }
+  rapidaErro = "";
+  if (!ligada) return { ok: true };
+  let ok = false;
+  try { ok = !globalShortcut.isRegistered(acel) && globalShortcut.register(acel, alternaRapida); } catch {}
+  if (!ok) { rapidaErro = t("O atalho {0} não está disponível: outro app já o usa.", acel); return { ok: false, erro: rapidaErro }; }
+  acelRapida = acel;
+  return { ok: true };
+}
+// Customize changes the shortcut or turns it off; a shortcut that cannot be taken leaves the previous one in place.
+ipcMain.handle("rapida_atalho", (e, m) => {
+  if (!J(e)) return { ok: false, erro: "" };
+  const antes = cfgRapida(), depois = { ...antes };
+  if (typeof m?.atalho === "string") {
+    const n = normalizaAtalho(m.atalho);
+    if (n.erro) return { ok: false, erro: n.erro };
+    depois.atalho = n.acel;
+  }
+  if (typeof m?.ligada === "boolean") depois.ligada = m.ligada;
+  const r = registraRapida(depois.atalho, depois.ligada);
+  if (!r.ok) { registraRapida(antes.atalho, antes.ligada); rapidaErro = r.erro; return r; }
+  config.entradaRapida = depois; salvarConfig();
+  return { ok: true, ...depois };
+});
+
+const IMAGEM_OK = /^image\/(png|jpeg|gif|webp)$/, B64 = /^[A-Za-z0-9+/=]+$/;
+const MAX_IMAGEM_B64 = 7 * 1024 * 1024, MAX_TOTAL_B64 = 20 * 1024 * 1024;
+// What Quick Entry may hand over: text up to 100000 characters and up to 6 pictures within the size caps.
+function validaRapida(d) {
+  if (!d || typeof d.texto !== "string" || d.texto.length > 100000 || !Array.isArray(d.anexos) || d.anexos.length > 6) return null;
+  let total = 0;
+  const anexos = [];
+  for (const a of d.anexos) {
+    if (!a || typeof a.dados !== "string" || typeof a.mime !== "string" || !IMAGEM_OK.test(a.mime) || !a.dados || a.dados.length > MAX_IMAGEM_B64 || !B64.test(a.dados)) return null;
+    total += a.dados.length;
+    if (total > MAX_TOTAL_B64) return null;
+    anexos.push({ nome: String(a.nome || "imagem").slice(0, 120), dados: a.dados, mime: a.mime });
+  }
+  if (!d.texto.trim() && !anexos.length) return null;
+  return { texto: d.texto, anexos };
+}
+ipcMain.handle("rapida_enviar", (e, d) => {
+  if (!daRapida(e)) return false;
+  const v = validaRapida(d);
+  if (!v) return false;
+  const j = alvo();
+  escondeRapida(); mostraAlvo(j);
+  despachaParaJanela(j, { tipo: "entrada_rapida", texto: v.texto, anexos: v.anexos, nova: d.nova !== false });
+  return true;
+});
+ipcMain.on("rapida_fechar", (e) => { if (daRapida(e)) escondeRapida(); });
+const telaDoCursor = () => screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+ipcMain.handle("rapida_capturar", (e) => {
+  if (!daRapida(e)) return null;
+  return captura.capturaRegiao(telaDoCursor(), todasJanelas(), voltaRapida).catch(() => null);
+});
+
+// Screen capture from the paperclip: the Screenshot menu item arms a one-use token, a listing can be asked for once
+// per token, and a window or screen is only taken if it was in the last listing. The token limits repeats; it does
+// not prove a click, since it is armed from the renderer itself.
+const usaGesto = () => { const ok = Date.now() < capturaGesto; capturaGesto = 0; return ok; };
+ipcMain.handle("captura_gesto", (e) => { if (!J(e)) return false; capturaGesto = Date.now() + 30000; return true; });
+ipcMain.handle("captura_fontes", async (e) => {
+  if (!J(e) || !usaGesto()) return null;
+  try {
+    const lista = await captura.listaFontes(todasJanelas());
+    fontesPermitidas = new Set(lista.map((s) => s.id));
+    return lista;
+  } catch (err) { console.log("[captura]", err?.message || err); return []; }
+});
+ipcMain.handle("captura_fonte", async (e, id) => {
+  const j = J(e), ok = typeof id === "string" && !!fontesPermitidas?.has(id);
+  fontesPermitidas = null;
+  if (!j || !ok) return null;
+  return captura.capturaFonte(id, todasJanelas(), () => mostraAlvo(j)).catch(() => null);
+});
+ipcMain.handle("captura_regiao", (e) => {
+  const j = J(e);
+  if (!j || !usaGesto()) return null;
+  return captura.capturaRegiao(telaDoCursor(), todasJanelas(), () => mostraAlvo(j)).catch(() => null);
+});
+ipcMain.on("captura_rect", (e, r) => captura.recebeRect(e, r));
+ipcMain.on("captura_cancela", (e) => captura.recebeCancela(e));
+
+// claudie:// links. Registered for the installed app; a run from source only with VIVO_LINK=1, so it never takes the
+// installed app's registration. Windows hands a link over in argv (a cold start, or second-instance).
+const linkDoArgv = (argv) => (argv || []).find((a) => /^"?claudie:\/\//i.test(a));
+function registraProtocolo() {
+  if (process.env.VIVO_PASTA || process.env.VIVO_JS || process.env.VIVO_ATALHOS || (!app.isPackaged && !process.env.VIVO_LINK)) return;
+  try {
+    if (process.defaultApp) { if (process.argv.length >= 2) app.setAsDefaultProtocolClient("claudie", process.execPath, [path.resolve(process.argv[1]), "--"]); }
+    else app.setAsDefaultProtocolClient("claudie", process.execPath, ["--"]);
+  } catch (e) { console.log("[link] não registrou:", e?.message || e); }
+}
+// An absolute folder that exists; never a network path (looking one up would hand over the person's credentials).
+function validaCwd(c) {
+  if (typeof c !== "string" || !c || /^[\\/]{2}/.test(c) || !path.isAbsolute(c)) return false;
+  try { return fs.statSync(c).isDirectory(); } catch { return false; }
+}
+// Text from a link shown in a native box without control or bidirectional characters that could hide what it says.
+const INVISIVEL = /[\u200b-\u200d\u2028\u2029\u2060\ufeff]/g;
+const limpaLink = (s) => String(s).replace(INVISIVEL, "").replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g, "");
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function tratarLink(bruto) {
+  let u;
+  try { u = new URL(String(bruto).replace(/^"|"$/g, "")); } catch { return; }
+  if (u.protocol !== "claudie:") return;
+  const acao = u.hostname.toLowerCase();
+  if (acao === "new") { filaLinks.push(u); processaLinks(); }
+  else if (acao === "session") {
+    const id = u.pathname.slice(1);
+    if (!UUID.test(id)) return console.log("[link] conversa inválida ignorada");
+    const aberta = [...janelas.values()].find((o) => o.sessionId === id && !o.fechada);
+    if (aberta) mostraAlvo(aberta); else criarJanela(id);
+  } else console.log("[link] ação ignorada:", limpaLink(acao).slice(0, 40));
+}
+// One dialog at a time: a second link waits for the answer to the first.
+async function processaLinks() {
+  if (abrindoLink) return;
+  abrindoLink = true;
+  try { while (filaLinks.length) await linkNovo(filaLinks.shift()); }
+  catch (e) { console.log("[link]", e?.message || e); }
+  finally { abrindoLink = false; }
+}
+async function linkNovo(u) {
+  const j = alvo(), avisos = [];
+  let prompt = (u.searchParams.get("prompt") || "").slice(0, 8000);
+  const cwdBruto = u.searchParams.get("cwd");
+  // A leading "/" would run an app command or a slash command of Claude Code.
+  if (prompt.trimStart().startsWith("/")) { prompt = ""; avisos.push(t("O texto do link começava com \"/\" e foi ignorado.")); }
+  let cwd = null;
+  if (cwdBruto) {
+    if (validaCwd(cwdBruto)) cwd = path.resolve(cwdBruto);
+    else avisos.push(t("A pasta do link não é válida e foi ignorada: {0}", limpaLink(cwdBruto).slice(0, 300)));
+  }
+  mostraAlvo(j);
+  // Only a bare new-conversation link goes without asking.
+  if (!u.searchParams.get("prompt") && !cwdBruto) return despachaParaJanela(j, { tipo: "entrada_rapida", texto: "", anexos: [], nova: true });
+  // The box shows the start of the text with blank runs collapsed, so nothing can be pushed out of sight.
+  const limpo = limpaLink(prompt).replace(/\n\s*\n+/g, "\n").trim();
+  const textoDoLink = limpo.length > 800 ? limpo.slice(0, 800) + "\n" + t("(+{0} caracteres)", limpo.length - 800) : limpo;
+  const r = await dialog.showMessageBox(j.win, {
+    type: "question", buttons: [t("Enviar"), t("Cancelar")], defaultId: 1, cancelId: 1, noLink: true,
+    title: t("Link do Claudie"), message: t("Um link quer iniciar uma conversa no Claudie"),
+    detail: [t("Pasta: {0}", cwd || j.cwd || ""), ...avisos, "", textoDoLink].join("\n"),
+  });
+  if (r.response !== 0) return;
+  const destino = j.fechada ? alvo() : j;
+  // The folder lives on this window's conversation only, never in the saved default.
+  if (cwd) defineCwd(destino, cwd, { global: false });
+  despachaParaJanela(destino, { tipo: "entrada_rapida", texto: prompt, anexos: [], nova: true, cwd: cwd || undefined });
+}
+app.on("open-url", (e, url) => { e.preventDefault(); tratarLink(url); });
 
 // One identity for the window and its shortcuts, so a pinned shortcut and the
 // open window share one taskbar button and one icon. Run from source it has an
@@ -1722,10 +2563,9 @@ if (process.env.VIVO_PASTA || process.env.VIVO_JS) app.setPath("userData", path.
 // A second copy only hands over to the first: it quits and sets nothing up.
 const instanciaUnica = !!process.env.VIVO_ATALHOS || app.requestSingleInstanceLock();
 if (!instanciaUnica) app.quit();
-app.on("second-instance", () => {
-  const w = principal?.win; if (!w) return;
-  if (w.isMinimized()) w.restore(); w.show(); w.focus();
-});
+// A link that started the app (Windows passes it in argv) waits for the main window to be ready.
+linkPendente = linkDoArgv(process.argv) || null;
+app.on("second-instance", (_e, argv) => { mostraJanela(); const l = linkDoArgv(argv); if (l) tratarLink(l); });
 // Shortcuts that open the app with its icon: the Start Menu (where Windows
 // lets you pin it to the taskbar) and the project folder.
 // Run once with VIVO_ATALHOS=1.
@@ -1778,7 +2618,7 @@ function iniciaAtualizacoes() {
   procuraAtualizacao = () => autoUpdater.checkForUpdates().catch(() => {});
   setTimeout(procuraAtualizacao, process.env.VIVO_FEED ? 1500 : 10000);
   setInterval(procuraAtualizacao, 6 * 3600e3);
-  ipcMain.handle("atualizacao_instalar", () => { if (atualizacao.estado === "pronta") setImmediate(() => autoUpdater.quitAndInstall(false, true)); });
+  ipcMain.handle("atualizacao_instalar", () => { if (atualizacao.estado === "pronta") setImmediate(() => { sairDeVez = true; autoUpdater.quitAndInstall(false, true); }); });
 }
 ipcMain.handle("atualizacao", () => atualizacao);
 ipcMain.handle("atualizacao_procurar", () => { if (!["procurando", "baixando", "pronta"].includes(atualizacao.estado)) procuraAtualizacao(); return atualizacao; });
@@ -1829,12 +2669,16 @@ ipcMain.handle("remoto_ligar", async (e, ligar, nome) => {
   if (t && t.cwd === j.cwd) await ligaRemoto(t);
   else { if (t) encerra(t); turno(j, null, []); }
 });
-app.on("before-quit", () => { for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) terminalMata(j, true); });
+app.on("before-quit", () => { sairDeVez = true; ctrl?.aborta(); if (bloqueioEnergia !== null) { powerSaveBlocker.stop(bloqueioEnergia); bloqueioEnergia = null; } liberaTudo(); for (const p of filhosMcp) matarArvore(p, true); for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) { terminalMata(j, true); navegadorFecha(j, true); } });
 
 app.whenReady().then(() => {
   if (!instanciaUnica) return;
   if (process.env.VIVO_ATALHOS) { criaAtalhos(); app.quit(); return; }
-  servePapelWeb(); trazDoNomeAntigo(); lerConfig(); criarJanela(); setTimeout(aquecerClaude, 1500); atalhoGlobal(); vigiaSessoes(); iniciaAtualizacoes();
+  // The default menu minus DevTools, whose Ctrl+Shift+I belongs to the model picker.
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "editMenu" }, { label: "View", submenu: [{ role: "reload" }, { role: "forceReload" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }] }, { role: "windowMenu" }]));
+  servePapelWeb(); trazDoNomeAntigo(); lerConfig(); criaBandeja(); criarJanela(); aquecerClaude().then(iniciaAgendadas); aplicaGeral(); setTimeout(aquecerClaude, 1500); atalhoGlobal(); registraProtocolo(); registraRapida(); vigiaSessoes(); iniciaAtualizacoes();
+  // Quick Entry is made hidden ahead of time so its shortcut answers at once.
+  if (cfgRapida().ligada && !process.env.VIVO_JS) setTimeout(() => { if (!rapida && janelas.size) rapida = criaRapida(); }, 2000);
 });
-app.on("will-quit", () => globalShortcut.unregisterAll());
-app.on("window-all-closed", () => app.quit());
+app.on("will-quit", () => { globalShortcut.unregisterAll(); bandeja?.destroy(); bandeja = null; });
+app.on("window-all-closed", () => { if (!deveFicarNaBandeja()) app.quit(); });

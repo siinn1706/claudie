@@ -43,6 +43,12 @@ if (!window.vivo) {
       for (const p of resposta.split(/(?<= )/)) { emite({ tipo: "texto", delta: p }); await espera(18); }
       emite({ tipo: "ferramenta", id: "e1", nome: "Edit", entrada: { file_path: "C:\\projeto\\index.html", old_string: '<img src="a.png">\n<p>Oi</p>', new_string: '<img src="a.png" alt="Logo" loading="lazy">\n<p>Oi</p>' } });
       emite({ tipo: "ferramenta_fim", id: "e1", erro: false, saida: "ok" });
+      emite({ tipo: "ferramenta", id: "r1", nome: "mcp__claudie__report_findings", entrada: { resumo: "Dois pontos a corrigir no index.html.", achados: [
+        { file: "index.html", line: 12, severity: "medium", summary: "A imagem principal não tem atributo alt.", suggestion: "Adicionar alt descritivo." },
+        { file: "index.html", line: 3, severity: "high", summary: "As fontes são carregadas sem preconnect.", suggestion: "Adicionar link rel=preconnect no head." },
+        { file: "sobre.html", line: null, severity: "info", summary: "A página não tem meta description." },
+      ] } });
+      emite({ tipo: "ferramenta_fim", id: "r1", erro: false, saida: "3 achados mostrados na conversa." });
       emite({ tipo: "marca", uuid: "u1" });
       emite({ tipo: "uso", contexto: 41200, janela: 200000, saida: 860 });
       emite({ tipo: "permissao", id: "p1", ferramenta: "Edit", entrada: { file_path: "C:\\projeto\\index.html", old_string: "<img src=\"a.png\">", new_string: "<img src=\"a.png\" alt=\"Logo\" loading=\"lazy\">" }, motivo: null, temSempre: true });
@@ -87,6 +93,7 @@ if (!window.vivo) {
     janelaNova: async () => {},
     painel: async () => ({ ambiente: { computador: "MEU-PC", pasta: "C:\Users\voce\projetos\exemplo", ramo: "main", modelo: "claude-opus-5-5" }, contexto: { total: 98000, max: 1000000, pct: 9.8, categorias: [{ nome: "Messages", tokens: 52000, tipo: "used" }, { nome: "System tools", tokens: 25500, tipo: "used" }, { nome: "MCP tools", tokens: 9000, tipo: "used" }, { nome: "System prompt", tokens: 9800, tipo: "used" }, { nome: "Skills", tokens: 1700, tipo: "used" }, { nome: "Free space", tokens: 869000, tipo: "free" }, { nome: "MCP tools (deferred)", tokens: 330000, tipo: "deferred" }] }, conectores: [{ nome: "claudie", estado: "connected" }, { nome: "outframe-assets", estado: "connected" }, { nome: "vercel", estado: "needs-auth" }] }),
     abrirArquivo: async () => true,
+    artefatoLer: async () => ({ erro: "leitura" }),
     arquivos: async () => [],
     saida: async () => null,
     gitAlteracoes: async () => ({ git: false }),
@@ -109,6 +116,13 @@ if (!window.vivo) {
     pessoalApagar: async () => true,
     responder: async () => { emite({ tipo: "fim", ok: true }); emite({ tipo: "parado" }); },
     desfazer: async (u, simular) => ({ canRewind: true, filesChanged: ["C:\\projeto\\index.html"], insertions: 3, deletions: 1 }),
+    navAbrir: async () => "Indisponível no simulador.",
+    navAcao: async () => false,
+    navArea: async () => false,
+    navEstado: async () => null,
+    navServidores: async () => [],
+    navServidorIniciar: async () => "Indisponível no simulador.",
+    navServidorParar: async () => "Indisponível no simulador.",
     aoEvento: (f) => ouvintes.push(f),
   };
 }

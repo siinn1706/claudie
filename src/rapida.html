@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src data:" />
+<title>Claudie</title>
+<style>
+  :root { color-scheme: dark; --acento: #d97757; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; font: 14px "Segoe UI", system-ui, sans-serif; color: #ecebe7; }
+  .cartao { position: absolute; inset: 8px; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 10px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(30, 29, 27, 0.94); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5); }
+  .cartao.solta { border-color: var(--acento); }
+  #anexos { display: none; gap: 6px; flex-wrap: wrap; }
+  #anexos.on { display: flex; }
+  .anexo { position: relative; width: 38px; height: 38px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.18); }
+  .anexo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .anexo button { position: absolute; right: 1px; top: 1px; width: 15px; height: 15px; padding: 0; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.7); color: #fff; font-size: 10px; line-height: 15px; cursor: pointer; }
+  textarea { flex: 1; min-height: 0; resize: none; border: 0; outline: 0; padding: 2px 0; background: transparent; color: inherit; font: inherit; line-height: 1.45; }
+  textarea::placeholder { color: #8b8880; }
+  .base { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+  .base .nota { flex: 1; min-width: 0; font-size: 12px; color: #c9a36b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .base .dica { margin-left: auto; font-size: 11.5px; color: #8b8880; white-space: nowrap; }
+  .chip, .icone { height: 26px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.05); color: #d4d1ca; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .chip { padding: 0 10px; }
+  .chip.atual { border-color: color-mix(in srgb, var(--acento) 60%, transparent); color: #f0c4b2; }
+  .icone { width: 28px; padding: 0; display: grid; place-items: center; }
+  .icone svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .chip:hover, .icone:hover { background: rgba(255, 255, 255, 0.1); }
+</style>
+</head>
+<body>
+<div class="cartao" id="cartao">
+  <div id="anexos"></div>
+  <textarea id="entrada" placeholder="Pergunte qualquer coisa ao Claude" spellcheck="false"></textarea>
+  <div class="base">
+    <button class="chip" id="alterna" type="button" title="Escolher onde a mensagem entra">Nova conversa</button>
+    <button class="icone" id="camera" type="button" title="Anexar uma captura de tela"><svg viewBox="0 0 24 24"><path d="M4.5 8.5a2 2 0 0 1 2-2h1.7l1.3-2h5l1.3 2h1.7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.2"/></svg></button>
+    <span class="nota" id="nota"></span>
+    <span class="dica">Enter envia · Shift+Enter nova linha · Esc fecha</span>
+  </div>
+</div>
+<script src="renderer/i18n/i18n.js"></script>
+<script src="rapida.js"></script>
+</body>
+</html>

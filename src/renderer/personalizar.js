@@ -11,7 +11,7 @@ const PADRAO = {
   fontes: { ui: "Inter", mono: "Geist Mono", tamanho: 14, largura: 740 },
   sons: {}, volumeSons: 0.7,
   musica: { ligada: false, substitui: true, aleatoria: false, volume: 0.5 },
-  geral: { enviar: "enter", raciocinio: true, titulo: true, reage: true, notificacoes: true, clawd: true, clawdFala: true, novidades: true, cursor: true, desempenho: "auto", idioma: "vi" },
+  geral: { enviar: "enter", raciocinio: true, titulo: true, reage: true, notificacoes: true, fecharNaBandeja: true, abrirNoLogin: false, manterAcordado: true, clawd: true, clawdFala: true, novidades: true, cursor: true, desempenho: "auto", idioma: "en" },
 };
 const pega = (k) => k.split(".").reduce((o, p) => (o == null ? undefined : o[p]), VIS) ?? k.split(".").reduce((o, p) => (o == null ? undefined : o[p]), PADRAO);
 const poe = (k, v) => { const ps = k.split("."), ult = ps.pop(); let o = VIS; for (const p of ps) o = o[p] ??= {}; o[ult] = v; };
@@ -201,7 +201,7 @@ $("somMusica").querySelector(".mus-prox").onclick = () => { if (!VIS.musica?.lig
 
 // ---- the panel ------------------------------------------------------------------------------
 const personal = $("personal"), caixaP = $("personalCaixa");
-const ABAS = [["geral", "Geral"], ["fundo", "Fundo"], ["cores", "Cores"], ["fontes", "Fontes"], ["sons", "Sons"], ["musica", "Música"], ["app", "Ícone e nome"]];
+const ABAS = [["geral", "Geral"], ["fundo", "Fundo"], ["cores", "Cores"], ["fontes", "Fontes"], ["sons", "Sons"], ["musica", "Música"], ["app", "Ícone e nome"], ["plugins", "Plugins"], ["skills", "Skills"], ["conectores", "Conectores"]];
 let abaP = "geral";
 const PALETAS = [
   ["Claude", { acento: "#d97757", vidro: "#110f0e" }], ["Oceano", { acento: "#3fb6d9", vidro: "#071a24" }], ["Neon", { acento: "#ff3ea5", vidro: "#0d0618" }],
@@ -218,6 +218,7 @@ const FMT = { pct, px: (v) => v + "px", n: (v) => v };
 async function desenhaAba() {
   const corpoP = caixaP.querySelector(".pz-corpo");
   caixaP.querySelectorAll(".pz-nav button").forEach((b) => b.classList.toggle("on", b.dataset.aba === (abaP === "we" ? "fundo" : abaP)));
+  if (window.desenhaExtensoes?.(abaP, corpoP, nota)) return;
   let h = "";
   if (abaP === "geral") {
     h = `<h3>Geral</h3><p class="pz-desc">Como o Claudie se comporta.</p>
@@ -232,12 +233,22 @@ async function desenhaAba() {
       ${chaveT("geral.novidades", "Novidades do Claude e da Anthropic", "Uma busca rápida na web por dia (gasta bem pouco do plano)")}
       ${chaveT("geral.reage", "Papel de parede reage ao Claude", "Ondas e ritmo mudam enquanto ele pensa, trabalha ou espera você")}
       ${chaveT("geral.notificacoes", "Notificações do Windows", "Quando ele termina ou precisa de você com a janela em segundo plano")}
+      ${chaveT("geral.fecharNaBandeja", "Continuar na bandeja ao fechar", "Com uma resposta rodando ou uma tarefa agendada ativa, fechar a janela só a esconde. Sair de vez é pelo ícone da bandeja")}
+      ${chaveT("geral.abrirNoLogin", "Abrir ao iniciar o Windows", "Começa escondido na bandeja, para as tarefas agendadas rodarem (só no app instalado)")}
+      ${chaveT("geral.manterAcordado", "Manter o computador acordado enquanto o Claude trabalha", "Evita que o Windows suspenda no meio de uma resposta ou de uma tarefa agendada")}
+      <h3 class="pz-sub">Entrada rápida</h3>
+      <div class="pz-linha"><span>Ligada<small>Uma caixa de texto sobre qualquer app para mandar uma mensagem ao Claude, com texto, imagens coladas ou uma captura de tela</small></span><button class="chave" role="switch" data-rapida-liga><i></i></button></div>
+      <label class="pz-linha"><span>Atalho<small>Clique no campo e aperte a combinação (com Ctrl, Alt ou a tecla Windows). Esc cancela</small></span><input type="text" readonly data-rapida-atalho /></label>
+      <p class="pz-rapida-erro" hidden></p>
+      <h3 class="pz-sub">Controle do computador</h3>
+      <label class="pz-linha"><span>Apps bloqueados<small>Nomes dos programas separados por vírgula. O Claude nunca age sobre eles, e gerenciadores de senha já vêm bloqueados.</small></span><input type="text" data-k="geral.computerBloqueio" maxlength="500" placeholder="banco.exe, app.exe" /></label>
       <h3 class="pz-sub">Atualizações</h3>
       <div class="pz-linha"><span>Claudie <b class="pz-versao"></b><small class="pz-atualiza-txt"></small></span><button class="btn" data-atualiza hidden></button></div>
       <h3 class="pz-sub">Conta</h3>
       <div class="pz-linha"><span>Entrar com<small>O login do Claude Code usa o seu plano do Claude. A chave de API cobra por uso na sua conta da Anthropic.</small></span>
         <div class="pz-seg" data-conta><button data-v="login">Login do Claude Code</button><button data-v="chave">Chave de API</button></div></div>
       <div class="pz-chave" hidden><input type="password" placeholder="Cole a chave da API (sk-ant-…)" autocomplete="off" spellcheck="false" /><button class="btn forte" data-acao="salvaChave">Salvar</button><button class="btn" data-acao="apagaChave">Apagar</button></div>
+      <div class="pz-chave pz-url" hidden><input type="url" placeholder="Endereço da API (vazio = Anthropic)" autocomplete="off" spellcheck="false" /><button class="btn forte" data-acao="salvaUrl">Salvar</button><button class="btn" data-acao="apagaUrl">Padrão</button></div>
       <p class="pz-desc fraco pz-conta-info"></p>`;
   } else if (abaP === "fundo") {
     const fundos = await vivo.pessoalLista("fundos");
@@ -304,7 +315,37 @@ async function desenhaAba() {
   }
   corpoP.innerHTML = h;
   ligaControles(corpoP);
-  if (abaP === "geral") { ligaConta(corpoP); ligaAtualizacao(corpoP); }
+  if (abaP === "geral") { ligaConta(corpoP); ligaAtualizacao(corpoP); ligaRapida(corpoP); }
+}
+// Quick Entry: the shortcut is recorded from a key press and registered by the main process, which says whether it
+// could take it; on a refusal the previous one stays and the reason shows under the row.
+const TECLA_DE_CODIGO = { Space: "Space", Tab: "Tab", Enter: "Enter", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right", Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown", Insert: "Insert", Delete: "Delete" };
+function aceleradorDe(e) {
+  const c = e.code, tecla = /^Key([A-Z])$/.test(c) ? c.slice(3) : /^Digit(\d)$/.test(c) ? c.slice(5) : /^F\d{1,2}$/.test(c) ? c : TECLA_DE_CODIGO[c];
+  if (!tecla) return null;
+  return [e.ctrlKey && "Control", e.altKey && "Alt", e.shiftKey && "Shift", e.metaKey && "Super", tecla].filter(Boolean).join("+");
+}
+async function ligaRapida(r) {
+  const campo = r.querySelector("[data-rapida-atalho]"), chave = r.querySelector("[data-rapida-liga]"), erro = r.querySelector(".pz-rapida-erro");
+  let c = { atalho: "Control+Alt+Space", ligada: true, ...(await vivo.estado()).entradaRapida };
+  const mostra = (msg) => {
+    campo.value = window.rotuloAtalho(c.atalho); chave.setAttribute("aria-checked", c.ligada ? "true" : "false"); campo.disabled = !c.ligada;
+    erro.hidden = !msg; erro.textContent = msg || "";
+    window.mostraAtalhoRapida?.(c);
+  };
+  const aplica = async (m) => { const res = await vivo.rapidaAtalho(m); if (res.ok) { c = { atalho: res.atalho, ligada: res.ligada }; mostra(); } else mostra(res.erro || ""); };
+  mostra((await vivo.estado()).rapidaErro);
+  chave.onclick = () => aplica({ ligada: !c.ligada });
+  campo.onfocus = () => { campo.value = window.t("Aperte o atalho…"); };
+  campo.onblur = () => { campo.value = window.rotuloAtalho(c.atalho); };
+  campo.onkeydown = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === "Escape") { campo.blur(); return; }
+    if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return;
+    const acel = aceleradorDe(e);
+    campo.blur();
+    if (acel) aplica({ atalho: acel }); else mostra(window.t("Essa tecla não pode ser usada no atalho."));
+  };
 }
 // Updates: where it stands, and a button to look now or restart into the new one.
 const TXT_ATUALIZA = {
@@ -333,10 +374,12 @@ async function ligaAtualizacao(r) {
 // (it never comes back to the window, only whether there is one).
 async function ligaConta(r) {
   const seg = r.querySelector("[data-conta]"), caixa = r.querySelector(".pz-chave"), info = r.querySelector(".pz-conta-info"), campo = caixa.querySelector("input");
+  const caixaUrl = r.querySelector(".pz-url"), campoUrl = caixaUrl.querySelector("input");
   let c = await vivo.conta();
   const mostra = () => {
     seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === c.entrar));
-    caixa.hidden = c.entrar !== "chave";
+    caixa.hidden = caixaUrl.hidden = c.entrar !== "chave";
+    if (document.activeElement !== campoUrl) campoUrl.value = c.urlApi || "";
     campo.placeholder = c.temChave ? "Chave salva. Cole outra para trocar" : "Cole a chave da API (sk-ant-…)";
     info.innerHTML = (c.claude ? `Claude Code encontrado em <code>${esc(c.claude)}</code>.` : "Claude Code não encontrado. Instale em code.claude.com e abra o Claudie de novo.")
       + (c.entrar === "chave" && !c.temChave ? " Falta salvar uma chave." : "");
@@ -344,7 +387,10 @@ async function ligaConta(r) {
   seg.querySelectorAll("button").forEach((b) => (b.onclick = async () => { c = { ...c, ...(await vivo.contaSalvar({ entrar: b.dataset.v })) }; mostra(); }));
   ACOES.salvaChave = async () => { const v = campo.value.trim(); if (!v) return; const res = await vivo.contaSalvar({ chave: v }); campo.value = ""; if (res.erro) nota(res.erro, true); else { c = { ...c, ...res }; nota("Chave salva"); } mostra(); };
   ACOES.apagaChave = async () => { c = { ...c, ...(await vivo.contaSalvar({ chave: "" })) }; campo.value = ""; mostra(); };
-  r.querySelectorAll("[data-acao='salvaChave'], [data-acao='apagaChave']").forEach((b) => (b.onclick = () => ACOES[b.dataset.acao]()));
+  const salvaUrl = async (v) => { const res = await vivo.contaSalvar({ url: v }); if (res.erro) nota(res.erro, true); else { c = { ...c, ...res }; nota(c.urlApi ? "Endereço salvo" : "Usando o endereço da Anthropic"); campoUrl.value = c.urlApi; } mostra(); };
+  ACOES.salvaUrl = () => salvaUrl(campoUrl.value);
+  ACOES.apagaUrl = () => salvaUrl("");
+  r.querySelectorAll("[data-acao='salvaChave'], [data-acao='apagaChave'], [data-acao='salvaUrl'], [data-acao='apagaUrl']").forEach((b) => (b.onclick = () => ACOES[b.dataset.acao]()));
   mostra();
 }
 
