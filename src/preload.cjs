@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld("vivo", {
   novaEm: (cwd) => ipcRenderer.invoke("nova_em", cwd),
   injetar: (texto, anexos, apps) => ipcRenderer.invoke("injetar", texto, anexos, apps),
   appsComputador: () => ipcRenderer.invoke("apps_computador"),
+  computadorAprovados: () => ipcRenderer.invoke("computador_aprovados"),
+  computadorRevogar: (exe) => ipcRenderer.invoke("computador_revogar", exe),
   sessoes: (opcoes) => ipcRenderer.invoke("sessoes", opcoes),
   abrirSessao: (id, cwd) => ipcRenderer.invoke("abrir_sessao", id, cwd),
   pasta: (soEscolher) => ipcRenderer.invoke("pasta", soEscolher),

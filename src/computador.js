@@ -30,7 +30,8 @@ const NIVEL_VER = new Set(["chrome", "msedge", "firefox", "brave", "opera", "viv
 // Shells, terminals, editors and system-configuration tools: anything that can run a command from typed text.
 const NIVEL_CLICAR = new Set(["explorer", "windowsterminal", "wt", "cmd", "powershell", "powershell_ise", "pwsh", "conhost", "openconsole", "bash", "wsl", "wslhost", "mintty", "putty", "kitty", "mobaxterm", "termius", "tabby", "hyper", "wezterm-gui", "alacritty",
   "regedit", "mmc", "wscript", "cscript", "mshta", "rundll32", "msiexec", "regsvr32", "control", "code", "code - insiders", "cursor", "windsurf", "zed", "notepad++", "sublime_text", "devenv", "idea64", "pycharm64", "webstorm64", "clion64", "rider64", "goland64", "phpstorm64", "rubymine64", "studio64", "eclipse"]);
-const nivelDe = (exe) => (NIVEL_VER.has(norm(exe)) ? "ver" : NIVEL_CLICAR.has(norm(exe)) ? "clicar" : "total");
+// The person's choice in Customize wins over the built-in tier.
+export const nivelDe = (exe, cfg) => cfg?.computerUse?.niveis?.[norm(exe)] || (NIVEL_VER.has(norm(exe)) ? "ver" : NIVEL_CLICAR.has(norm(exe)) ? "clicar" : "total");
 // What kind of effect each tool has, and which of those each tier allows.
 const TIPO = { screenshot: "ler", zoom: "ler", cursor_position: "ler", wait: "ler", mouse_move: "mover", left_click: "clicar", right_click: "clicar", middle_click: "clicar", double_click: "clicar", triple_click: "clicar", left_click_drag: "clicar", scroll: "clicar", type: "teclar", key: "teclar", hold_key: "teclar" };
 const PERMITE = { ver: ["ler", "mover"], clicar: ["ler", "mover", "clicar"], total: ["ler", "mover", "clicar", "teclar"] };
@@ -100,7 +101,7 @@ async function montaApps(cfg, comJanelas) {
   }
   for (const m of menu) poe(m.exe, m.nome, m.caminho, false);
   const lista = [...porExe.values()].sort((a, b) => b.aberto - a.aberto || a.nome.localeCompare(b.nome));
-  await Promise.all(lista.map(async (a) => { a.nivel = nivelDe(a.exe); a.icone = await iconeDe(a); }));
+  await Promise.all(lista.map(async (a) => { a.nivel = nivelDe(a.exe, cfg); a.icone = await iconeDe(a); }));
   cacheApps = { em: Date.now(), lista, janelas: comJanelas };
   return lista;
 }
@@ -112,7 +113,7 @@ export async function appsMencionados(t, exes, cfg) {
   const bl = bloqueados(cfg), concedidos = [];
   for (const exe of exes) {
     const a = cacheApps.lista.find((x) => x.exe === String(exe).toLowerCase());
-    if (a && !bl.has(norm(a.exe))) concedidos.push({ nome: a.nome, exe: a.exe, nivel: a.nivel });
+    if (a && !bl.has(norm(a.exe))) concedidos.push({ nome: a.nome, exe: a.exe, nivel: nivelDe(a.exe, cfg) });
   }
   return concedidos;
 }
@@ -433,7 +434,7 @@ async function acao(t, deps, nome, { pontos = null, combo = null } = {}, fn, sig
         }
         if (bl.has(norm(i.exe)) || (norm(i.exe) === "explorer" && JANELA_EXECUTAR.test(i.titulo))) throw new Recusa(tr("O app {0} está na lista de bloqueio e nenhuma ferramenta de tela age sobre ele. Use uma ferramenta dedicada.", i.exe));
         if (!leitura && i.elevado) throw new Recusa(tr("A janela de {0} roda como administrador: o Windows não deixa o Claudie controlá-la.", i.exe));
-        const nivel = nivelDe(i.exe);
+        const nivel = nivelDe(i.exe, deps.config());
         if (!PERMITE[nivel].includes(tipo)) throw new Recusa(tr("O app {0} é de nível \"{1}\" e não aceita {2}. Use uma ferramenta dedicada.", i.exe, nivel, nome));
         if (exigeAprovados && !cu.apps.has(i.exe)) throw new Recusa(tr("A janela em foco mudou durante a ação. Tire outra captura e tente de novo."));
       }
@@ -442,7 +443,7 @@ async function acao(t, deps, nome, { pontos = null, combo = null } = {}, fn, sig
     avalia(infos, false);
     for (const i of infos) {
       if (i.pid === process.pid || norm(i.exe) === proprioExe || cu.apps.has(i.exe)) continue;
-      const r = await deps.pedePermissao(t, "mcp__computer-use__app", { app: i.exe, titulo: i.titulo, nivel: nivelDe(i.exe) }, { signal, decisionReason: tr("Primeira vez que o Claude controla este app nesta conversa") });
+      const r = await deps.pedePermissao(t, "mcp__computer-use__app", { app: i.exe, titulo: i.titulo, nivel: nivelDe(i.exe, deps.config()) }, { signal, decisionReason: tr("Primeira vez que o Claude controla este app nesta conversa") });
       if (signal.aborted) throw new Recusa(tr(INTERROMPIDO));
       if (r?.behavior !== "allow") throw new Recusa(tr("A pessoa não permitiu o controle de {0}.", i.exe));
       cu.apps.add(i.exe);

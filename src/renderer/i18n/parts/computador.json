@@ -59,5 +59,9 @@
   "Ligue o controle do computador para mencionar apps": { "en": "Turn on computer control to mention apps", "vi": "Bật điều khiển máy tính để nhắc đến ứng dụng" },
   "Aplicativo": { "en": "App", "vi": "Ứng dụng" },
   "Janela": { "en": "Window", "vi": "Cửa sổ" },
-  "Nível": { "en": "Level", "vi": "Mức" }
+  "Nível": { "en": "Level", "vi": "Mức" },
+  "Apps permitidos nesta conversa": { "en": "Apps allowed in this conversation", "vi": "Ứng dụng đã cho phép trong cuộc trò chuyện này" },
+  "Revogar": { "en": "Revoke", "vi": "Thu hồi" },
+  "Nível por app": { "en": "Level per app", "vi": "Mức quyền theo ứng dụng" },
+  "Sem escolha, navegadores e apps de corretora só são vistos; terminais, editores de código e o Explorer só recebem cliques; o resto tem controle total.": { "en": "Without a choice, browsers and trading apps are view only; terminals, code editors and Explorer get clicks only; everything else gets full control.", "vi": "Nếu không chọn, trình duyệt và ứng dụng giao dịch chỉ được xem; terminal, trình soạn code và Explorer chỉ được nhấp; còn lại có toàn quyền." }
 }
