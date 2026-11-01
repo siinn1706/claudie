@@ -258,6 +258,7 @@ const servidorTemasPara = (t) => createSdkMcpServer({
   instructions: `Este app mostra papéis de parede ASCII animados atrás da conversa. Há dois tipos: os ${Object.keys(TEMAS).length} temas do Claudie (interativos, com música) e a biblioteca ASCII Magic, com ` +
     `${MAGIA.pecas.size} animações. Quando a pessoa pedir um tema ou um visual, prefira um tema do Claudie se algum combinar; senão use buscar_fundo (em inglês: os nomes e tags da biblioteca são em inglês) e depois sugerir_fundo ou aplicar_fundo. ` +
     "Responda sempre no idioma em que a pessoa escreve. " +
+    "Quando a pessoa pedir uma revisão das mudanças no app, chame report_findings uma vez em vez de escrever a lista de achados. " +
     "Use as ferramentas de sugerir para mostrar um cartão (a pessoa decide aplicar), e as de aplicar só se ela pedir para aplicar direto. Temas da Claudie: " +
     Object.entries(TEMAS).map(([id, nome]) => `${id} (${nome})`).join(", ") + ". Categorias da biblioteca: " + Object.entries(MAGIA.cats).map(([id, nome]) => `${id} (${nome})`).join(", ") + "." +
     (t?.pendentes ? " O painel do navegador do app mostra páginas ao lado da conversa: use browser_navigate, browser_screenshot, browser_read, browser_click e browser_type; servidor_listar, servidor_logs, servidor_iniciar e servidor_parar cuidam dos servidores de .claude/launch.json." : ""),
@@ -276,10 +277,24 @@ const servidorTemasPara = (t) => createSdkMcpServer({
       async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); t.ev({ tipo: "cartao_arte", chave: `magia:${p.slug}` }); return texto(`Cartão de ${p.nome} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
     tool("aplicar_fundo", "Aplica uma animação da biblioteca no fundo do app agora.", { peca: z.string().describe("Id da peça, de buscar_fundo") },
       async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); enviarEvento(t.j, { tipo: "aplicar_arte", chave: `magia:${p.slug}` }); return texto(`${p.nome} aplicada no fundo.`); }, { alwaysLoad: true }),
+    tool("report_findings",
+      "Mostra na conversa um cartão de revisão com os achados (arquivo, linha, severidade, resumo, sugestão). Chame uma vez ao terminar uma revisão e não repita a lista em texto.",
+      {
+        achados: z.array(z.object({
+          file: z.string().max(2000),
+          line: z.coerce.number().int().min(1).nullish(),
+          severity: z.enum(["critical", "high", "medium", "low", "info"]),
+          summary: z.string().max(2000),
+          suggestion: z.string().max(2000).nullish(),
+        })).max(200),
+        resumo: z.string().max(2000).optional(),
+      },
+      async ({ achados, resumo }) => texto(`${achados.length} achados mostrados na conversa.${resumo ? " Resumo: " + resumo : ""} Não repita a lista em texto.`),
+      { alwaysLoad: true }),
     ...ferramentasNavegador(t),
   ],
 });
-const FERRAMENTAS_TEMA = ["sugerir_tema", "aplicar_tema", "buscar_fundo", "sugerir_fundo", "aplicar_fundo"].map((n) => `mcp__claudie__${n}`);
+const FERRAMENTAS_TEMA = ["sugerir_tema", "aplicar_tema", "buscar_fundo", "sugerir_fundo", "aplicar_fundo", "report_findings"].map((n) => `mcp__claudie__${n}`);
 // Newer models get the task tools only when a session names them; they are
 // bookkeeping (the plan the window shows), so they also need no approval.
 const FERRAMENTAS_PLANO = ["TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TodoWrite"];

@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: "Inline diff comments and review card"
-status: pending
+status: completed
 priority: P2
 effort: "1 day"
 dependencies: []
@@ -125,19 +125,19 @@ tool("report_findings",
 
 ## Tasks & Steps
 
-1. - [ ] Confirm branch `feat/desktop-parity` (current from earlier phases) and a clean tree.
-2. - [ ] extras.js: `rascunhos`, `formataComentarios`, `limpaRascunhos`, `abreCaixaComentario`, `salvaRascunho`, `reaplicaRascunhos`, `desenhaBarraComentarios`, document click delegation, capture-phase box Esc/Ctrl+Enter.
-3. - [ ] extras.js `diffDe`: emit `data-arq/linha/lado` and `.cm-mais`; Write rows get index+1; Edit rows get null line.
-4. - [ ] os.js `diffGitHtml`: `caminho` param, attributes and button; pass `f.caminho` from `desenhaGit`; `reaplicaRascunhos(cont)` after `desenhaGit` and `desenhaConv`.
-5. - [ ] os.js `desenha()`: top-of-function guard (`.cm-caixa` open sets `pendente` and returns); redraw on save/cancel.
-6. - [ ] os.js: "Revisar mudanças" button (`data-revisa`), `revisaMudancas()`; hide button outside git mode in `desenha()`.
-7. - [ ] app.js: `envia` returns true/false; `enviaComentarios`; bar send/clear handlers; capture Ctrl+Enter with focus guards; Esc early return; `limpaRascunhos()` in `novaConversa`/`abreSessao`; `/review-changes` in `envia`; `LOCAIS` entry.
-8. - [ ] app.js: `ferramenta` branch after the three close calls, `d.dataset.id = id` on cards, `ferramentaFim` removal on error, `cartaoRevisao` with index-based prompts and arm-then-confirm.
-9. - [ ] main.js: tool (with bounded zod), instructions sentence, `FERRAMENTAS_TEMA` entry.
-10. - [ ] app.css: `.diff .l{position:relative}`; sticky `.cm-mais` (opacity 0 to 1 on `.l:hover` and `:focus-visible`); sticky `.cm-caixa`; `.comentada`, `.velho`, bar, severity badges; light theme variants.
-11. - [ ] i18n: `diff-review.json` (Comentar nesta linha, Salvar, Cancelar, `{0} comentários pendentes`, Enviar comentários, Limpar, Revisar mudanças, Corrigir este, Explicar passo a passo, Aplicar todas as correções, Confirmar: aplicar todas?, Nenhum achado., Linha mudou desde o comentário, severity labels, counts, slash description).
-12. - [ ] simulador.js: scripted `report_findings` and `Edit` events.
-13. - [ ] README: bullets under "Git, terminal and connectors".
+1. - [x] Confirm branch `feat/desktop-parity` (current from earlier phases) and a clean tree.
+2. - [x] extras.js: `rascunhos`, `formataComentarios`, `limpaRascunhos`, `abreCaixaComentario`, `salvaRascunho`, `reaplicaRascunhos`, `desenhaBarraComentarios`, document click delegation, capture-phase box Esc/Ctrl+Enter.
+3. - [x] extras.js `diffDe`: emit `data-arq/linha/lado` and `.cm-mais`; Write rows get index+1; Edit rows get null line.
+4. - [x] os.js `diffGitHtml`: `caminho` param, attributes and button; pass `f.caminho` from `desenhaGit`; `reaplicaRascunhos(cont)` after `desenhaGit` and `desenhaConv`.
+5. - [x] os.js `desenha()`: top-of-function guard (`.cm-caixa` open sets `pendente` and returns); redraw on save/cancel.
+6. - [x] os.js: "Revisar mudanças" button (`data-revisa`), `revisaMudancas()`; hide button outside git mode in `desenha()`.
+7. - [x] app.js: `envia` returns true/false; `enviaComentarios`; bar send/clear handlers; capture Ctrl+Enter with focus guards; Esc early return; `limpaRascunhos()` in `novaConversa`/`abreSessao`; `/review-changes` in `envia`; `LOCAIS` entry.
+8. - [x] app.js: `ferramenta` branch after the three close calls, `d.dataset.id = id` on cards, `ferramentaFim` removal on error, `cartaoRevisao` with index-based prompts and arm-then-confirm.
+9. - [x] main.js: tool (with bounded zod), instructions sentence, `FERRAMENTAS_TEMA` entry.
+10. - [x] app.css: `.diff .l{position:relative}`; sticky `.cm-mais` (opacity 0 to 1 on `.l:hover` and `:focus-visible`); sticky `.cm-caixa`; `.comentada`, `.velho`, bar, severity badges; light theme variants.
+11. - [x] i18n: `diff-review.json` (Comentar nesta linha, Salvar, Cancelar, `{0} comentários pendentes`, Enviar comentários, Limpar, Revisar mudanças, Corrigir este, Explicar passo a passo, Aplicar todas as correções, Confirmar: aplicar todas?, Nenhum achado., Linha mudou desde o comentário, severity labels, counts, slash description).
+12. - [x] simulador.js: scripted `report_findings` and `Edit` events.
+13. - [x] README: bullets under "Git, terminal and connectors".
 14. - [ ] Run Verification, then one commit `feat(review): comment on diff lines and show review findings` (no plan/phase IDs).
 
 ## Security & Safety

@@ -1,0 +1,23 @@
+{
+  "Comentar nesta linha": { "en": "Comment on this line", "vi": "Bình luận dòng này" },
+  "Comentário sobre esta linha": { "en": "Comment on this line", "vi": "Bình luận về dòng này" },
+  "Remover comentário": { "en": "Remove comment", "vi": "Xóa bình luận" },
+  "{0} comentários pendentes": { "en": "{0} pending comments", "vi": "{0} bình luận đang chờ" },
+  "Enviar comentários": { "en": "Send comments", "vi": "Gửi bình luận" },
+  "Linha mudou desde o comentário": { "en": "The line changed since the comment", "vi": "Dòng đã thay đổi kể từ khi bình luận" },
+  "Revisar mudanças": { "en": "Review changes", "vi": "Xem xét thay đổi" },
+  "Pedir ao Claude para revisar as mudanças atuais": { "en": "Ask Claude to review the current changes", "vi": "Nhờ Claude xem xét các thay đổi hiện tại" },
+  "Revisão das mudanças": { "en": "Review of the changes", "vi": "Kết quả xem xét thay đổi" },
+  "{0} achado": { "en": "{0} finding", "vi": "{0} phát hiện" },
+  "{0} achados": { "en": "{0} findings", "vi": "{0} phát hiện" },
+  "Crítica": { "en": "Critical", "vi": "Nghiêm trọng" },
+  "Alta": { "en": "High", "vi": "Cao" },
+  "Média": { "en": "Medium", "vi": "Trung bình" },
+  "Baixa": { "en": "Low", "vi": "Thấp" },
+  "Info": { "en": "Info", "vi": "Thông tin" },
+  "Corrigir este": { "en": "Fix this", "vi": "Sửa mục này" },
+  "Explicar passo a passo": { "en": "Walk through", "vi": "Giải thích từng bước" },
+  "Aplicar todas as correções": { "en": "Apply all fixes", "vi": "Áp dụng mọi bản sửa" },
+  "Confirmar: aplicar todas?": { "en": "Confirm: apply all?", "vi": "Xác nhận: áp dụng tất cả?" },
+  "Nenhum achado.": { "en": "No findings.", "vi": "Không có phát hiện nào." }
+}

@@ -43,6 +43,12 @@ if (!window.vivo) {
       for (const p of resposta.split(/(?<= )/)) { emite({ tipo: "texto", delta: p }); await espera(18); }
       emite({ tipo: "ferramenta", id: "e1", nome: "Edit", entrada: { file_path: "C:\\projeto\\index.html", old_string: '<img src="a.png">\n<p>Oi</p>', new_string: '<img src="a.png" alt="Logo" loading="lazy">\n<p>Oi</p>' } });
       emite({ tipo: "ferramenta_fim", id: "e1", erro: false, saida: "ok" });
+      emite({ tipo: "ferramenta", id: "r1", nome: "mcp__claudie__report_findings", entrada: { resumo: "Dois pontos a corrigir no index.html.", achados: [
+        { file: "index.html", line: 12, severity: "medium", summary: "A imagem principal não tem atributo alt.", suggestion: "Adicionar alt descritivo." },
+        { file: "index.html", line: 3, severity: "high", summary: "As fontes são carregadas sem preconnect.", suggestion: "Adicionar link rel=preconnect no head." },
+        { file: "sobre.html", line: null, severity: "info", summary: "A página não tem meta description." },
+      ] } });
+      emite({ tipo: "ferramenta_fim", id: "r1", erro: false, saida: "3 achados mostrados na conversa." });
       emite({ tipo: "marca", uuid: "u1" });
       emite({ tipo: "uso", contexto: 41200, janela: 200000, saida: 860 });
       emite({ tipo: "permissao", id: "p1", ferramenta: "Edit", entrada: { file_path: "C:\\projeto\\index.html", old_string: "<img src=\"a.png\">", new_string: "<img src=\"a.png\" alt=\"Logo\" loading=\"lazy\">" }, motivo: null, temSempre: true });

@@ -210,14 +210,55 @@ const pedido = (n) => PEDIDO[n] || `usar ${rotulo(n)}`;
 function ferramenta(id, nome, e, fim = null) {
   if (PLANO.has(nome)) return;
   fechaRaciocinio(); fechaSegmento(); tiraPensando();
+  if (nome === "mcp__claudie__report_findings") { tiraBoas(); ferramentas.set(id, cartaoRevisao(e)); desce(); return; }
   const d = document.createElement("details");
   d.className = "ferr";
-  const diff = diffDe(nome, e);
+  const diff = diffDe(nome, e, id);
   d.innerHTML = `<summary>${iconeDa(nome)}<b data-nome="${esc(nome)}">${esc(rotulo(nome))}</b><span>${esc(resumo(nome, e) || "")}</span>${diff ? diff.contagem : ""}<i class="estado ${fim ? fim : "rodando"}">${fim === "ok" ? ICONE.ok : ""}</i></summary>${diff ? diff.html : `<pre>${esc(JSON.stringify(e, null, 2))}</pre>`}`;
-  d._nome = nome; d._entrada = e; d._diff = diff; d.dataset.nome = nome;
+  d._nome = nome; d._entrada = e; d._diff = diff; d.dataset.nome = nome; d.dataset.id = id;
   tiraBoas(); agrupa(d); desce();
   ferramentas.set(id, d);
+  reaplicaRascunhos(d);
 }
+// ---- review card ----------------------------------------------------------------------------
+// Claude's report_findings call: the findings of a review as a card with a button per
+// finding. The buttons never carry Claude's own wording into a message: they point at the
+// finding by its number in the call, adding the file:line only when it is a plain path.
+const SEVERIDADES = ["critical", "high", "medium", "low", "info"];
+const ROTULO_SEV = { critical: "Crítica", high: "Alta", medium: "Média", low: "Baixa", info: "Info" };
+const corta = (v, n = 2000) => String(v ?? "").slice(0, n);
+function cartaoRevisao(e) {
+  const el = bloco("achados claude");
+  el._entrada = e; desenhaCartaoRevisao(el);
+  return el;
+}
+function desenhaCartaoRevisao(el) {
+  const e = el._entrada;
+  const lista = (Array.isArray(e?.achados) ? e.achados : []).map((a, i) => ({ n: i + 1, file: corta(a?.file), line: a?.line > 0 ? Math.floor(a.line) : null, severity: SEVERIDADES.includes(a?.severity) ? a.severity : "info", summary: corta(a?.summary), suggestion: corta(a?.suggestion) }));
+  const ordem = [...lista].sort((a, b) => SEVERIDADES.indexOf(a.severity) - SEVERIDADES.indexOf(b.severity) || a.n - b.n);
+  const local = (a) => a.file + (a.line ? ":" + a.line : "");
+  const contagem = SEVERIDADES.map((v) => [v, lista.filter((a) => a.severity === v).length]).filter(([, n]) => n);
+  el.innerHTML = `<div class="ach-topo"><b>${esc(window.t("Revisão das mudanças"))}</b><span>${esc(window.t(lista.length === 1 ? "{0} achado" : "{0} achados", lista.length))}</span>${contagem.map(([v, n]) => `<em class="ach-sev sev-${v}">${n} ${esc(window.t(ROTULO_SEV[v]))}</em>`).join("")}${lista.length ? `<button class="btn forte" data-todas>${esc(window.t("Aplicar todas as correções"))}</button>` : ""}</div>`
+    + (e?.resumo ? `<p class="ach-resumo" data-sem-traducao>${esc(corta(e.resumo))}</p>` : "")
+    + (lista.length ? ordem.map((a) => `<div class="ach"><div class="ach-l"><span class="ach-sev sev-${a.severity}">${esc(window.t(ROTULO_SEV[a.severity]))}</span><b>#${a.n}</b><button class="ach-arq" data-ir="${a.n}" data-sem-traducao title="${esc(local(a))}">${esc(local(a))}</button></div><p data-sem-traducao>${esc(a.summary)}</p>${a.suggestion ? `<p class="ach-sug" data-sem-traducao>${esc(a.suggestion)}</p>` : ""}<div class="ach-b"><button class="btn" data-corrige="${a.n}">${esc(window.t("Corrigir este"))}</button><button class="btn" data-explica="${a.n}">${esc(window.t("Explicar passo a passo"))}</button></div></div>`).join("") : `<p class="jl-vazio">${esc(window.t("Nenhum achado."))}</p>`);
+  const por = (n) => lista.find((a) => a.n === n);
+  // only a plain path goes into a message; anything else is pointed at by its number alone
+  const alvo = (a) => (/^[\w@%+=:,.\/\ -]{1,200}$/.test(local(a)) ? ` (arquivo \`${local(a)}\`)` : "");
+  el.querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => abreCaminhoDaConversa(local(por(+b.dataset.ir)))));
+  el.querySelectorAll("[data-corrige]").forEach((b) => (b.onclick = () => { const a = por(+b.dataset.corrige); envia(`Corrija o achado #${a.n} do relatório report_findings acima${alvo(a)} e só ele.`); }));
+  el.querySelectorAll("[data-explica]").forEach((b) => (b.onclick = () => { const a = por(+b.dataset.explica); envia(`Explique passo a passo o achado #${a.n} do relatório report_findings acima${alvo(a)}, sem editar nada.`); }));
+  const todas = el.querySelector("[data-todas]");
+  if (todas) todas.onclick = () => {
+    if (!todas.dataset.arma) {
+      todas.dataset.arma = todas.textContent; todas.textContent = window.t("Confirmar: aplicar todas?"); todas.classList.add("perigo");
+      setTimeout(() => { if (todas.isConnected && todas.dataset.arma) { todas.textContent = todas.dataset.arma; delete todas.dataset.arma; todas.classList.remove("perigo"); } }, 4000);
+      return;
+    }
+    envia(`Aplique as correções de todos os achados do relatório report_findings acima, um por um, de #1 a #${lista.length}.`);
+    todas.textContent = todas.dataset.arma; delete todas.dataset.arma; todas.classList.remove("perigo");
+  };
+}
+addEventListener("idioma", () => col.querySelectorAll(".achados").forEach(desenhaCartaoRevisao));
 // Everything Claude does between two pieces of text (tools and the reasoning
 // around them) folds into one quiet line, as in Claude desktop: "Ran 4 commands",
 // "Edited and read tarefas.js" with the lines changed. While a tool runs the
@@ -276,6 +317,7 @@ function rotuloGrupo(g) {
 addEventListener("idioma", () => col.querySelectorAll(".ferr-grupo").forEach(rotuloGrupo));
 function ferramentaFim(id, erro, saida, maior = false, imagens = []) {
   const d = ferramentas.get(id); if (!d) return;
+  if (d.classList.contains("achados")) { if (erro) { d.remove(); ferramentas.delete(id); } return; }
   const i = d.querySelector("summary .estado"); i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
   const g = d.closest(".ferr-grupo"); if (g) rotuloGrupo(g);
   if (!(saida && d.querySelector("pre")) && !imagens.length) return;
@@ -430,26 +472,27 @@ const atualizaEnviar = () => { const vazio = !entrada.value.trim() && !anexos.le
 
 async function envia(textoForcado) {
   const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null ? anexos : [];
-  if (!t && !junto.length) return;
-  const limpa = () => { entrada.value = ""; ajustaAltura(); fechaComandos(); fechaMencoes(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
-  if (t === "/theme") { abrePicker("claudie"); limpa(); return; }
+  if (!t && !junto.length) return false;
+  const limpa = () => { if (textoForcado == null) { entrada.value = ""; ajustaAltura(); } fechaComandos(); fechaMencoes(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
+  if (t === "/theme") { abrePicker("claudie"); limpa(); return true; }
   if (t.startsWith("/theme ")) {
     const pedido = t.slice(7).trim().toLowerCase(), i = THEMES.findIndex((x) => x.id === pedido || x.name.toLowerCase() === pedido);
     if (["default", "off"].includes(pedido)) aplica(-1); else if (i >= 0) aplica(i); else abrePicker("claudie");
-    limpa(); return;
+    limpa(); return true;
   }
-  if (t === "/wallpaper" || t.startsWith("/wallpaper ")) { abrePicker("biblioteca", t.slice(10).trim()); limpa(); return; }
-  if (t === "/import") { limpa(); importaMotion(); return; }
-  if (t === "/customize") { limpa(); abrePersonal(); return; }
-  if (t === "/new") { novaConversa(); limpa(); return; }
+  if (t === "/wallpaper" || t.startsWith("/wallpaper ")) { abrePicker("biblioteca", t.slice(10).trim()); limpa(); return true; }
+  if (t === "/import") { limpa(); importaMotion(); return true; }
+  if (t === "/customize") { limpa(); abrePersonal(); return true; }
+  if (t === "/review-changes") { limpa(); revisaMudancas(); return true; }
+  if (t === "/new") { novaConversa(); limpa(); return true; }
   // With Claude working, the message goes into the running turn, as in Claude
   // Code; what it cannot take (slash commands, a turn about to end) waits in line.
   if (rodando) {
     limpa();
     if (junto === anexos) { anexos = []; desenhaAnexos(); }
     const { texto: final, enviados } = juntaColados(t, junto);
-    if (await vivo.injetar(final, enviados)) { fechaSegmento(); meu(t, junto); window.somEvento?.("enviar"); return; }
-    fila.push({ t, junto: [...junto] }); desenhaFila(); proximaDaFila(); return;
+    if (await vivo.injetar(final, enviados)) { fechaSegmento(); meu(t, junto); window.somEvento?.("enviar"); return true; }
+    fila.push({ t, junto: [...junto] }); desenhaFila(); proximaDaFila(); return true;
   }
   limpa(); fechaPicker();
   if (!sessaoAtual) { const titulo = t || junto.map((x) => x.nome).join(", "); $("titulo").textContent = titulo.length > 60 ? titulo.slice(0, 60) + "…" : titulo; }
@@ -462,8 +505,25 @@ async function envia(textoForcado) {
     setRodando(false); turnoVisto = null; bolha?.remove();
     if (textoForcado == null) { entrada.value = t; ajustaAltura(); if (eram) { anexos = eram; desenhaAnexos(); } }
     atualizaEnviar(); nota("Não deu pra enviar agora.", true);
+    return false;
   }
+  return true;
 }
+// The pending diff comments of this conversation, sent as one message; a failed send keeps them.
+async function enviaComentarios() {
+  const lista = rascunhos.filter((d) => d.conv === convRascunho);
+  if (!lista.length) return;
+  if (await envia(formataComentarios(lista))) limpaRascunhos(lista);
+}
+// Ctrl+Enter sends the comments from the empty composer or from nowhere in particular;
+// any other field keeps its own Enter.
+addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || !e.ctrlKey || e.shiftKey || e.altKey || e.isComposing || !rascunhos.length) return;
+  if (anexos.length || mencoesEl.classList.contains("on") || comandosEl.classList.contains("on")) return;
+  const a = document.activeElement;
+  if (a !== document.body && !(a === entrada && !entrada.value.trim())) return;
+  e.preventDefault(); e.stopPropagation(); enviaComentarios();
+}, true);
 let ctrlX = 0;
 entrada.addEventListener("keydown", (e) => {
   if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.key === "x" || e.key === "X") && !entrada.value.slice(entrada.selectionStart, entrada.selectionEnd)) { e.preventDefault(); ctrlX = Date.now(); return; }
@@ -500,6 +560,7 @@ const LOCAIS = [
   { nome: "wallpaper", dica: "[search]", descricao: "Procurar um fundo na biblioteca ASCII Magic" },
   { nome: "import", descricao: "Importar uma animação feita no ASCII Motion" },
   { nome: "customize", descricao: "Fundos, cores, fontes, sons, música, ícone e nome" },
+  { nome: "review-changes", descricao: "Pedir ao Claude para revisar as mudanças atuais" },
   { nome: "new", descricao: "Começar uma conversa nova" },
 ].map((c) => ({ ...c, local: true }));
 let todosComandos = null, buscandoComandos = null, cmdVis = [], cmdSel = 0;
@@ -721,6 +782,9 @@ async function abreLinkDaConversa(a, altClique = false) {
   const h = a.getAttribute("href") || "";
   if (/^https?:/i.test(h)) return altClique ? vivo.navAbrir(a.href).then((e) => e && nota(e, true)) : vivo.link(a.href);
   if (!h || h[0] === "#" || /^[a-z][a-z0-9+.-]+:(?!\d)/i.test(h) && !/^file:/i.test(h)) return;
+  return abreCaminhoDaConversa(h);
+}
+async function abreCaminhoDaConversa(h) {
   const r = await vivo.abrirLink(h);
   if (r?.imagem) abreImagem(r.imagem, r.nome);
   else if (r?.erro === "fora") nota("Não deu pra abrir: o arquivo está fora das pastas desta conversa.", true);
@@ -992,6 +1056,7 @@ async function abreSessao(id, titulo, cwdConhecida) {
   if (alvo?.cwd && alvo.cwd !== pastaAntes) { mostraPasta(alvo.cwd); todosComandos = buscandoComandos = null; }
   window.transicaoDither?.();
   trocaFila(id);
+  limpaRascunhos();
   sessaoAtual = id; $("titulo").textContent = titulo;
   col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true;
   if (r.cfg) mostraEscolhas(r.cfg);
@@ -1019,6 +1084,7 @@ async function novaConversa() {
   if (!(await vivo.nova())) return;
   window.transicaoDither?.();
   trocaFila(null);
+  limpaRascunhos();
   sessaoAtual = null; $("titulo").textContent = "Nova conversa";
   turnoVisto = null; turnoN = 0; setRodando(false);
   ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true; entrada.focus();
@@ -1199,6 +1265,7 @@ addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") {
     if (e.isComposing || e.keyCode === 229 || e.repeat) return;
+    if (document.activeElement?.closest?.(".cm-caixa")) return;
     const fechou = fechaAlgo();
     if (fechou === "fechou") {
       const a = document.activeElement;

@@ -18,21 +18,145 @@ function linhasDiff(antes, depois) {
   for (let k = a.length - j; k < Math.min(a.length, a.length - j + ctx); k++) out.push([" ", a[k]]);
   return out;
 }
-function diffDe(nome, e) {
+// With a card id the rows can be commented on (attributes plus a "+" button); without
+// one (the permission card) they are plain.
+function diffDe(nome, e, cartao = null) {
   if (!e) return null;
   let grupos;
   if (nome === "Edit" && "old_string" in e) grupos = [linhasDiff(e.old_string, e.new_string)];
   else if (nome === "MultiEdit" && Array.isArray(e.edits)) grupos = e.edits.map((x) => linhasDiff(x.old_string, x.new_string));
   else if (nome === "Write" && typeof e.content === "string") grupos = [e.content.split("\n").map((l) => ["+", l])];
   else return null;
-  let mais = 0, menos = 0, n = 0;
-  const html = grupos.map((g) => g.map(([s, l]) => {
+  const escrita = nome === "Write", arq = e.file_path || "";
+  let mais = 0, menos = 0, n = 0, k = 0;
+  const html = grupos.map((g) => g.map(([s, l], idx) => {
     if (s === "+") mais++; if (s === "-") menos++;
     if (++n > 400) return "";
-    return `<div class="l ${s === "+" ? "mais" : s === "-" ? "menos" : ""}"><i>${s === " " ? "" : s === "-" ? "−" : "+"}</i><code>${esc(l) || " "}</code></div>`;
+    const i = k++;
+    const cm = cartao == null ? "" : ` data-arq="${esc(arq)}" data-linha="${escrita ? idx + 1 : ""}" data-lado="${s === "-" ? "E" : "D"}" data-chave="${esc(cartao)}:${i}"`;
+    return `<div class="l ${s === "+" ? "mais" : s === "-" ? "menos" : ""}"${cm}>${cartao == null ? "" : BOTAO_COMENTAR}<i>${s === " " ? "" : s === "-" ? "−" : "+"}</i><code>${esc(l) || " "}</code></div>`;
   }).join("")).join('<div class="l corte"><i>⋯</i></div>');
   return { html: `<div class="diff">${html}${n > 400 ? '<div class="l corte"><i>⋯</i><code>(diff longo, cortado)</code></div>' : ""}</div>`, contagem: `<em class="contagem"><b>+${mais}</b><s>−${menos}</s></em>`, mais, menos };
 }
+
+// ---- comments on diff lines --------------------------------------------------------------
+// Rows of a diff carry data-arq / data-linha / data-lado (D = new side, E = old side) and
+// data-chave, their identity: card id and row index for Edit/Write cards, file, side and
+// line for git diffs. The comments wait in a bar above the composer and go out as one message.
+const BOTAO_COMENTAR = '<button class="cm-mais" aria-label="Comentar nesta linha" title="Comentar nesta linha">+</button>';
+const rascunhos = []; // { id, conv, chave, arq, linha, lado, texto, trecho, git, velho }
+let convRascunho = 0, rascunhoSeq = 0;
+const trechoDe = (row) => (row.querySelector("code")?.textContent || "").trim();
+const limpaTexto = (s) => String(s ?? "").replace(/[\r\n]+/g, " ").replace(/`/g, "'");
+const achaRascunho = (row) => rascunhos.find((d) => d.chave === row.dataset.chave && (!d.git || d.trecho === trechoDe(row)));
+const rotuloRascunho = (d) => baseNome(d.arq) + (d.linha != null ? ":" + d.linha : "");
+function formataComentarios(lista) {
+  const por = new Map();
+  for (const d of lista) { const a = limpaTexto(d.arq); por.set(a, [...(por.get(a) || []), d]); }
+  const lado = (d) => (d.lado === "E" ? "antigo" : "novo");
+  const corpo = [...por].map(([a, ds]) => a + "\n" + ds.map((d) => {
+    const txt = String(d.texto).trim();
+    if (d.linha != null) return `- linha ${d.linha} (lado ${lado(d)}): ${txt}`;
+    return `- trecho (lado ${lado(d)}): ${txt}\n  \`\`\`\n  ${limpaTexto(d.trecho).slice(0, 300)}\n  \`\`\``;
+  }).join("\n")).join("\n\n");
+  return "Comentários de revisão no diff (linhas conforme o diff no momento do comentário):\n\n" + corpo;
+}
+const marcaLinha = (row, sim) => row.classList.toggle("comentada", sim);
+function fechaCaixaComentario() {
+  const c = document.querySelector(".cm-caixa");
+  if (!c) return;
+  c.remove(); dispatchEvent(new CustomEvent("comentario-fechado"));
+}
+function abreCaixaComentario(row) {
+  const chave = row.dataset.chave, trecho = trechoDe(row);
+  fechaCaixaComentario();
+  // closing a box may redraw the Changes window: find the row again
+  if (!row.isConnected) row = [...document.querySelectorAll(".diff .l[data-chave]")].find((r) => r.dataset.chave === chave && trechoDe(r) === trecho);
+  if (!row) return;
+  const d = achaRascunho(row), caixa = document.createElement("div");
+  caixa.className = "cm-caixa";
+  caixa.innerHTML = '<textarea rows="3"></textarea><div class="cm-acoes"><button class="btn forte" data-salva>Salvar</button><button class="btn" data-cancela>Cancelar</button></div>';
+  const ta = caixa.querySelector("textarea");
+  ta.value = d?.texto || ""; ta.placeholder = window.t("Comentário sobre esta linha");
+  row.after(caixa);
+  caixa.querySelector("[data-salva]").onclick = () => salvaRascunho(row, ta.value);
+  caixa.querySelector("[data-cancela]").onclick = fechaCaixaComentario;
+  ta.focus();
+}
+function salvaRascunho(row, texto) {
+  const t = String(texto).trim(), d = achaRascunho(row);
+  if (!t) { if (d) removeRascunho(d); else fechaCaixaComentario(); return; }
+  if (d) d.texto = t;
+  else rascunhos.push({ id: ++rascunhoSeq, conv: convRascunho, chave: row.dataset.chave, arq: row.dataset.arq || "", linha: row.dataset.linha ? +row.dataset.linha : null, lado: row.dataset.lado || "D", texto: t, trecho: trechoDe(row), git: !!row.closest(".alt-diffs"), velho: false });
+  reaplicaRascunhos(document);
+  desenhaBarraComentarios(); fechaCaixaComentario();
+}
+// Unmarks the rows that no longer have a draft.
+const reconfereMarcas = () => document.querySelectorAll(".diff .l.comentada").forEach((r) => { if (!achaRascunho(r)) marcaLinha(r, false); });
+function removeRascunho(d) {
+  const i = rascunhos.indexOf(d); if (i >= 0) rascunhos.splice(i, 1);
+  reconfereMarcas(); desenhaBarraComentarios(); fechaCaixaComentario();
+}
+// Empties the drafts (all, or just the ones given), their marks and, when none is left, the bar.
+function limpaRascunhos(lista = null) {
+  if (lista) lista.forEach((d) => { const i = rascunhos.indexOf(d); if (i >= 0) rascunhos.splice(i, 1); });
+  else { rascunhos.length = 0; convRascunho++; }
+  reconfereMarcas(); fechaCaixaComentario(); desenhaBarraComentarios();
+}
+// After a diff is drawn again, put the marks back; a git comment whose line no longer
+// matches (line number or text changed) keeps its chip, flagged as outdated.
+function reaplicaRascunhos(raiz) {
+  if (!raiz) return;
+  const linhas = [...raiz.querySelectorAll(".l[data-chave]")];
+  for (const r of linhas) marcaLinha(r, !!achaRascunho(r));
+  let mudou = false;
+  for (const d of rascunhos) {
+    if (!d.git) continue;
+    const dessa = linhas.filter((r) => r.dataset.arq === d.arq);
+    if (!dessa.length) continue;
+    const velho = !dessa.some((r) => r.dataset.chave === d.chave && trechoDe(r) === d.trecho);
+    if (velho !== d.velho) { d.velho = velho; mudou = true; }
+  }
+  if (mudou) desenhaBarraComentarios();
+}
+function desenhaBarraComentarios() {
+  let bar = document.getElementById("comentariosBar");
+  const lista = rascunhos.filter((d) => d.conv === convRascunho);
+  if (!bar) {
+    bar = document.createElement("div"); bar.id = "comentariosBar"; bar.hidden = true;
+    document.getElementById("composer").before(bar);
+  }
+  bar.hidden = !lista.length;
+  bar.textContent = "";
+  if (!lista.length) return;
+  const n = document.createElement("b"); n.textContent = window.t("{0} comentários pendentes", lista.length);
+  const chips = document.createElement("span"); chips.className = "cm-chips";
+  for (const d of lista) {
+    const c = document.createElement("span"); c.className = "cm-chip" + (d.velho ? " velho" : "");
+    c.title = d.velho ? window.t("Linha mudou desde o comentário") : d.texto;
+    const l = document.createElement("span"); l.textContent = rotuloRascunho(d);
+    const x = document.createElement("button"); x.className = "cm-x"; x.textContent = "×"; x.setAttribute("aria-label", window.t("Remover comentário"));
+    x.onclick = () => removeRascunho(d);
+    c.append(l, x); chips.append(c);
+  }
+  const env = document.createElement("button"); env.className = "btn forte"; env.textContent = window.t("Enviar comentários") + " (Ctrl+Enter)";
+  env.onclick = () => enviaComentarios();
+  const lim = document.createElement("button"); lim.className = "btn"; lim.textContent = window.t("Limpar");
+  lim.onclick = () => limpaRascunhos();
+  bar.append(n, chips, env, lim);
+}
+addEventListener("idioma", () => desenhaBarraComentarios());
+document.addEventListener("click", (e) => {
+  const b = e.target.closest?.(".cm-mais"); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  abreCaixaComentario(b.closest(".l"));
+});
+// Esc cancels and Ctrl+Enter saves inside the comment box; nothing else hears these keys.
+addEventListener("keydown", (e) => {
+  const caixa = e.target.closest?.(".cm-caixa"); if (!caixa) return;
+  if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); fechaCaixaComentario(); }
+  else if (e.key === "Enter" && e.ctrlKey) { e.preventDefault(); e.stopImmediatePropagation(); caixa.querySelector("[data-salva]").click(); }
+}, true);
 
 // ---- Claude's reasoning --------------------------------------------------------------
 // Streams into a quiet block while Claude thinks, then folds into one line.
