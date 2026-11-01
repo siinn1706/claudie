@@ -575,7 +575,7 @@ entrada.addEventListener("keydown", (e) => {
 let sugestao = "";
 function mostraSugestao(s) {
   sugestao = s || "";
-  entrada.placeholder = sugestao || "Mensagem para o Claude";
+  entrada.placeholder = sugestao || window.t("Mensagem para o Claude");
   entrada.classList.toggle("com-sugestao", !!sugestao);
 }
 function aceitaSugestao() {

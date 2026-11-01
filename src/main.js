@@ -91,6 +91,8 @@ function alimentaLogMcp(cwd, chunk) {
     ringLog(logsMcp, `${cwd}|${nome || "*"}`, l);
   }
 }
+// Without it Claude Code skips next-prompt suggestions near the usage limit and in many sessions.
+process.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION ??= "true";
 // every query goes through here: the person's Claude Code and the chosen sign-in
 function query({ logMcp, ...args }) {
   const exe = acharClaude();
@@ -712,9 +714,7 @@ async function turno(j, texto, anexos, apps) {
       thinking: geral.raciocinio === false ? undefined : { type: "adaptive", display: "summarized" },
       includePartialMessages: true,
       // After each turn Claude Code predicts the next prompt; it shows in the composer.
-      // Without the variable it skips them near the usage limit and in many sessions.
       promptSuggestions: true,
-      env: { ...process.env, CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: "true" },
       abortController: ac,
       systemPrompt: { type: "preset", preset: "claude_code", append: [PROMPT_NAVEGADOR, ...(t.cfg.computador ? [PROMPT_COMPUTADOR] : [])].join("\n\n") },
       mcpServers: { claudie: servidorTemasPara(t), ...(t.cfg.computador ? { "computer-use": servidorComputadorPara(t, depsComputador) } : {}) },
