@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "In-app browser pane and dev servers"
-status: pending
+status: completed
 priority: P2
 effort: "~1.5 days"
 dependencies: ["02"]
@@ -106,18 +106,18 @@ if (r.behavior !== "allow") return erro(tr("A pessoa negou o acesso a {host}", {
 
 ## Tasks & Steps
 
-- [ ] 1. `git branch --show-current` is `feat/desktop-parity` with phase 02 committed; re-read the anchors and phase 02's `pedePermissao` and `systemPrompt.append`.
-- [ ] 2. In `main.js` extract `matarArvore(p, sincrono)` from `terminalMata`; make `terminalMata` call it. `node --check`.
-- [ ] 3. Extend phase 02's `pedePermissao` with the optional `site` field and add the `p.site` branch in the `permissao` handler. Existing cards stay unchanged; the `comecaTurno` line stays.
-- [ ] 4. Write `src/navegador.js` part 1: `normalizaUrl`, `loopback`, `navegadorGarante` with all hardening and key forwarding, state events, IPC `nav_abrir/acao/area/estado`, `close` hook.
-- [ ] 5. Part 2: `aprovados`/`emVoo`, `semAprovador`, `garanteSite`, per-view queue, debugger helper.
-- [ ] 6. Part 3: the five `browser_*` tools with schemas (verify CDP method params in the protocol docs first).
-- [ ] 7. Part 4: `leLaunch`, `servidorIniciar/Parar`, dual-stack probe, readiness, ring buffer, `navegadorFecha`, IPC `nav_servidores/iniciar/parar`, tools `servidor_*` with handler-level cards.
-- [ ] 8. Wire in `main.js`: `iniciaNavegador`; spread tools into `servidorTemasPara` for turns only; `FERRAMENTAS_NAVEGADOR` into `allowedTools`; `instructions` sentence; append fragment (concatenated with phase 02's); `navegadorFecha(j)` in `closed`; `navegadorFecha(j, true)` for all windows in `before-quit`; `esqueceSites` in the delete path; extend the `VIVO_FOTO` hook to also write `<name>-nav.png` from `j.nav.view.webContents.capturePage()`.
-- [ ] 9. Preload calls. Grep `src/renderer` for overlay classes (modal, menu, popover, lightbox, radial, `janelinha`); write `renderer/navegador.js`, CSS (three grid rules, safe area), `index.html`, shortcuts, `nav_tecla` handling, radial action.
-- [ ] 10. `app.js`: site card line and tool labels/icons, Alt+click, event routing. Translate in `navegador.json` (en, vi). No i18n scan script exists, so run the `node -e` check under Verification, which fails on any key without `en` and `vi`.
-- [ ] 11. README: feature bullet (in-app browser, dev servers, launch.json, per-conversation approvals, loopback-on-any-port note) and the testing commands.
-- [ ] 12. Run Verification, then commit: `feat(browser): add in-app browser pane, site approval and dev servers`.
+- [x] 1. `git branch --show-current` is `feat/desktop-parity` with phase 02 committed; re-read the anchors and phase 02's `pedePermissao` and `systemPrompt.append`.
+- [x] 2. In `main.js` extract `matarArvore(p, sincrono)` from `terminalMata`; make `terminalMata` call it. `node --check`.
+- [x] 3. Extend phase 02's `pedePermissao` with the optional `site` field and add the `p.site` branch in the `permissao` handler. Existing cards stay unchanged; the `comecaTurno` line stays.
+- [x] 4. Write `src/navegador.js` part 1: `normalizaUrl`, `loopback`, `navegadorGarante` with all hardening and key forwarding, state events, IPC `nav_abrir/acao/area/estado`, `close` hook.
+- [x] 5. Part 2: `aprovados`/`emVoo`, `semAprovador`, `garanteSite`, per-view queue, debugger helper.
+- [x] 6. Part 3: the five `browser_*` tools with schemas (verify CDP method params in the protocol docs first).
+- [x] 7. Part 4: `leLaunch`, `servidorIniciar/Parar`, dual-stack probe, readiness, ring buffer, `navegadorFecha`, IPC `nav_servidores/iniciar/parar`, tools `servidor_*` with handler-level cards.
+- [x] 8. Wire in `main.js`: `iniciaNavegador`; spread tools into `servidorTemasPara` for turns only; `FERRAMENTAS_NAVEGADOR` into `allowedTools`; `instructions` sentence; append fragment (concatenated with phase 02's); `navegadorFecha(j)` in `closed`; `navegadorFecha(j, true)` for all windows in `before-quit`; `esqueceSites` in the delete path; extend the `VIVO_FOTO` hook to also write `<name>-nav.png` from `j.nav.view.webContents.capturePage()`.
+- [x] 9. Preload calls. Grep `src/renderer` for overlay classes (modal, menu, popover, lightbox, radial, `janelinha`); write `renderer/navegador.js`, CSS (three grid rules, safe area), `index.html`, shortcuts, `nav_tecla` handling, radial action.
+- [x] 10. `app.js`: site card line and tool labels/icons, Alt+click, event routing. Translate in `navegador.json` (en, vi). No i18n scan script exists, so run the `node -e` check under Verification, which fails on any key without `en` and `vi`.
+- [x] 11. README: feature bullet (in-app browser, dev servers, launch.json, per-conversation approvals, loopback-on-any-port note) and the testing commands.
+- [x] 12. Run Verification, then commit: `feat(browser): add in-app browser pane, site approval and dev servers`.
 
 ## Security & Safety
 

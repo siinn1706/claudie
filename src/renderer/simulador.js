@@ -110,6 +110,13 @@ if (!window.vivo) {
     pessoalApagar: async () => true,
     responder: async () => { emite({ tipo: "fim", ok: true }); emite({ tipo: "parado" }); },
     desfazer: async (u, simular) => ({ canRewind: true, filesChanged: ["C:\\projeto\\index.html"], insertions: 3, deletions: 1 }),
+    navAbrir: async () => "Indisponível no simulador.",
+    navAcao: async () => false,
+    navArea: async () => false,
+    navEstado: async () => null,
+    navServidores: async () => [],
+    navServidorIniciar: async () => "Indisponível no simulador.",
+    navServidorParar: async () => "Indisponível no simulador.",
     aoEvento: (f) => ouvintes.push(f),
   };
 }

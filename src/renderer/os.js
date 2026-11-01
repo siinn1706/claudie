@@ -239,6 +239,7 @@ const ACOES_RADIAL = [
   ["Nova conversa", svg('<path d="M12 5v14M5 12h14"/>'), () => novaConversa()],
   ["Temas", ICONE.tema, () => abrePicker()],
   ["Personalizar", svg('<path d="M4.5 19.5c1.5 0 3.5-.5 4.2-2.2.7-1.7-.2-3.3-1.7-3.3s-2.5 1.6-2.5 3c0 1-.5 2-1 2.5zM9.5 13l9-9.5a1.6 1.6 0 0 1 2.3 2.3L11.5 15"/>'), () => abrePersonal()],
+  ["Navegador", svg('<rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M3 9.5h18M6.5 7h.01M9.5 7h.01"/>'), () => alternaNavegador()],
   ["Alterações", svg('<path d="M8 4v12M4 8h8M14 17h6"/><rect x="3" y="3" width="18" height="18" rx="3"/>'), () => abreAlteracoes()],
   ["Música", svg('<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>'), () => abrePlayer()],
   ["Nova janela", ICONE.janela, () => vivo.janelaNova()],

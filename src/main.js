@@ -3,7 +3,7 @@
 // messages are forwarded to the window as small events, and tool permission
 // requests wait for the person's answer in the window.
 
-import { app, BrowserWindow, Menu, ipcMain, dialog, shell, globalShortcut, nativeImage, protocol, net, safeStorage } from "electron";
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell, globalShortcut, nativeImage, protocol, net, safeStorage, session, WebContentsView } from "electron";
 import { query as querySdk, listSessions, getSessionMessages, renameSession, deleteSession, forkSession, createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import atualizador from "electron-updater";
@@ -16,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { acharClaudeExe, acharClaudeExeAsync, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
 import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo } from "./computador.js";
+import { iniciaNavegador, FERRAMENTAS_NAVEGADOR, PROMPT_NAVEGADOR } from "./navegador.js";
 import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -217,6 +218,7 @@ const texto = (t) => ({ content: [{ type: "text", text: t }] });
 const peca = (slug) => MAGIA.pecas.get(String(slug).trim().toLowerCase());
 const semPeca = (slug) => ({ ...texto(`Não existe a peça "${slug}". Use buscar_fundo para achar o nome certo.`), isError: true });
 // Cards belong to the turn's conversation; applying a theme is for the whole window.
+// The browser tools exist only for a real turn (t.pendentes), never for the idle queries of comConsulta (t is a window there).
 const servidorTemasPara = (t) => createSdkMcpServer({
   name: "claudie",
   version: "0.2.0",
@@ -224,7 +226,8 @@ const servidorTemasPara = (t) => createSdkMcpServer({
     `${MAGIA.pecas.size} animações. Quando a pessoa pedir um tema ou um visual, prefira um tema do Claudie se algum combinar; senão use buscar_fundo (em inglês: os nomes e tags da biblioteca são em inglês) e depois sugerir_fundo ou aplicar_fundo. ` +
     "Responda sempre no idioma em que a pessoa escreve. " +
     "Use as ferramentas de sugerir para mostrar um cartão (a pessoa decide aplicar), e as de aplicar só se ela pedir para aplicar direto. Temas da Claudie: " +
-    Object.entries(TEMAS).map(([id, nome]) => `${id} (${nome})`).join(", ") + ". Categorias da biblioteca: " + Object.entries(MAGIA.cats).map(([id, nome]) => `${id} (${nome})`).join(", ") + ".",
+    Object.entries(TEMAS).map(([id, nome]) => `${id} (${nome})`).join(", ") + ". Categorias da biblioteca: " + Object.entries(MAGIA.cats).map(([id, nome]) => `${id} (${nome})`).join(", ") + "." +
+    (t?.pendentes ? " O painel do navegador do app mostra páginas ao lado da conversa: use browser_navigate, browser_screenshot, browser_read, browser_click e browser_type; servidor_listar, servidor_logs, servidor_iniciar e servidor_parar cuidam dos servidores de .claude/launch.json." : ""),
   tools: [
     tool("sugerir_tema", "Mostra na conversa um cartão do tema, com prévia animada e os botões Aplicar e Prévia.", { tema: z.enum(Object.keys(TEMAS)) },
       async ({ tema }) => { t.ev({ tipo: "cartao_tema", tema }); return texto(`Cartão do tema ${TEMAS[tema]} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
@@ -240,6 +243,7 @@ const servidorTemasPara = (t) => createSdkMcpServer({
       async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); t.ev({ tipo: "cartao_arte", chave: `magia:${p.slug}` }); return texto(`Cartão de ${p.nome} mostrado. A pessoa decide se aplica.`); }, { alwaysLoad: true }),
     tool("aplicar_fundo", "Aplica uma animação da biblioteca no fundo do app agora.", { peca: z.string().describe("Id da peça, de buscar_fundo") },
       async ({ peca: id }) => { const p = peca(id); if (!p) return semPeca(id); enviarEvento(t.j, { tipo: "aplicar_arte", chave: `magia:${p.slug}` }); return texto(`${p.nome} aplicada no fundo.`); }, { alwaysLoad: true }),
+    ...ferramentasNavegador(t),
   ],
 });
 const FERRAMENTAS_TEMA = ["sugerir_tema", "aplicar_tema", "buscar_fundo", "sugerir_fundo", "aplicar_fundo"].map((n) => `mcp__claudie__${n}`);
@@ -577,12 +581,12 @@ const encerra = (t) => t.caixa?.fecha();
 const fechaEspera = (ts) => { for (const t of ts) { encerra(t); t.ac.abort(); } return Promise.race([Promise.all(ts.map((t) => t.saiu)), new Promise((ok) => setTimeout(ok, 4000))]); };
 // A card in the conversation's window that waits for the person's answer (or asks a question). Used by
 // canUseTool and by the computer-use gate, whose tools are allowed in advance and so never reach it.
-function pedePermissao(t, toolName, input, { signal, suggestions, decisionReason } = {}) {
+function pedePermissao(t, toolName, input, { signal, suggestions, decisionReason, site } = {}) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve({ behavior: "deny", message: "Cancelado." });
     if (!t.ativo) comecaTurno(t, crypto.randomUUID(), true);
     const id = crypto.randomUUID();
-    pendentes.set(id, { resolve, suggestions, input, t, toolName });
+    pendentes.set(id, { resolve, suggestions, input, t, toolName, site });
     // Claude asking the person something: the choices become a form.
     const pedido = toolName === "AskUserQuestion" ? { tipo: "pergunta", id, perguntas: input.questions || [] }
       : { tipo: "permissao", id, ferramenta: toolName, entrada: input, motivo: decisionReason ?? null, temSempre: !!suggestions?.length };
@@ -593,6 +597,7 @@ function pedePermissao(t, toolName, input, { signal, suggestions, decisionReason
   });
 }
 const depsComputador = { pedePermissao, enviarEvento, config: () => config, janelas, tr };
+const { navegadorFecha, ferramentasNavegador, esqueceSites } = iniciaNavegador({ ipcMain, session, WebContentsView, J, janelas, enviarEvento, resolveExe, dentroDaPasta, matarArvore, ajustaImagem, pedePermissao, texto, tr, tool, z });
 // texto null opens the conversation's Claude Code without a message (Remote Control).
 async function turno(j, texto, anexos) {
   const viva = vivaDe(j.sessionId);
@@ -643,9 +648,9 @@ async function turno(j, texto, anexos) {
       thinking: geral.raciocinio === false ? undefined : { type: "adaptive", display: "summarized" },
       includePartialMessages: true,
       abortController: ac,
-      systemPrompt: { type: "preset", preset: "claude_code", ...(t.cfg.computador ? { append: PROMPT_COMPUTADOR } : {}) },
+      systemPrompt: { type: "preset", preset: "claude_code", append: [PROMPT_NAVEGADOR, ...(t.cfg.computador ? [PROMPT_COMPUTADOR] : [])].join("\n\n") },
       mcpServers: { claudie: servidorTemasPara(t), ...(t.cfg.computador ? { "computer-use": servidorComputadorPara(t, depsComputador) } : {}) },
-      allowedTools: [...FERRAMENTAS_TEMA, ...FERRAMENTAS_PLANO, ...(t.cfg.computador ? FERRAMENTAS_COMPUTADOR : [])],
+      allowedTools: [...FERRAMENTAS_TEMA, ...FERRAMENTAS_PLANO, ...FERRAMENTAS_NAVEGADOR, ...(t.cfg.computador ? FERRAMENTAS_COMPUTADOR : [])],
       canUseTool: (toolName, input, opcoes) => pedePermissao(t, toolName, input, opcoes),
     },
   });
@@ -878,12 +883,15 @@ function criarJanela(sessao) {
   const j = { win, sessionId: null, atual: null, cwd: (!principal && process.env.VIVO_PASTA) || config.cwd }, id = win.webContents.id;
   janelas.set(id, j);
   if (!principal) principal = j;
+  // Dev servers and the page view go with the window itself (a hidden window keeps them).
+  win.on("close", (ev) => { if (!ev.defaultPrevented) navegadorFecha(j); });
   win.on("closed", () => {
     // A turn running here stops; an idle Claude Code stays open for the conversation.
     for (const t of turnos) if (t.j === j && t.ativo) t.ac.abort();
     j.fechada = true;
     janelas.delete(id);
     terminalMata(j);
+    navegadorFecha(j);
     if (principal === j) principal = janelas.values().next().value || null;
   });
   win.loadFile(path.join(here, "renderer", "index.html"), sessao ? { query: { sessao } } : undefined);
@@ -914,7 +922,11 @@ function criarJanela(sessao) {
       }
       // VIVO_QUADRO="expressão" runs in every frame inside the window (web wallpapers)
       if (process.env.VIVO_QUADRO) for (const f of win.webContents.mainFrame.frames) try { console.log("[quadro]", f.url, JSON.stringify(await f.executeJavaScript(process.env.VIVO_QUADRO, true))); } catch (e) { console.log("[quadro] erro:", e.message); }
-      if (process.env.VIVO_FOTO) fs.writeFileSync(process.env.VIVO_FOTO, (await win.webContents.capturePage()).toPNG());
+      if (process.env.VIVO_FOTO) {
+        fs.writeFileSync(process.env.VIVO_FOTO, (await win.webContents.capturePage()).toPNG());
+        // the page view is a separate surface: capturePage of the window does not include it
+        try { if (j.nav?.view) fs.writeFileSync(process.env.VIVO_FOTO.replace(/\.png$/i, "") + "-nav.png", (await j.nav.view.webContents.capturePage()).toPNG()); } catch (e) { console.log("[foto] erro:", e.message); }
+      }
     }, 4500);
     if (process.env.VIVO_TESTE) turno(j, process.env.VIVO_TESTE, process.env.VIVO_ANEXO ? [{ caminho: process.env.VIVO_ANEXO }] : []);
   });
@@ -986,6 +998,8 @@ ipcMain.handle("parar_tarefa", async (e, id) => {
 ipcMain.handle("permissao", (_e, { id, decisao, texto, modo }) => {
   const p = pendentes.get(id); if (!p) return;
   pendentes.delete(id); p.t.pendentes.delete(id); avisaTurnos();
+  // A site card has no "always": only a plain yes lets the page load.
+  if (p.site) return p.resolve(decisao === "sim" ? { behavior: "allow" } : { behavior: "deny", message: "A pessoa negou." });
   const feedback = String(texto || "").trim().slice(0, 2000), plano = p.toolName === "ExitPlanMode";
   if (decisao === "negar") p.resolve({ behavior: "deny", message: feedback ? (plano ? `A pessoa quer ajustar o plano antes de seguir: ${feedback}` : `A pessoa negou e pediu: ${feedback}`) : "A pessoa negou." });
   else if (plano) {
@@ -1454,7 +1468,7 @@ ipcMain.handle("apagar", async (e, id, cwd) => {
   const viva = vivaDe(id); if (viva) await fechaEspera([viva]);
   try {
     await deleteSession(id, { dir: cwd || J(e).cwd });
-    textoDasSessoes.delete(id); esqueceTarefas(id);
+    textoDasSessoes.delete(id); esqueceTarefas(id); esqueceSites(id);
     if (config.porSessao?.[id]) { delete config.porSessao[id]; salvarConfig(); }
     for (const o of janelas.values()) if (o.sessionId === id) { limpaConversa(o); if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
     return true;
@@ -1562,14 +1576,18 @@ function comandoDoTerminal() {
   const pwsh = resolveExe("pwsh");
   return [path.isAbsolute(pwsh) ? pwsh : resolveExe("powershell.exe"), ["-NoLogo", "-NoProfile", "-NoExit", "-Command", "-"]];
 }
+// A child process and everything it started (taskkill /T on Windows, the process group elsewhere).
+function matarArvore(p, sincrono) {
+  if (!p?.pid || p.exitCode !== null) return;
+  if (process.platform === "win32") {
+    const args = ["/pid", String(p.pid), "/T", "/F"];
+    if (sincrono) { try { execFileSync("taskkill", args, { windowsHide: true, stdio: "ignore" }); } catch {} } else execFile("taskkill", args, { windowsHide: true }, () => {});
+  } else { try { process.kill(-p.pid, "SIGTERM"); } catch { p.kill("SIGTERM"); } }
+}
 function terminalMata(j, sincrono) {
   const term = j.term;
   j.term = null;
-  if (!term?.p.pid || term.p.exitCode !== null) return;
-  if (process.platform === "win32") {
-    const args = ["/pid", String(term.p.pid), "/T", "/F"];
-    if (sincrono) { try { execFileSync("taskkill", args, { windowsHide: true, stdio: "ignore" }); } catch {} } else execFile("taskkill", args, { windowsHide: true }, () => {});
-  } else { try { process.kill(-term.p.pid, "SIGTERM"); } catch { term.p.kill("SIGTERM"); } }
+  if (term) matarArvore(term.p, sincrono);
 }
 function terminalLiga(j) {
   if (j.term && mesmoCaminho(j.term.cwd, j.cwd) && j.term.p.exitCode === null) return j.term;
@@ -1912,7 +1930,7 @@ ipcMain.handle("remoto_ligar", async (e, ligar, nome) => {
   if (t && t.cwd === j.cwd) await ligaRemoto(t);
   else { if (t) encerra(t); turno(j, null, []); }
 });
-app.on("before-quit", () => { liberaTudo(); for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) terminalMata(j, true); });
+app.on("before-quit", () => { liberaTudo(); for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) { terminalMata(j, true); navegadorFecha(j, true); } });
 
 app.whenReady().then(() => {
   if (!instanciaUnica) return;

@@ -32,7 +32,7 @@ Claudie gains the eight highest-value Claude Desktop capabilities it lacks, each
 | 01 | [Esc interrupt, picker shortcuts, bypass mode](phase-01-keys-modes.md) | P1 | none | completed |
 | 02 | [Computer use MVP](phase-02-computer-use.md) | P1 | 01 | completed |
 | 03 | [Inline mermaid/svg/html and Artifacts window](phase-03-inline-render.md) | P2 | none | completed |
-| 04 | [In-app browser pane and dev servers](phase-04-browser-pane.md) | P2 | 02 | pending |
+| 04 | [In-app browser pane and dev servers](phase-04-browser-pane.md) | P2 | 02 | completed |
 | 05 | [Scheduled tasks, tray, keep-awake](phase-05-scheduler-tray.md) | P2 | none | pending |
 | 06 | [Customize: plugins, skills, MCP logs, connector catalog and auth](phase-06-customize-ecosystem.md) | P2 | none | pending |
 | 07 | [Inline diff comments and review card](phase-07-diff-review.md) | P2 | none | pending |

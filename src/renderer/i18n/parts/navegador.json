@@ -1,0 +1,250 @@
+{
+  "Navegador": {
+    "en": "Browser",
+    "vi": "Trình duyệt"
+  },
+  "Página anterior": {
+    "en": "Previous page",
+    "vi": "Trang trước"
+  },
+  "Página seguinte": {
+    "en": "Next page",
+    "vi": "Trang sau"
+  },
+  "Recarregar": {
+    "en": "Reload",
+    "vi": "Tải lại"
+  },
+  "Digite um endereço": {
+    "en": "Type an address",
+    "vi": "Nhập địa chỉ"
+  },
+  "Endereço": {
+    "en": "Address",
+    "vi": "Địa chỉ"
+  },
+  "Servidores de desenvolvimento": {
+    "en": "Development servers",
+    "vi": "Máy chủ phát triển"
+  },
+  "Fechar navegador (Ctrl+Shift+B)": {
+    "en": "Close browser (Ctrl+Shift+B)",
+    "vi": "Đóng trình duyệt (Ctrl+Shift+B)"
+  },
+  "Navegador (Ctrl+Shift+B)": {
+    "en": "Browser (Ctrl+Shift+B)",
+    "vi": "Trình duyệt (Ctrl+Shift+B)"
+  },
+  "Digite um endereço acima ou peça ao Claude para abrir uma página.": {
+    "en": "Type an address above or ask Claude to open a page.",
+    "vi": "Nhập địa chỉ ở trên hoặc nhờ Claude mở một trang."
+  },
+  "Nenhum servidor em .claude/launch.json": {
+    "en": "No servers in .claude/launch.json",
+    "vi": "Không có máy chủ nào trong .claude/launch.json"
+  },
+  "Iniciar": {
+    "en": "Start",
+    "vi": "Bắt đầu"
+  },
+  "Mostrar ou fechar o navegador": {
+    "en": "Show or close the browser",
+    "vi": "Hiện hoặc đóng trình duyệt"
+  },
+  "abrir um site no navegador do app": {
+    "en": "open a site in the app's browser",
+    "vi": "mở một trang web trong trình duyệt của ứng dụng"
+  },
+  "iniciar um servidor de desenvolvimento": {
+    "en": "start a development server",
+    "vi": "khởi động một máy chủ phát triển"
+  },
+  "parar um servidor de desenvolvimento": {
+    "en": "stop a development server",
+    "vi": "dừng một máy chủ phát triển"
+  },
+  "Quer abrir um site no navegador do app.": {
+    "en": "Wants to open a site in the app's browser.",
+    "vi": "Muốn mở một trang web trong trình duyệt của ứng dụng."
+  },
+  "Quer iniciar um servidor de desenvolvimento.": {
+    "en": "Wants to start a development server.",
+    "vi": "Muốn khởi động một máy chủ phát triển."
+  },
+  "Quer parar um servidor de desenvolvimento.": {
+    "en": "Wants to stop a development server.",
+    "vi": "Muốn dừng một máy chủ phát triển."
+  },
+  "Site no navegador": {
+    "en": "Site in the browser",
+    "vi": "Trang web trong trình duyệt"
+  },
+  "Abriu página no painel": {
+    "en": "Opened page in the pane",
+    "vi": "Đã mở trang trong khung"
+  },
+  "Captura do painel": {
+    "en": "Pane screenshot",
+    "vi": "Ảnh chụp khung"
+  },
+  "Leu a página": {
+    "en": "Read the page",
+    "vi": "Đã đọc trang"
+  },
+  "Clicou na página": {
+    "en": "Clicked in the page",
+    "vi": "Đã nhấp trong trang"
+  },
+  "Digitou na página": {
+    "en": "Typed in the page",
+    "vi": "Đã gõ trong trang"
+  },
+  "Listou servidores": {
+    "en": "Listed servers",
+    "vi": "Đã liệt kê máy chủ"
+  },
+  "Logs do servidor": {
+    "en": "Server logs",
+    "vi": "Nhật ký máy chủ"
+  },
+  "Iniciou servidor": {
+    "en": "Started server",
+    "vi": "Đã khởi động máy chủ"
+  },
+  "Parou servidor": {
+    "en": "Stopped server",
+    "vi": "Đã dừng máy chủ"
+  },
+  "Endereço inválido: use http:// ou https://": {
+    "en": "Invalid address: use http:// or https://",
+    "vi": "Địa chỉ không hợp lệ: dùng http:// hoặc https://"
+  },
+  "O painel do navegador não está disponível nesta janela": {
+    "en": "The browser pane isn't available in this window",
+    "vi": "Khung trình duyệt không khả dụng trong cửa sổ này"
+  },
+  "Ninguém para aprovar o acesso a {0}": {
+    "en": "No one is here to approve access to {0}",
+    "vi": "Không có ai để duyệt quyền truy cập {0}"
+  },
+  "Claude quer abrir {0}": {
+    "en": "Claude wants to open {0}",
+    "vi": "Claude muốn mở {0}"
+  },
+  "A pessoa negou o acesso a {0}": {
+    "en": "The person denied access to {0}",
+    "vi": "Người dùng đã từ chối quyền truy cập {0}"
+  },
+  "O painel do navegador está oculto (fechado ou coberto por outra janela). Peça para a pessoa abri-lo ou use browser_navigate.": {
+    "en": "The browser pane is hidden (closed or covered by another window). Ask the person to open it or use browser_navigate.",
+    "vi": "Khung trình duyệt đang bị ẩn (đã đóng hoặc bị cửa sổ khác che). Hãy nhờ người dùng mở nó hoặc dùng browser_navigate."
+  },
+  "Nenhuma página aberta no painel. Use browser_navigate.": {
+    "en": "No page is open in the pane. Use browser_navigate.",
+    "vi": "Chưa có trang nào mở trong khung. Hãy dùng browser_navigate."
+  },
+  "Precisa de aprovação para {0}: chame browser_navigate com essa URL.": {
+    "en": "Approval is needed for {0}: call browser_navigate with that URL.",
+    "vi": "Cần được duyệt cho {0}: hãy gọi browser_navigate với URL đó."
+  },
+  "Não foi possível anexar o depurador à página: {0}": {
+    "en": "Couldn't attach the debugger to the page: {0}",
+    "vi": "Không thể gắn trình gỡ lỗi vào trang: {0}"
+  },
+  "Janela fechada": {
+    "en": "Window closed",
+    "vi": "Cửa sổ đã đóng"
+  },
+  "O painel do navegador está oculto por outra janela": {
+    "en": "The browser pane is hidden behind another window",
+    "vi": "Khung trình duyệt đang bị cửa sổ khác che"
+  },
+  "Não foi possível carregar {0}: {1}": {
+    "en": "Couldn't load {0}: {1}",
+    "vi": "Không thể tải {0}: {1}"
+  },
+  "A captura da página demorou demais": {
+    "en": "The page capture took too long",
+    "vi": "Việc chụp trang mất quá nhiều thời gian"
+  },
+  "A captura da página veio vazia": {
+    "en": "The page capture came back empty",
+    "vi": "Ảnh chụp trang bị trống"
+  },
+  "Não foi possível preparar a captura": {
+    "en": "Couldn't prepare the capture",
+    "vi": "Không thể chuẩn bị ảnh chụp"
+  },
+  "A página demorou demais para responder": {
+    "en": "The page took too long to respond",
+    "vi": "Trang phản hồi quá chậm"
+  },
+  "Ninguém para aprovar iniciar {0}": {
+    "en": "No one is here to approve starting {0}",
+    "vi": "Không có ai để duyệt việc khởi động {0}"
+  },
+  "Claude quer iniciar o servidor {0}": {
+    "en": "Claude wants to start the server {0}",
+    "vi": "Claude muốn khởi động máy chủ {0}"
+  },
+  "A pessoa negou iniciar {0}": {
+    "en": "The person denied starting {0}",
+    "vi": "Người dùng đã từ chối khởi động {0}"
+  },
+  "O servidor {0} não está rodando": {
+    "en": "The server {0} isn't running",
+    "vi": "Máy chủ {0} không đang chạy"
+  },
+  "Ninguém para aprovar parar {0}": {
+    "en": "No one is here to approve stopping {0}",
+    "vi": "Không có ai để duyệt việc dừng {0}"
+  },
+  "Claude quer parar o servidor {0}": {
+    "en": "Claude wants to stop the server {0}",
+    "vi": "Claude muốn dừng máy chủ {0}"
+  },
+  "A pessoa negou parar {0}": {
+    "en": "The person denied stopping {0}",
+    "vi": "Người dùng đã từ chối dừng {0}"
+  },
+  "O launch.json de {0} tem caracteres não permitidos no comando": {
+    "en": "The launch.json entry {0} has characters that aren't allowed in the command",
+    "vi": "Mục {0} trong launch.json có ký tự không được phép trong lệnh"
+  },
+  "Não achei o servidor {0} em .claude/launch.json": {
+    "en": "Couldn't find the server {0} in .claude/launch.json",
+    "vi": "Không tìm thấy máy chủ {0} trong .claude/launch.json"
+  },
+  "O servidor {0} já está rodando": {
+    "en": "The server {0} is already running",
+    "vi": "Máy chủ {0} đang chạy rồi"
+  },
+  "A porta {0} já está em uso": {
+    "en": "Port {0} is already in use",
+    "vi": "Cổng {0} đang được sử dụng"
+  },
+  "Não foi possível iniciar {0}: {1}": {
+    "en": "Couldn't start {0}: {1}",
+    "vi": "Không thể khởi động {0}: {1}"
+  },
+  "O servidor {0} parou antes de ficar pronto (código {1})": {
+    "en": "The server {0} stopped before it was ready (code {1})",
+    "vi": "Máy chủ {0} đã dừng trước khi sẵn sàng (mã {1})"
+  },
+  "O servidor {0} não respondeu na porta {1} em 60 s": {
+    "en": "The server {0} didn't answer on port {1} within 60 s",
+    "vi": "Máy chủ {0} không phản hồi ở cổng {1} trong 60 giây"
+  },
+  "Site": {
+    "en": "Site",
+    "vi": "Trang web"
+  },
+  "Pasta": {
+    "en": "Folder",
+    "vi": "Thư mục"
+  },
+  "Variáveis": {
+    "en": "Variables",
+    "vi": "Biến môi trường"
+  }
+}

@@ -33,7 +33,7 @@ const ICONE = {
 };
 const horaAgora = () => new Date().toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
 const iconeDa = (nome) => (nome === "Bash" ? ICONE.terminal : /^(Read|NotebookRead)$/.test(nome) ? ICONE.arquivo : /^(Write|Edit|MultiEdit|NotebookEdit)$/.test(nome) ? ICONE.editar
-  : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudie__") ? ICONE.tema : nome.startsWith("mcp__computer-use__") ? ICONE.tela : ICONE.ferramenta);
+  : /^(Glob|Grep|ToolSearch)$/.test(nome) ? ICONE.busca : /^Web/.test(nome) ? ICONE.web : /^mcp__claudie__(browser|servidor)/.test(nome) ? ICONE.web : nome.startsWith("mcp__claudie__") ? ICONE.tema : nome.startsWith("mcp__computer-use__") ? ICONE.tela : ICONE.ferramenta);
 
 // Markdown: raw HTML in Claude's text is shown as text, never run.
 marked.use({ gfm: true, breaks: true, renderer: { html: ({ text }) => esc(text), image: ({ href, text }) => (/^(data:image\/|blob:|file:\/\/\/(?!\/))/i.test(href || "") || (href && /^(?![a-z][a-z0-9+.-]*:)(?![\\\/]{2})/i.test(href)) || /^[a-z]:[\/](?![\/])/i.test(href || "")) ? `<img src="${esc(href)}" alt="${esc(text)}">` : esc(text) } });
@@ -185,6 +185,11 @@ function resumo(nome, e = {}) {
   if (nome === "WebSearch") return e.query;
   if (nome === "mcp__claudie__buscar_fundo") return [e.busca, e.categoria].filter(Boolean).join(" · ");
   if (/fundo$/.test(nome)) return PECAS.get(e.peca)?.nome || e.peca;
+  if (nome === "mcp__claudie__browser_navigate") return e.url;
+  if (nome === "mcp__claudie__browser_click") return e.seletor || (e.x != null ? `[${e.x}, ${e.y}]` : "");
+  if (nome === "mcp__claudie__browser_type") return [e.seletor, e.texto].filter(Boolean).join(" · ");
+  if (/^mcp__claudie__servidor_/.test(nome)) return e.nome || "";
+  if (nome.startsWith("mcp__claudie__browser")) return "";
   if (nome === "mcp__computer-use__app") return e.app;
   if (nome.startsWith("mcp__computer-use__")) return e.text || (e.coordinate || e.region ? `[${(e.coordinate || e.region).join(", ")}]` : "");
   if (nome.startsWith("mcp__claudie__")) return nomeTema(e.tema);
@@ -194,10 +199,12 @@ const ROTULO = { Bash: "Comando", Read: "Leu", Write: "Criou", Edit: "Editou", M
   mcp__claudie__buscar_fundo: "Buscou fundos", mcp__claudie__sugerir_fundo: "Sugeriu fundo", mcp__claudie__aplicar_fundo: "Aplicou fundo",
   "mcp__computer-use__screenshot": "Captura de tela", "mcp__computer-use__zoom": "Zoom na tela", "mcp__computer-use__cursor_position": "Posição do mouse", "mcp__computer-use__wait": "Esperou", "mcp__computer-use__left_click": "Clicou", "mcp__computer-use__right_click": "Clicou com o direito",
   "mcp__computer-use__middle_click": "Clicou com o meio", "mcp__computer-use__double_click": "Duplo clique", "mcp__computer-use__triple_click": "Clique triplo", "mcp__computer-use__left_click_drag": "Arrastou", "mcp__computer-use__mouse_move": "Moveu o mouse",
-  "mcp__computer-use__scroll": "Rolou", "mcp__computer-use__type": "Digitou", "mcp__computer-use__key": "Apertou tecla", "mcp__computer-use__hold_key": "Segurou tecla", "mcp__computer-use__app": "Controle de app" };
+  "mcp__computer-use__scroll": "Rolou", "mcp__computer-use__type": "Digitou", "mcp__computer-use__key": "Apertou tecla", "mcp__computer-use__hold_key": "Segurou tecla", "mcp__computer-use__app": "Controle de app",
+  mcp__claudie__browser: "Site no navegador", mcp__claudie__browser_navigate: "Abriu página no painel", mcp__claudie__browser_screenshot: "Captura do painel", mcp__claudie__browser_read: "Leu a página", mcp__claudie__browser_click: "Clicou na página", mcp__claudie__browser_type: "Digitou na página",
+  mcp__claudie__servidor_listar: "Listou servidores", mcp__claudie__servidor_logs: "Logs do servidor", mcp__claudie__servidor_iniciar: "Iniciou servidor", mcp__claudie__servidor_parar: "Parou servidor" };
 const rotulo = (n) => ROTULO[n] || n.replace(/^mcp__([^_]+)__/, "$1 · ");
 // What a permission card asks for, in the infinitive.
-const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente", Workflow: "iniciar um fluxo de vários agentes", "mcp__computer-use__app": "controlar o aplicativo" };
+const PEDIDO = { Bash: "rodar um comando", Write: "criar um arquivo", Edit: "editar um arquivo", MultiEdit: "editar um arquivo", NotebookEdit: "editar um notebook", WebFetch: "abrir uma página", WebSearch: "pesquisar na web", Task: "iniciar um subagente", Workflow: "iniciar um fluxo de vários agentes", "mcp__computer-use__app": "controlar o aplicativo", mcp__claudie__browser: "abrir um site no navegador do app", mcp__claudie__servidor_iniciar: "iniciar um servidor de desenvolvimento", mcp__claudie__servidor_parar: "parar um servidor de desenvolvimento" };
 const pedido = (n) => PEDIDO[n] || `usar ${rotulo(n)}`;
 
 function ferramenta(id, nome, e, fim = null) {
@@ -311,13 +318,24 @@ function subFim({ pai, id, erro }) {
   i.className = "estado " + (erro ? "erro" : "ok"); i.innerHTML = erro ? ICONE.erro : ICONE.ok;
 }
 
+// The site (or the command) a browser permission is about, readable above the raw input.
+function linhasPerm(ev) {
+  const e = ev.entrada || {}, l = [];
+  if (ev.ferramenta === "mcp__claudie__browser" && e.host) l.push(["Site", e.host]);
+  if (ev.ferramenta === "mcp__claudie__servidor_iniciar") {
+    if (e.comando) l.push(["Comando", [e.comando, ...(e.args || [])].join(" ")]);
+    if (e.cwd) l.push(["Pasta", e.cwd]);
+    if (e.env?.length) l.push(["Variáveis", e.env.join(", ")]);
+  }
+  return l.map(([k, v]) => `<div class="perm-linha"><span>${t(k)}</span><code>${esc(String(v))}</code></div>`).join("");
+}
 function permissao(ev) {
   fechaSegmento(); tiraPensando();
   if (ev.ferramenta === "ExitPlanMode" && typeof ev.entrada?.plan === "string") return cartaoPlano(ev);
   const el = bloco("perm");
   el.dataset.id = ev.id;
   const diff = diffDe(ev.ferramenta, ev.entrada);
-  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}${JSON.stringify(ev.entrada, null, 2).length > 3000 ? `
+  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${linhasPerm(ev)}${diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}${JSON.stringify(ev.entrada, null, 2).length > 3000 ? `
 … (+${JSON.stringify(ev.entrada, null, 2).length - 3000} caracteres ocultos)` : ""}</pre>`}<input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que fazer em vez disso" />`;
   const linha = document.createElement("div"); linha.className = "b";
   const fb = el.querySelector(".perm-fb");
@@ -697,16 +715,17 @@ window.instalaAtualizacao = function instalaAtualizacao() {
 vivo.atualizacao().then(mostraAtualizacao);
 // A link in the conversation: the web opens in the browser; anything else is a file
 // Claude named, read from the attribute (the DOM would resolve it against the app's own folder).
-async function abreLinkDaConversa(a) {
+// Alt+click opens a web link in the browser pane instead of the system browser.
+async function abreLinkDaConversa(a, altClique = false) {
   const h = a.getAttribute("href") || "";
-  if (/^https?:/i.test(h)) return vivo.link(a.href);
+  if (/^https?:/i.test(h)) return altClique ? vivo.navAbrir(a.href).then((e) => e && nota(e, true)) : vivo.link(a.href);
   if (!h || h[0] === "#" || /^[a-z][a-z0-9+.-]+:(?!\d)/i.test(h) && !/^file:/i.test(h)) return;
   const r = await vivo.abrirLink(h);
   if (r?.imagem) abreImagem(r.imagem, r.nome);
   else if (r?.erro === "fora") nota("Não deu pra abrir: o arquivo está fora das pastas desta conversa.", true);
   else if (r?.erro) nota("Não deu pra abrir: não achei esse arquivo na pasta da conversa.", true);
 }
-col.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a) { e.preventDefault(); abreLinkDaConversa(a); } });
+col.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a) { e.preventDefault(); abreLinkDaConversa(a, e.altKey); } });
 
 // The empty conversation: the mark breathing, a greeting for the time of
 // day, and a few ways to start.
@@ -1169,7 +1188,7 @@ $("expandir").onclick = () => recolhe(false);
 addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "n") { e.preventDefault(); vivo.janelaNova(); return; }
   if (e.ctrlKey && e.key.toLowerCase() === "n") { e.preventDefault(); novaConversa(); }
-  if (e.ctrlKey && e.key.toLowerCase() === "b") { e.preventDefault(); recolhe(!document.body.classList.contains("recolhido")); }
+  if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === "b") { e.preventDefault(); recolhe(!document.body.classList.contains("recolhido")); }
   if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); pulaPrompt(e.key === "ArrowUp" ? -1 : 1); }
   if (e.ctrlKey && e.key === "/") { e.preventDefault(); creditos.classList.contains("on") ? fechaCreditos() : abreAtalhos(); }
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); recolhe(false); $("busca").focus(); $("busca").select(); }
@@ -1815,7 +1834,7 @@ function avisaSistema(titulo, corpo) {
 // ---- shortcuts ---------------------------------------------------------------------------
 function abreAtalhos() {
   const A = [["Enter", "Enviar (com o Claude trabalhando, entra na resposta em andamento)"], ["Ctrl + X, Ctrl + S", "Enviar agora"], ["Shift + Enter", "Nova linha"], ["/", "Comandos do app e do Claude Code"], ["Ctrl + N", "Nova conversa"], ["Ctrl + Shift + N", "Nova janela"], ["Ctrl + K", "Buscar nas conversas"],
-    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Interromper a resposta (se nada estiver aberto, fecha menus e painéis)"], ["Ctrl + Shift + M", "Alternar o modo de permissão"], ["Ctrl + Shift + I", "Escolher o modelo"], ["Ctrl + Shift + E", "Escolher o esforço"], ["Ctrl + Shift + P", "Escolher as permissões"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"]];
+    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Ctrl + Shift + B", "Mostrar ou fechar o navegador"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Interromper a resposta (se nada estiver aberto, fecha menus e painéis)"], ["Ctrl + Shift + M", "Alternar o modo de permissão"], ["Ctrl + Shift + I", "Escolher o modelo"], ["Ctrl + Shift + E", "Escolher o esforço"], ["Ctrl + Shift + P", "Escolher as permissões"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"]];
   creditosCaixa.innerHTML = `<div class="cred-topo"><span class="marca"><b>Atalhos</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <section class="atalhos">${A.map(([k, d]) => `<div><kbd>${esc(k)}</kbd><span>${esc(d)}</span></div>`).join("")}</section>`;
   creditosCaixa.querySelector("#fechaCreditos").onclick = fechaCreditos;

@@ -75,5 +75,12 @@ contextBridge.exposeInMainWorld("vivo", {
   atualizacaoInstalar: () => ipcRenderer.invoke("atualizacao_instalar"),
   remoto: () => ipcRenderer.invoke("remoto"),
   remotoLigar: (ligar, nome) => ipcRenderer.invoke("remoto_ligar", ligar, nome),
+  navAbrir: (url) => ipcRenderer.invoke("nav_abrir", url),
+  navAcao: (acao) => ipcRenderer.invoke("nav_acao", acao),
+  navArea: (rect) => ipcRenderer.invoke("nav_area", rect),
+  navEstado: () => ipcRenderer.invoke("nav_estado"),
+  navServidores: () => ipcRenderer.invoke("nav_servidores"),
+  navServidorIniciar: (nome) => ipcRenderer.invoke("nav_servidor_iniciar", nome),
+  navServidorParar: (nome) => ipcRenderer.invoke("nav_servidor_parar", nome),
   aoEvento: (fn) => ipcRenderer.on("evento", (_e, ev) => fn(ev)),
 });
