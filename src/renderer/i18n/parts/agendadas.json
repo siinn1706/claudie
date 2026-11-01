@@ -1,0 +1,290 @@
+{
+  "Tarefas agendadas": {
+    "en": "Scheduled tasks",
+    "vi": "Tác vụ theo lịch"
+  },
+  "Abrir tarefas agendadas": {
+    "en": "Open scheduled tasks",
+    "vi": "Mở tác vụ theo lịch"
+  },
+  "Mostrar o Claudie": {
+    "en": "Show Claudie",
+    "vi": "Hiện Claudie"
+  },
+  "Sair": {
+    "en": "Quit",
+    "vi": "Thoát"
+  },
+  "{0} em execução": {
+    "en": "{0} running",
+    "vi": "{0} đang chạy"
+  },
+  "Claudie continua na bandeja": {
+    "en": "Claudie keeps running in the tray",
+    "vi": "Claudie vẫn chạy trong khay hệ thống"
+  },
+  "Esta execução agendada ainda está em andamento": {
+    "en": "This scheduled run is still in progress",
+    "vi": "Lượt chạy theo lịch này vẫn đang diễn ra"
+  },
+  "Execução agendada: ninguém para aprovar.": {
+    "en": "Scheduled run: nobody is here to approve.",
+    "vi": "Chạy theo lịch: không có ai để phê duyệt."
+  },
+  "Cron: campo {0} inválido ({1})": {
+    "en": "Cron: invalid {0} field ({1})",
+    "vi": "Cron: trường {0} không hợp lệ ({1})"
+  },
+  "Cron: campo {0} fora do intervalo {1}-{2}": {
+    "en": "Cron: {0} field out of range {1}-{2}",
+    "vi": "Cron: trường {0} nằm ngoài khoảng {1}-{2}"
+  },
+  "Cron precisa de 5 campos: minuto hora dia mês dia-da-semana": {
+    "en": "Cron needs 5 fields: minute hour day month weekday",
+    "vi": "Cron cần 5 trường: phút giờ ngày tháng thứ"
+  },
+  "{0} inválido ({1} a {2})": {
+    "en": "{0} is invalid ({1} to {2})",
+    "vi": "{0} không hợp lệ ({1} đến {2})"
+  },
+  "minuto": {
+    "en": "minute",
+    "vi": "phút"
+  },
+  "hora": {
+    "en": "hour",
+    "vi": "giờ"
+  },
+  "dia do mês": {
+    "en": "day of month",
+    "vi": "ngày trong tháng"
+  },
+  "mês": {
+    "en": "month",
+    "vi": "tháng"
+  },
+  "dia da semana": {
+    "en": "weekday",
+    "vi": "thứ trong tuần"
+  },
+  "Minuto": {
+    "en": "Minute",
+    "vi": "Phút"
+  },
+  "Hora": {
+    "en": "Hour",
+    "vi": "Giờ"
+  },
+  "Dia da semana": {
+    "en": "Weekday",
+    "vi": "Thứ trong tuần"
+  },
+  "Escolha como a tarefa se repete": {
+    "en": "Choose how the task repeats",
+    "vi": "Chọn cách tác vụ lặp lại"
+  },
+  "Nenhuma execução no próximo ano": {
+    "en": "No run in the next year",
+    "vi": "Không có lượt chạy nào trong năm tới"
+  },
+  "Dados inválidos": {
+    "en": "Invalid data",
+    "vi": "Dữ liệu không hợp lệ"
+  },
+  "Dê um nome à tarefa": {
+    "en": "Give the task a name",
+    "vi": "Hãy đặt tên cho tác vụ"
+  },
+  "Escreva o que o Claude deve fazer": {
+    "en": "Write what Claude should do",
+    "vi": "Hãy viết điều Claude cần làm"
+  },
+  "Escolha uma pasta que exista": {
+    "en": "Choose a folder that exists",
+    "vi": "Hãy chọn một thư mục tồn tại"
+  },
+  "Modo de permissão inválido": {
+    "en": "Invalid permission mode",
+    "vi": "Chế độ quyền không hợp lệ"
+  },
+  "Pasta sumiu": {
+    "en": "Folder is gone",
+    "vi": "Thư mục không còn"
+  },
+  "Tempo esgotado": {
+    "en": "Timed out",
+    "vi": "Hết thời gian"
+  },
+  "+ Nova tarefa": {
+    "en": "+ New task",
+    "vi": "+ Tác vụ mới"
+  },
+  "Nenhuma tarefa agendada": {
+    "en": "No scheduled tasks",
+    "vi": "Chưa có tác vụ theo lịch"
+  },
+  "Próxima: {0}": {
+    "en": "Next: {0}",
+    "vi": "Tiếp theo: {0}"
+  },
+  "Última: {0}": {
+    "en": "Last: {0}",
+    "vi": "Gần nhất: {0}"
+  },
+  "Rodar agora": {
+    "en": "Run now",
+    "vi": "Chạy ngay"
+  },
+  "Retomar": {
+    "en": "Resume",
+    "vi": "Tiếp tục"
+  },
+  "Pausar": {
+    "en": "Pause",
+    "vi": "Tạm dừng"
+  },
+  "Histórico": {
+    "en": "History",
+    "vi": "Lịch sử"
+  },
+  "Editar": {
+    "en": "Edit",
+    "vi": "Sửa"
+  },
+  "Editar tarefa": {
+    "en": "Edit task",
+    "vi": "Sửa tác vụ"
+  },
+  "Nova tarefa": {
+    "en": "New task",
+    "vi": "Tác vụ mới"
+  },
+  "Nome": {
+    "en": "Name",
+    "vi": "Tên"
+  },
+  "O que o Claude deve fazer": {
+    "en": "What Claude should do",
+    "vi": "Việc Claude cần làm"
+  },
+  "Ex.: Rode os testes e resuma o que falhou": {
+    "en": "E.g. Run the tests and summarize what failed",
+    "vi": "VD: Chạy các bài kiểm thử và tóm tắt phần bị lỗi"
+  },
+  "Escolher": {
+    "en": "Choose",
+    "vi": "Chọn"
+  },
+  "Ninguém aprova nada durante a execução: o que o modo não libera é negado. Os hooks, os servidores MCP e o CLAUDE.md da pasta rodam sem supervisão, como numa conversa normal.": {
+    "en": "Nobody approves anything during the run: whatever the mode does not allow is denied. The hooks, MCP servers and CLAUDE.md of the folder run unattended, as in a normal conversation.",
+    "vi": "Không ai phê duyệt gì trong lúc chạy: những gì chế độ không cho phép sẽ bị từ chối. Hook, máy chủ MCP và CLAUDE.md của thư mục chạy không có người giám sát, như trong một cuộc trò chuyện bình thường."
+  },
+  "Repetir": {
+    "en": "Repeat",
+    "vi": "Lặp lại"
+  },
+  "A cada hora": {
+    "en": "Every hour",
+    "vi": "Mỗi giờ"
+  },
+  "Todo dia": {
+    "en": "Every day",
+    "vi": "Mỗi ngày"
+  },
+  "Dias úteis": {
+    "en": "Weekdays",
+    "vi": "Ngày làm việc"
+  },
+  "Toda semana": {
+    "en": "Every week",
+    "vi": "Mỗi tuần"
+  },
+  "Expressão cron": {
+    "en": "Cron expression",
+    "vi": "Biểu thức cron"
+  },
+  "Horário": {
+    "en": "Time",
+    "vi": "Giờ chạy"
+  },
+  "No minuto": {
+    "en": "At minute",
+    "vi": "Vào phút"
+  },
+  "Cron (minuto hora dia mês dia-da-semana)": {
+    "en": "Cron (minute hour day month weekday)",
+    "vi": "Cron (phút giờ ngày tháng thứ)"
+  },
+  "Próximas execuções": {
+    "en": "Next runs",
+    "vi": "Các lượt chạy tiếp theo"
+  },
+  "A cada hora, no minuto {0}": {
+    "en": "Every hour, at minute {0}",
+    "vi": "Mỗi giờ, vào phút {0}"
+  },
+  "Todo dia às {0}": {
+    "en": "Every day at {0}",
+    "vi": "Mỗi ngày lúc {0}"
+  },
+  "Dias úteis às {0}": {
+    "en": "Weekdays at {0}",
+    "vi": "Ngày làm việc lúc {0}"
+  },
+  "Cron: {0}": {
+    "en": "Cron: {0}",
+    "vi": "Cron: {0}"
+  },
+  "Perdida": {
+    "en": "Missed",
+    "vi": "Bỏ lỡ"
+  },
+  "Recuperada": {
+    "en": "Caught up",
+    "vi": "Chạy bù"
+  },
+  "Manual": {
+    "en": "Manual",
+    "vi": "Thủ công"
+  },
+  "Carregando…": {
+    "en": "Loading…",
+    "vi": "Đang tải…"
+  },
+  "Nenhuma execução ainda": {
+    "en": "No runs yet",
+    "vi": "Chưa có lượt chạy nào"
+  },
+  "Abrir conversa": {
+    "en": "Open conversation",
+    "vi": "Mở cuộc trò chuyện"
+  },
+  "Tarefa agendada": {
+    "en": "Scheduled task",
+    "vi": "Tác vụ theo lịch"
+  },
+  "Continuar na bandeja ao fechar": {
+    "en": "Keep running in the tray when closed",
+    "vi": "Tiếp tục chạy trong khay khi đóng"
+  },
+  "Com uma resposta rodando ou uma tarefa agendada ativa, fechar a janela só a esconde. Sair de vez é pelo ícone da bandeja": {
+    "en": "With a reply running or a scheduled task enabled, closing the window only hides it. Quit for good from the tray icon",
+    "vi": "Khi có câu trả lời đang chạy hoặc tác vụ theo lịch đang bật, đóng cửa sổ chỉ ẩn nó. Muốn thoát hẳn, dùng biểu tượng trong khay"
+  },
+  "Abrir ao iniciar o Windows": {
+    "en": "Open when Windows starts",
+    "vi": "Mở khi Windows khởi động"
+  },
+  "Começa escondido na bandeja, para as tarefas agendadas rodarem (só no app instalado)": {
+    "en": "Starts hidden in the tray so scheduled tasks can run (installed app only)",
+    "vi": "Khởi động ẩn trong khay để các tác vụ theo lịch chạy được (chỉ ở bản đã cài)"
+  },
+  "Manter o computador acordado enquanto o Claude trabalha": {
+    "en": "Keep the computer awake while Claude works",
+    "vi": "Giữ máy thức khi Claude đang làm việc"
+  },
+  "Evita que o Windows suspenda no meio de uma resposta ou de uma tarefa agendada": {
+    "en": "Stops Windows from sleeping in the middle of a reply or a scheduled task",
+    "vi": "Ngăn Windows chuyển sang chế độ ngủ giữa chừng khi đang trả lời hoặc chạy tác vụ theo lịch"
+  }
+}

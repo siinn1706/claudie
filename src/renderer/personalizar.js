@@ -11,7 +11,7 @@ const PADRAO = {
   fontes: { ui: "Inter", mono: "Geist Mono", tamanho: 14, largura: 740 },
   sons: {}, volumeSons: 0.7,
   musica: { ligada: false, substitui: true, aleatoria: false, volume: 0.5 },
-  geral: { enviar: "enter", raciocinio: true, titulo: true, reage: true, notificacoes: true, clawd: true, clawdFala: true, novidades: true, cursor: true, desempenho: "auto", idioma: "vi" },
+  geral: { enviar: "enter", raciocinio: true, titulo: true, reage: true, notificacoes: true, fecharNaBandeja: true, abrirNoLogin: false, manterAcordado: true, clawd: true, clawdFala: true, novidades: true, cursor: true, desempenho: "auto", idioma: "vi" },
 };
 const pega = (k) => k.split(".").reduce((o, p) => (o == null ? undefined : o[p]), VIS) ?? k.split(".").reduce((o, p) => (o == null ? undefined : o[p]), PADRAO);
 const poe = (k, v) => { const ps = k.split("."), ult = ps.pop(); let o = VIS; for (const p of ps) o = o[p] ??= {}; o[ult] = v; };
@@ -232,6 +232,9 @@ async function desenhaAba() {
       ${chaveT("geral.novidades", "Novidades do Claude e da Anthropic", "Uma busca rápida na web por dia (gasta bem pouco do plano)")}
       ${chaveT("geral.reage", "Papel de parede reage ao Claude", "Ondas e ritmo mudam enquanto ele pensa, trabalha ou espera você")}
       ${chaveT("geral.notificacoes", "Notificações do Windows", "Quando ele termina ou precisa de você com a janela em segundo plano")}
+      ${chaveT("geral.fecharNaBandeja", "Continuar na bandeja ao fechar", "Com uma resposta rodando ou uma tarefa agendada ativa, fechar a janela só a esconde. Sair de vez é pelo ícone da bandeja")}
+      ${chaveT("geral.abrirNoLogin", "Abrir ao iniciar o Windows", "Começa escondido na bandeja, para as tarefas agendadas rodarem (só no app instalado)")}
+      ${chaveT("geral.manterAcordado", "Manter o computador acordado enquanto o Claude trabalha", "Evita que o Windows suspenda no meio de uma resposta ou de uma tarefa agendada")}
       <h3 class="pz-sub">Controle do computador</h3>
       <label class="pz-linha"><span>Apps bloqueados<small>Nomes dos programas separados por vírgula. O Claude nunca age sobre eles, e gerenciadores de senha já vêm bloqueados.</small></span><input type="text" data-k="geral.computerBloqueio" maxlength="500" placeholder="banco.exe, app.exe" /></label>
       <h3 class="pz-sub">Atualizações</h3>

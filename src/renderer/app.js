@@ -400,6 +400,7 @@ aoEvento((ev) => {
     case "fim": if (!ev.ok && ev.detalhe !== "success") aviso(`Parou: ${ev.detalhe}`, true); break;
     case "erro": tiraPensando(); aviso(ev.texto, true); window.somEvento?.("erro"); break;
     case "atualizacao": mostraAtualizacao(ev); break;
+    case "foco_entrada": (ev.nova ? novaConversa() : Promise.resolve()).then(() => entrada.focus()); break;
     case "parado":
       tiraPensando(); fechaSegmento(); setRodando(false); turnoVisto = null; carregaSessoes();
       if (fila.length) setTimeout(proximaDaFila, 350);
@@ -981,8 +982,8 @@ function renomeia(s) {
 
 // A turn still running stays running: leaving its conversation only stops
 // drawing it, and coming back picks it up where it is.
-async function abreSessao(id, titulo) {
-  const pastaAntes = $("pasta").title, alvo = sessaoPorId(id);
+async function abreSessao(id, titulo, cwdConhecida) {
+  const pastaAntes = $("pasta").title, alvo = sessaoPorId(id) || (cwdConhecida ? { cwd: cwdConhecida } : undefined);
   const espera = (abrindo = []);
   const r = await vivo.abrirSessao(id, alvo?.cwd);
   if (abrindo === espera) abrindo = null;

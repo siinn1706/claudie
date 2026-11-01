@@ -76,6 +76,16 @@ The source code stays in Portuguese. [`src/renderer/i18n/i18n.js`](src/renderer/
   Optional fields: `url` (loopback only), `cwd` (inside the folder) and `env` (string values); `PORT` is set when `port` is.
 - **Remote Control**: the phone button at the top puts the open conversation, with its history, on claude.ai/code and in the Claude app, as Claude Desktop does. Messages sent from there show up in Claudie. Needs a Claude subscription login and a conversation that has started; turning it off (or closing Claudie) ends the link.
 
+### Scheduled tasks and the tray
+
+- **Scheduled tasks** (sidebar, or the tray menu): Claude Code runs that start by themselves, every hour, every day, on weekdays, every week or by a 5-field cron expression (`*`, `n`, `a-b`, `*/n`, `a-b/n` and lists; day of month and weekday together match either). Each task has a name, a prompt, a folder, a model, a permission mode (Ask, Accept edits, Plan or Automatic; Automatic by default, Ignore permissions is never offered) and a live preview of its next three runs. The list has Run now, Stop, Pause, History, Edit and Delete.
+- **Unattended runs**: nobody can approve anything, so what the mode does not allow is denied. The folder's hooks, MCP servers and CLAUDE.md run as in a normal session, Claude in Chrome stays off, and a run stops after 60 minutes or 100 turns. Runs go one at a time; each is a regular session in the task's folder, titled `<name> - <date>` and listed in the sidebar with the spinner while it works. Resuming a conversation that a scheduled run is still writing is refused.
+- **Catch-up**: a slot missed while the app was closed or the computer asleep runs once if it was less than 24 hours ago (marked as caught up), otherwise it is logged as missed and not run. A slot still waiting in the queue when you quit is lost.
+- **Notifications**: a Windows toast shows only the task name and "Completed" or "Failed" (never the model's output; the summary is in the history window). Clicking it opens the run's conversation. It follows the notifications setting.
+- **Tray**: the icon is always there. Click it to show the window; the menu has New window, New conversation, Scheduled tasks (with the next five runs), how many are running, and Quit. Closing the last window hides it to the tray while a reply is running or any task is enabled (Customize → General → "Keep running in the tray when closed"); otherwise the app quits. A hidden app with nothing left to do quits by itself. Quit from the tray stops running scheduled runs.
+- **Open at login** (installed app only) starts Claudie hidden in the tray. **Keep awake** stops Windows from sleeping while a reply or a scheduled run is working.
+- The schedule lives in `%APPDATA%\Claudie\agendadas.json`.
+
 ### Floating windows
 
 Drag by the title, resize from the corner, and pin to keep one open in the same place, even after restarting the app:
@@ -96,7 +106,7 @@ Drag by the title, resize from the corner, and pin to keep one open in the same 
 
 Sidebar or `/customize`:
 
-- **General**: send with Enter or Ctrl+Enter, **performance** (Automatic, Maximum or Light), show reasoning, automatic titles, Clawd, reactive wallpaper, notifications, language and **account** (Claude Code login or API key).
+- **General**: send with Enter or Ctrl+Enter, **performance** (Automatic, Maximum or Light), show reasoning, automatic titles, Clawd, reactive wallpaper, notifications, keep running in the tray when closed, open at login, keep the computer awake while Claude works, language and **account** (Claude Code login or API key).
 - **Background**: your images, GIFs and videos as wallpaper (also by dragging onto the Mine tab), plus **Wallpaper Engine** video and web wallpapers (scene ones only run inside Wallpaper Engine), with fit, dim, blur and video sound.
 - **Colors**: preset palettes, accent, text and glass colors, glass opacity and blur, light or dark glass.
 - **Fonts**: interface and code fonts (from the web or your own .ttf/.otf/.woff), text size and chat width.
@@ -127,6 +137,7 @@ Claude Code's mascot is everywhere. On launch it assembles from tiles; on the ho
 - `src/main.js`: the window and the bridge to Claude Code (`query()` from `@anthropic-ai/claude-agent-sdk`), permissions and the theme tools Claude can call.
 - `src/computador.js`: computer control (the `computer-use` server): Win32 input and window checks through `koffi`, screen capture and coordinate mapping, the per-app gate and the Esc stop.
 - `src/navegador.js`: the browser pane (a `WebContentsView`), the site approval, Claude's `browser_*` and `servidor_*` tools and the `launch.json` dev servers; `src/renderer/navegador.js` is its toolbar and bounds sync.
+- `src/agendadas.js`: scheduled tasks without Electron: cron and repeat math, the store (`agendadas.json`), the catch-up rules, the queue and the headless run; `src/renderer/agendadas.js` is its list, editor and history windows.
 - `src/preload.cjs`: the calls the window can make.
 - `src/renderer/`: the interface (`index.html`, `app.css`, `app.js`) and the wallpaper engine (`wallpapers/`).
 - `src/renderer/wallpapers/arte.mjs`: plays ASCII Magic pieces and imported animations; `magia-indice.js` is generated by `node tools/indice-magia.mjs`.
@@ -141,6 +152,7 @@ Claude Code's mascot is everywhere. On launch it assembles from tiles; on the ho
 - `VIVO_LOG=1 VIVO_TESTE="message" npm start`: sends the message on launch and logs events to the terminal (`VIVO_ANEXO=file` attaches a file).
 - With `VIVO_PASTA` or `VIVO_JS` set, the app uses a separate profile (`%APPDATA%\Claudie-teste`), so tests don't touch your settings and can run while the app is open.
 - Browser pane: `VIVO_JS="vivo.navAbrir('https://example.com').then(()=>new Promise(r=>setTimeout(r,2500)))" VIVO_FOTO=nav.png npm start` writes `nav.png` (the window) and `nav-nav.png` (the page, which a window screenshot does not include). With `VIVO_PASTA` on a folder that has `.claude/launch.json`, `vivo.navServidorIniciar('name')` starts a dev server. A card can be answered from `VIVO_JS` with `vivo.permissao(id, "sim")`.
+- Scheduled tasks: `VIVO_AGENDA_AGORA=<task id>` runs that task as soon as the app starts (the id is in `agendadas.json` of the profile in use); with `VIVO_LOG=1` the terminal shows `[agenda]` and `[energia]` lines (the keep-awake blocker). `VIVO_JS="vivo.agendadaRodar('<id>')"` runs one from the window, and `VIVO_JS="abreAgendadas()"` with `VIVO_FOTO` screenshots the list.
 - `VIVO_MOTION=file.json` imports an ASCII Motion animation on launch. `VIVO_JS="expression" VIVO_FOTO=screen.png` runs code in the window and saves a screenshot.
 
 ## License and credits

@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Scheduled tasks, tray, keep-awake"
-status: pending
+status: completed
 priority: P2
 effort: "2-3 days"
 dependencies: []
@@ -107,15 +107,15 @@ for await (const m of q) {
 
 ## Tasks & Steps
 
-1. [ ] `git switch feat/desktop-parity`; confirm phases 01-04 are committed.
-2. [ ] Write the pure part of `src/agendadas.js` (`parseCron`, `proximaCron`, `validaRepete`, `proximaExecucao`); `node --check`; run the pure-function cases (see Verification).
-3. [ ] Add the stateful part: load/validate, store, `rearma`, `venceu`, catch-up, queue, `executaAgendada`, history, controller API.
-4. [ ] In `main.js` extract `gravaJson`, `mostraJanela`, `iconeAtual`; build `ctrl` in `whenReady` with the injected context; add IPC handlers and the `agendadas` broadcast.
-5. [ ] Run Step 0 (generator prompt plus `canUseTool` against a real run). Add `atualizaEnergia()`, the `avisaTurnos` hook, `aplicaGeral()` and the `visual_salvar` call.
-6. [ ] Add tray (`criaBandeja`, `montaMenuBandeja`), close-to-tray intercept, `window-all-closed`, `second-instance`, `before-quit`, `will-quit`, `--oculto`, notification.
-7. [ ] Add the preload bridges, sidebar button, `renderer/agendadas.js`, event cases, settings toggles, hidden-window pause, CSS.
-8. [ ] Add `parts/agendadas.json` (en and vi for each string); `JSON.parse` it.
-9. [ ] Update README; `node --check` every touched JS file; run the Verification checks.
+1. [x] `git switch feat/desktop-parity`; confirm phases 01-04 are committed.
+2. [x] Write the pure part of `src/agendadas.js` (`parseCron`, `proximaCron`, `validaRepete`, `proximaExecucao`); `node --check`; run the pure-function cases (see Verification).
+3. [x] Add the stateful part: load/validate, store, `rearma`, `venceu`, catch-up, queue, `executaAgendada`, history, controller API.
+4. [x] In `main.js` extract `gravaJson`, `mostraJanela`, `iconeAtual`; build `ctrl` in `whenReady` with the injected context; add IPC handlers and the `agendadas` broadcast.
+5. [x] Run Step 0 (generator prompt plus `canUseTool` against a real run). Add `atualizaEnergia()`, the `avisaTurnos` hook, `aplicaGeral()` and the `visual_salvar` call.
+6. [x] Add tray (`criaBandeja`, `montaMenuBandeja`), close-to-tray intercept, `window-all-closed`, `second-instance`, `before-quit`, `will-quit`, `--oculto`, notification.
+7. [x] Add the preload bridges, sidebar button, `renderer/agendadas.js`, event cases, settings toggles, hidden-window pause, CSS.
+8. [x] Add `parts/agendadas.json` (en and vi for each string); `JSON.parse` it.
+9. [x] Update README; `node --check` every touched JS file; run the Verification checks.
 10. [ ] One commit: `feat(agenda): add scheduled tasks, tray, close-to-tray and keep-awake` (no AI reference, no plan IDs).
 
 ## Security & Safety

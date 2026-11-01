@@ -173,7 +173,7 @@ const Clawd = (() => {
   // read forces the browser to recompute layout or styles)
   let cor = "#d77757", centro = 0, ultimoQ = 0;
   const mede = () => {
-    if (!ligado) return;
+    if (!ligado || document.hidden) return;
     posiciona();
     cor = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#d77757";
     centro = caixa.getBoundingClientRect().left + CW / 2;
