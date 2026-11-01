@@ -712,7 +712,9 @@ async function turno(j, texto, anexos, apps) {
       thinking: geral.raciocinio === false ? undefined : { type: "adaptive", display: "summarized" },
       includePartialMessages: true,
       // After each turn Claude Code predicts the next prompt; it shows in the composer.
+      // Without the variable it skips them near the usage limit and in many sessions.
       promptSuggestions: true,
+      env: { ...process.env, CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: "true" },
       abortController: ac,
       systemPrompt: { type: "preset", preset: "claude_code", append: [PROMPT_NAVEGADOR, ...(t.cfg.computador ? [PROMPT_COMPUTADOR] : [])].join("\n\n") },
       mcpServers: { claudie: servidorTemasPara(t), ...(t.cfg.computador ? { "computer-use": servidorComputadorPara(t, depsComputador) } : {}) },
@@ -1103,7 +1105,7 @@ ipcMain.handle("permissao", (_e, { id, decisao, texto, modo }) => {
   // A site card has no "always": only a plain yes lets the page load.
   if (p.site) return p.resolve(decisao === "sim" ? { behavior: "allow" } : { behavior: "deny", message: "A pessoa negou." });
   const feedback = String(texto || "").trim().slice(0, 2000), plano = p.toolName === "ExitPlanMode";
-  if (decisao === "negar") p.resolve({ behavior: "deny", message: feedback ? (plano ? `A pessoa quer ajustar o plano antes de seguir: ${feedback}` : `A pessoa negou e pediu: ${feedback}`) : "A pessoa negou." });
+  if (decisao !== "sim" && decisao !== "sempre") p.resolve({ behavior: "deny", message: feedback ? (plano ? `A pessoa quer ajustar o plano antes de seguir: ${feedback}` : `A pessoa negou e pediu: ${feedback}`) : "A pessoa negou." });
   else if (plano) {
     // Approving a plan leaves plan mode for the mode the person chose, in the running turn and in the saved choice.
     const novo = MODOS.includes(modo) && modo !== "plan" && modo !== BYPASS ? modo : "default";
