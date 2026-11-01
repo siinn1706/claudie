@@ -56,5 +56,8 @@
   "Só ver": { "en": "View only", "vi": "Chỉ xem" },
   "Clicar": { "en": "Click", "vi": "Nhấp" },
   "Total": { "en": "Full", "vi": "Toàn quyền" },
-  "Ligue o controle do computador para mencionar apps": { "en": "Turn on computer control to mention apps", "vi": "Bật điều khiển máy tính để nhắc đến ứng dụng" }
+  "Ligue o controle do computador para mencionar apps": { "en": "Turn on computer control to mention apps", "vi": "Bật điều khiển máy tính để nhắc đến ứng dụng" },
+  "Aplicativo": { "en": "App", "vi": "Ứng dụng" },
+  "Janela": { "en": "Window", "vi": "Cửa sổ" },
+  "Nível": { "en": "Level", "vi": "Mức" }
 }

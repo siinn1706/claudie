@@ -366,6 +366,11 @@ function subFim({ pai, id, erro }) {
 function linhasPerm(ev) {
   const e = ev.entrada || {}, l = [];
   if (ev.ferramenta === "mcp__claudie__browser" && e.host) l.push(["Site", e.host]);
+  if (ev.ferramenta === "mcp__computer-use__app") {
+    l.push(["Aplicativo", e.app || ""]);
+    if (e.titulo) l.push(["Janela", e.titulo]);
+    if (NIVEL_ROTULO[e.nivel]) l.push(["Nível", t(NIVEL_ROTULO[e.nivel])]);
+  }
   if (ev.ferramenta === "mcp__claudie__servidor_iniciar") {
     if (e.comando) l.push(["Comando", [e.comando, ...(e.args || [])].join(" ")]);
     if (e.cwd) l.push(["Pasta", e.cwd]);
@@ -379,7 +384,7 @@ function permissao(ev) {
   const el = bloco("perm");
   el.dataset.id = ev.id;
   const diff = diffDe(ev.ferramenta, ev.entrada);
-  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${linhasPerm(ev)}${diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}${JSON.stringify(ev.entrada, null, 2).length > 3000 ? `
+  el.innerHTML = `<div class="t">${ICONE.escudo}<span>O Claude quer <b>${esc(pedido(ev.ferramenta))}</b></span>${diff ? diff.contagem : ""}</div>${ev.motivo ? `<div class="aviso">${esc(ev.motivo)}</div>` : ""}${linhasPerm(ev)}${ev.ferramenta === "mcp__computer-use__app" ? "" : diff ? `<div class="caminho">${esc(ev.entrada.file_path || "")}</div>` + diff.html : `<pre>${esc(JSON.stringify(ev.entrada, null, 2).slice(0, 3000))}${JSON.stringify(ev.entrada, null, 2).length > 3000 ? `
 … (+${JSON.stringify(ev.entrada, null, 2).length - 3000} caracteres ocultos)` : ""}</pre>`}<input class="perm-fb" maxlength="2000" placeholder="Diga ao Claude o que fazer em vez disso" />`;
   const linha = document.createElement("div"); linha.className = "b";
   const fb = el.querySelector(".perm-fb");
@@ -1842,7 +1847,7 @@ async function abreCreditos() {
     <section><h3>A ideia</h3>
       <p>Inspirado no conceito <i>“theme for Claude Code but every wallpaper is alive”</i>, de Marko Vineli, ${link("https://x.com/handsher_NGU/status/2115618341675319417", "visto no X")}. O Claudie é baseado no Claudinho, de Luis Roberto, e conversa com o Claude Code pelo SDK oficial de agentes da Anthropic.</p></section>
     <section><h3>Temas animados <small>${THEMES.length}</small></h3>
-      <p>${THEMES.map((t) => esc(t.name)).join(" · ")}</p>
+      <p>${THEMES.map((th) => esc(window.t(th.name))).join(" · ")}</p>
       <p class="fraco">Desenhados para o Claudinho (o app original): motor de mosaico ASCII, interações e música gerada no próprio app. A Honu Lagoon e os temas de água seguem a linguagem visual do vídeo de Marko Vineli. A Galáxia Distante é arte original, sem marcas de terceiros.</p></section>
     <section><h3>Biblioteca ASCII Magic <small>${PECAS.size}</small></h3>
       <p>Animações de ${link("https://www.ascii-magic.com/ascii", "ASCII Magic")} (© 2026 ASCII Magic), licença MIT. <b>Ocean Sunset</b> é baseada numa foto de César Couto e <b>Starry Ridge</b> numa foto de Vincentiu Solomon, ambas sob a ${link("https://unsplash.com/license", "Licença Unsplash")}.</p>

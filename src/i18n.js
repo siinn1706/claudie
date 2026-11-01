@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const pasta = path.join(path.dirname(fileURLToPath(import.meta.url)), "renderer", "i18n", "parts");
 export const IDIOMAS = ["pt", "en", "vi"];
-export const IDIOMA_PADRAO = "vi";
+export const IDIOMA_PADRAO = "en";
 
 export const DICIONARIO = {};
 for (const f of fs.readdirSync(pasta).filter((n) => n.endsWith(".json")).sort()) {

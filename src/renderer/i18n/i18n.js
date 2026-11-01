@@ -62,7 +62,7 @@
   const TEXTOS = new WeakMap(), ATRS = new WeakMap(); // node → { pt, escrito }
   const deixa = (el) => !!el.closest("pre, code, textarea, script, style, [contenteditable], [data-sem-traducao]")
     || (!!el.closest(DADOS) && !["Sem pasta", "Sem título"].includes(el.textContent.trim()))
-    || (!!el.closest(".msg, .raciocinio") && !el.closest("button, summary"));
+    || (!!el.closest(".msg.eu, .msg .corpo, .raciocinio") && !el.closest("button, summary"));
 
   function lembra(mapa, chave, atual) {
     let r = mapa.get(chave);

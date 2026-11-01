@@ -11,7 +11,7 @@ const PADRAO = {
   fontes: { ui: "Inter", mono: "Geist Mono", tamanho: 14, largura: 740 },
   sons: {}, volumeSons: 0.7,
   musica: { ligada: false, substitui: true, aleatoria: false, volume: 0.5 },
-  geral: { enviar: "enter", raciocinio: true, titulo: true, reage: true, notificacoes: true, fecharNaBandeja: true, abrirNoLogin: false, manterAcordado: true, clawd: true, clawdFala: true, novidades: true, cursor: true, desempenho: "auto", idioma: "vi" },
+  geral: { enviar: "enter", raciocinio: true, titulo: true, reage: true, notificacoes: true, fecharNaBandeja: true, abrirNoLogin: false, manterAcordado: true, clawd: true, clawdFala: true, novidades: true, cursor: true, desempenho: "auto", idioma: "en" },
 };
 const pega = (k) => k.split(".").reduce((o, p) => (o == null ? undefined : o[p]), VIS) ?? k.split(".").reduce((o, p) => (o == null ? undefined : o[p]), PADRAO);
 const poe = (k, v) => { const ps = k.split("."), ult = ps.pop(); let o = VIS; for (const p of ps) o = o[p] ??= {}; o[ult] = v; };
