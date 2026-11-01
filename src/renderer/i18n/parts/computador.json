@@ -50,5 +50,11 @@
   "Claude está usando o computador (sem tecla de parada)": { "en": "Claude is using the computer (no stop key)", "vi": "Claude đang dùng máy tính (không có phím dừng)" },
   "Não foi possível registrar a tecla de parada: Esc e Ctrl+Alt+Esc estão em uso por outro app. Só é possível olhar a tela.": { "en": "Could not register a stop key: Esc and Ctrl+Alt+Esc are in use by another app. Only looking at the screen is possible.", "vi": "Không thể đăng ký phím dừng: Esc và Ctrl+Alt+Esc đang được ứng dụng khác sử dụng. Chỉ có thể xem màn hình." },
   "Não é permitido segurar Esc: é a tecla de parada.": { "en": "Holding Esc is not allowed: it is the stop key.", "vi": "Không được giữ Esc: đó là phím dừng." },
-  "Tecla desconhecida: {0}": { "en": "Unknown key: {0}", "vi": "Phím không xác định: {0}" }
+  "Tecla desconhecida: {0}": { "en": "Unknown key: {0}", "vi": "Phím không xác định: {0}" },
+  "Apps": { "en": "Apps", "vi": "Ứng dụng" },
+  "Arquivos": { "en": "Files", "vi": "Tệp" },
+  "Só ver": { "en": "View only", "vi": "Chỉ xem" },
+  "Clicar": { "en": "Click", "vi": "Nhấp" },
+  "Total": { "en": "Full", "vi": "Toàn quyền" },
+  "Ligue o controle do computador para mencionar apps": { "en": "Turn on computer control to mention apps", "vi": "Bật điều khiển máy tính để nhắc đến ứng dụng" }
 }

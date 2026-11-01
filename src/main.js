@@ -15,7 +15,7 @@ import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { acharClaudeExe, acharClaudeExeAsync, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
-import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo } from "./computador.js";
+import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo, listaApps, appsMencionados, preAprova, esquecePreAprovados, linhaApps } from "./computador.js";
 import { iniciaNavegador, FERRAMENTAS_NAVEGADOR, PROMPT_NAVEGADOR } from "./navegador.js";
 import { iniciaAgenda, traduzErro, validaRepete, proximaExecucao } from "./agendadas.js";
 import { nomeMcpValido, idPluginValido, fonteMercadoValida, lerSkills, criarSkill, apagarSkill, caminhoSkill, pastaDeSkills, catalogo, ansi, redige, ringLog } from "./extensoes.js";
@@ -323,7 +323,7 @@ function ajustaImagem(dados, mime) {
   }
   return null;
 }
-function montaPrompt(texto, anexos = [], uuid, avisa = () => {}) {
+function montaPrompt(texto, anexos = [], uuid, avisa = () => {}, extra = "") {
   if (!anexos.length && texto.startsWith("/")) return { type: "user", uuid, message: { role: "user", content: texto }, parent_tool_use_id: null };
   const imagens = [], caminhos = [], largadas = [];
   for (const a of anexos) {
@@ -343,6 +343,7 @@ function montaPrompt(texto, anexos = [], uuid, avisa = () => {}) {
     else largadas.push(a.nome || (a.caminho && path.basename(a.caminho)) || "imagem");
   }
   let corpo = texto;
+  if (extra) corpo += `${corpo ? "\n\n" : ""}${extra}`;
   if (caminhos.length) corpo += `${corpo ? "\n\n" : ""}Arquivos anexados:\n${caminhos.map((c) => `- ${c}`).join("\n")}`;
   if (largadas.length) {
     avisa(`${largadas.map((n) => t("Imagem grande demais para enviar: {0}", n)).join("\n")}`);
@@ -614,7 +615,7 @@ function comecaTurno(t, uuid, comando) {
 }
 // The turn is over; the conversation's Claude Code stays open for the next one.
 function fimDoTurno(t, aviso) {
-  liberaControle(t);
+  liberaControle(t); esquecePreAprovados(t);
   // A turn that ends (or a process that dies while idle) must not leave cards waiting for an answer.
   for (const id of [...t.pendentes.keys()]) {
     pendentes.get(id)?.resolve({ behavior: "deny", message: "Cancelado." }); pendentes.delete(id);
@@ -653,14 +654,19 @@ function pedePermissao(t, toolName, input, { signal, suggestions, decisionReason
 const depsComputador = { pedePermissao, enviarEvento, config: () => config, janelas, tr };
 const { navegadorFecha, ferramentasNavegador, esqueceSites } = iniciaNavegador({ ipcMain, session, WebContentsView, J, janelas, enviarEvento, resolveExe, dentroDaPasta, matarArvore, ajustaImagem, pedePermissao, texto, tr, tool, z });
 // texto null opens the conversation's Claude Code without a message (Remote Control).
-async function turno(j, texto, anexos) {
+// The mentioned apps a message grants (none for a slash command, whose text goes out as typed);
+// they are approved with preAprova once the message is accepted.
+const appsDaMensagem = (t, texto, apps) => (texto.startsWith("/") ? [] : appsMencionados(t, apps, config));
+async function turno(j, texto, anexos, apps) {
   if (ocupadaPorAgenda(j, j.sessionId)) return;
   const viva = vivaDe(j.sessionId);
   if (viva && !viva.ativo && !viva.reiniciar && viva.cwd === j.cwd) {
     const uuid = crypto.randomUUID();
     viva.j = j; j.atual = viva; viva.remoto = false;
     comecaTurno(viva, uuid, !anexos.length && texto.startsWith("/"));
-    viva.caixa.poe(montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m })));
+    const concedidos = await appsDaMensagem(viva, texto, apps);
+    viva.caixa.poe(montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m }), linhaApps(concedidos)));
+    preAprova(viva, concedidos);
     return;
   }
   if (viva) encerra(viva);
@@ -685,7 +691,9 @@ async function turno(j, texto, anexos) {
   // Until the query exists the window follows no tagged stream, so a setup failure is sent untagged.
   const aviso = (x) => (t.q ? ev(x) : enviarEvento(t.j, x));
   try {
-  t.caixa = caixaDeEntrada(texto === null ? null : montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m })));
+  const concedidos = texto === null ? [] : await appsDaMensagem(t, texto, apps);
+  t.caixa = caixaDeEntrada(texto === null ? null : montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m }), linhaApps(concedidos)));
+  preAprova(t, concedidos);
   const q = t.q = query({
     logMcp: t.cwd,
     prompt: t.caixa.gerador,
@@ -1018,24 +1026,31 @@ function ocupadaPorAgenda(j, id) {
 }
 
 ipcMain.handle("estado", (e) => ({ ...config, ...cfgJ(J(e)), cwd: J(e).cwd, sessionId: J(e).sessionId, rodando: !!J(e).atual?.ativo, temas: TEMAS, janelas: janelas.size, entradaRapida: cfgRapida(), rapidaErro }));
-ipcMain.handle("enviar", (e, texto, anexos) => {
+ipcMain.handle("enviar", (e, texto, anexos, apps) => {
   const j = J(e);
   if (j.atual?.ativo || (turnoDe(j.sessionId) && !emOutra(j, j.sessionId))) return false;
   if (ocupadaPorAgenda(j, j.sessionId)) return false;
   if (j.sessionId && emOutra(j, j.sessionId)) { enviarEvento(j, { tipo: "erro", texto: "Essa conversa está rodando em outra janela. Espere ela terminar." }); return false; }
-  turno(j, String(texto), Array.isArray(anexos) ? anexos : []); return j.atual?.tid || true;
+  turno(j, String(texto), Array.isArray(anexos) ? anexos : [], Array.isArray(apps) ? apps : []); return j.atual?.tid || true;
 });
 // A message for the turn running in this window; false once it can no longer take one.
-ipcMain.handle("injetar", (e, texto, anexos) => {
+ipcMain.handle("injetar", async (e, texto, anexos, apps) => {
   const t = J(e).atual, s = String(texto || "");
   if (!t?.ativo || !t.caixa || t.caixa.fechada || (!Array.isArray(anexos) || !anexos.length) && s.startsWith("/")) return false;
-  const m = montaPrompt(s, Array.isArray(anexos) ? anexos : [], crypto.randomUUID(), (x) => enviarEvento(t.j, { tipo: "erro", texto: x }));
-  return typeof m !== "string" && t.caixa.poe(m);
+  const concedidos = await appsDaMensagem(t, s, Array.isArray(apps) ? apps : []);
+  const m = montaPrompt(s, Array.isArray(anexos) ? anexos : [], crypto.randomUUID(), (x) => enviarEvento(t.j, { tipo: "erro", texto: x }), linhaApps(concedidos));
+  if (typeof m === "string" || t.caixa.fechada || !t.caixa.poe(m)) return false;
+  preAprova(t, concedidos);
+  return true;
 });
 // Paths the preload read from real dropped File objects; the window can't forge these.
 ipcMain.on("anexo_soltou", (_e, p) => { if (typeof p === "string" && p) anexosPermitidos.add(p); });
 ipcMain.handle("janela_nova", (_e, sessao) => { criarJanela(sessao || undefined); });
 ipcMain.handle("arquivos", async (e, atualiza) => { try { return await arquivos(J(e), !!atualiza); } catch (err) { console.log("[arquivos]", err?.message || err); return []; } });
+// The apps the @ picker offers while computer control is on (empty elsewhere than Windows).
+ipcMain.handle("apps_computador", async (e) => {
+  try { return (await listaApps(config, !!cfgJ(J(e)).computador)).map(({ nome, exe, nivel, icone }) => ({ nome, exe, nivel, icone })); } catch (err) { console.log("[apps]", err?.message || err); return []; }
+});
 ipcMain.handle("comandos", async (e) => { try { return await comandos(J(e)); } catch (e) { console.log("[comandos]", e?.message || e); return []; } });
 ipcMain.handle("anexar", async (e) => {
   const r = await dialog.showOpenDialog(J(e).win, { title: t("Anexar arquivos"), defaultPath: J(e).cwd, properties: ["openFile", "multiSelections"] });

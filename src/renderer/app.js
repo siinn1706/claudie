@@ -107,6 +107,7 @@ function meu(texto, anexos = [], imagens = 0, hora = horaAgora()) {
   desfaz.className = "desfaz"; desfaz.title = "Desfazer as mudanças nos arquivos feitas a partir desta mensagem"; desfaz.innerHTML = svg('<path d="M9 7.5 4.5 12 9 16.5"/><path d="M5 12h9.5a5 5 0 0 1 0 10H12"/>');
   desfaz.onclick = () => desfazDaqui(el);
   el.append(desfaz);
+  anexos = anexos.filter((x) => x.tipo !== "app");
   if (anexos.length || imagens) {
     const a = document.createElement("div"); a.className = "msg-anexos";
     for (const x of anexos) {
@@ -466,16 +467,24 @@ function juntaColados(t, junto) {
   const colados = junto.filter((a) => a.tipo === "texto");
   return {
     texto: [t, ...colados.map((a) => a.conteudo)].filter(Boolean).join("\n\n"),
-    enviados: junto.filter((a) => a.tipo !== "texto").map(({ nome, caminho, dados, mime }) => ({ nome, caminho, dados, mime })),
+    enviados: junto.filter((a) => a.tipo !== "texto" && a.tipo !== "app").map(({ nome, caminho, dados, mime }) => ({ nome, caminho, dados, mime })),
+    // an app chip counts only while its @name is still in the message
+    apps: junto.filter((a) => a.tipo === "app" && (t.includes("@" + a.nome) || t.includes('@"' + a.nome + '"'))).map((a) => a.exe),
   };
 }
 const geral = () => (typeof visualAtual === "function" ? visualAtual().geral || {} : {});
-const atualizaEnviar = () => { const vazio = !entrada.value.trim() && !anexos.length; $("enviar").disabled = !rodando && vazio; $("enviarMais").disabled = vazio; };
+// An app chip only marks a mention in the text; it is no content of its own.
+function soltaAppsSemNome() {
+  const v = entrada.value, resta = anexos.filter((a) => a.tipo !== "app" || v.includes("@" + a.nome) || v.includes("@\"" + a.nome + "\""));
+  if (resta.length !== anexos.length) { anexos = resta; desenhaAnexos(); }
+}
+const reais = (l) => l.filter((x) => x.tipo !== "app");
+const atualizaEnviar = () => { const vazio = !entrada.value.trim() && !reais(anexos).length; $("enviar").disabled = !rodando && vazio; $("enviarMais").disabled = vazio; };
 
 // textoForcado sends that text instead of the composer's (its attachments only with comAnexos).
 async function envia(textoForcado, comAnexos) {
   const t = (textoForcado ?? entrada.value).trim(), junto = textoForcado == null || comAnexos ? anexos : [];
-  if (!t && !junto.length) return false;
+  if (!t && !reais(junto).length) return false;
   const limpa = () => { if (textoForcado == null) { entrada.value = ""; ajustaAltura(); } fechaComandos(); fechaMencoes(); atualizaEnviar(); $("composer").classList.remove("modo-comando"); };
   if (t === "/theme") { abrePicker("claudie"); limpa(); return true; }
   if (t.startsWith("/theme ")) {
@@ -493,18 +502,18 @@ async function envia(textoForcado, comAnexos) {
   if (rodando) {
     limpa();
     if (junto === anexos) { anexos = []; desenhaAnexos(); }
-    const { texto: final, enviados } = juntaColados(t, junto);
-    if (await vivo.injetar(final, enviados)) { fechaSegmento(); meu(t, junto); window.somEvento?.("enviar"); return true; }
+    const { texto: final, enviados, apps } = juntaColados(t, junto);
+    if (await vivo.injetar(final, enviados, apps)) { fechaSegmento(); meu(t, junto); window.somEvento?.("enviar"); return true; }
     fila.push({ t, junto: [...junto] }); desenhaFila(); proximaDaFila(); return true;
   }
   limpa(); fechaPicker();
-  if (!sessaoAtual) { const titulo = t || junto.map((x) => x.nome).join(", "); $("titulo").textContent = titulo.length > 60 ? titulo.slice(0, 60) + "…" : titulo; }
-  const { texto: final, enviados } = juntaColados(t, junto);
+  if (!sessaoAtual) { const titulo = t || reais(junto).map((x) => x.nome).join(", "); $("titulo").textContent = titulo.length > 60 ? titulo.slice(0, 60) + "…" : titulo; }
+  const { texto: final, enviados, apps } = juntaColados(t, junto);
   meu(t, junto); window.somEvento?.("enviar");
   const bolha = col.lastElementChild, eram = junto === anexos ? [...anexos] : null;
   if (eram) { anexos = []; desenhaAnexos(); }
   setRodando(true); turnoVisto = "novo"; turnoN = 0;
-  if (!(await vivo.enviar(final, enviados))) {
+  if (!(await vivo.enviar(final, enviados, apps))) {
     setRodando(false); turnoVisto = null; bolha?.remove();
     if (textoForcado == null) { entrada.value = t; ajustaAltura(); }
     if (eram) { anexos = eram; desenhaAnexos(); }
@@ -535,7 +544,7 @@ async function entradaRapida(ev) {
 // any other field keeps its own Enter.
 addEventListener("keydown", (e) => {
   if (e.key !== "Enter" || !e.ctrlKey || e.shiftKey || e.altKey || e.isComposing || !rascunhos.length) return;
-  if (anexos.length || mencoesEl.classList.contains("on") || comandosEl.classList.contains("on")) return;
+  if (reais(anexos).length || mencoesEl.classList.contains("on") || comandosEl.classList.contains("on")) return;
   const a = document.activeElement;
   if (a !== document.body && !(a === entrada && !entrada.value.trim())) return;
   e.preventDefault(); e.stopPropagation(); enviaComentarios();
@@ -560,7 +569,7 @@ entrada.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && (geral().enviar !== "ctrl" || e.ctrlKey)) { e.preventDefault(); envia(); }
 });
 const ajustaAltura = () => { entrada.style.height = "auto"; entrada.style.height = Math.min(240, entrada.scrollHeight) + "px"; };
-entrada.addEventListener("input", () => { ajustaAltura(); atualizaEnviar(); cmdSel = 0; mencSel = 0; mostraComandos(); mostraMencoes(); });
+entrada.addEventListener("input", () => { soltaAppsSemNome(); ajustaAltura(); atualizaEnviar(); cmdSel = 0; mencSel = 0; mostraComandos(); mostraMencoes(); });
 // Moving the caret into or out of an "@word" opens or closes the picker.
 entrada.addEventListener("keyup", (e) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) mostraMencoes(); });
 entrada.addEventListener("click", () => mostraMencoes());
@@ -641,16 +650,37 @@ function notaArquivo(a, q) {
   else { let i = 0; for (const ch of c) if (ch === q[i]) i++; if (i === q.length) n = 200; }
   return n && n - c.length / 1000;
 }
+// The apps of "@": with computer control on they are offered above the files; with it off, an app name typed
+// after "@" offers to turn it on.
+let appsLista = [], buscandoApps = false; // main keeps the list for 30 s
+function carregaApps() {
+  if (buscandoApps) return;
+  buscandoApps = true;
+  Promise.resolve().then(() => vivo.appsComputador()).then((l) => { appsLista = l || []; }).catch(() => {}).finally(() => { buscandoApps = false; if (document.activeElement === entrada && mencaoAtual()) mostraMencoes(); });
+}
+const notaApp = (a, q) => notaArquivo({ c: a.nome }, q);
 function mostraMencoes() {
   const m = mencaoAtual();
   if (!m) return fechaMencoes();
   if (!mencoesEl.classList.contains("on")) carregaArquivos(false);
-  mencVis = arquivosLista.map((a) => [a, notaArquivo(a, m.q)]).filter((x) => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 60).map((x) => x[0]);
+  carregaApps();
+  const apps = (computador ? appsLista : []).map((a) => [a, notaApp(a, m.q)]).filter((x) => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => ({ ...x[0], app: true }));
+  const dica = !computador && m.q.length >= 2 && appsLista.some((a) => notaApp(a, m.q) >= 600) ? [{ dica: true }] : [];
+  const arqs = arquivosLista.map((a) => [a, notaArquivo(a, m.q)]).filter((x) => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 60).map((x) => x[0]);
+  mencVis = [...apps, ...arqs, ...dica];
   // Nothing matches: the folder may have changed since it was listed, so look again (at most every few seconds).
   if (!mencVis.length && m.q && !buscandoArquivos && Date.now() - atualizadoEm > 4000) carregaArquivos(true);
   if (!mencVis.length && !buscandoArquivos) return fechaMencoes();
   mencSel = Math.min(mencSel, Math.max(0, mencVis.length - 1));
-  mencoesEl.innerHTML = mencVis.map((a, i) => { const k = a.c.lastIndexOf("/"); return `<div class="cmd${i === mencSel ? " on" : ""}" data-i="${i}" role="option"><b>${esc(a.c.slice(k + 1))}${a.d ? "/" : ""}</b><span>${esc(k >= 0 ? a.c.slice(0, k) : "")}</span></div>`; }).join("")
+  const linha = (a, i) => {
+    const on = i === mencSel ? " on" : "";
+    if (a.dica) return `<div class="cmd dica${on}" data-i="${i}" role="option"><b>Ligue o controle do computador para mencionar apps</b></div>`;
+    if (a.app) return `<div class="cmd app${on}" data-i="${i}" role="option">${a.icone ? `<img src="${esc(a.icone)}" alt="">` : ""}<b>${esc(a.nome)}</b><span>${esc(a.exe)}</span><em>${NIVEL_ROTULO[a.nivel] || NIVEL_ROTULO.total}</em></div>`;
+    const k = a.c.lastIndexOf("/");
+    return `<div class="cmd${on}" data-i="${i}" role="option"><b>${esc(a.c.slice(k + 1))}${a.d ? "/" : ""}</b><span>${esc(k >= 0 ? a.c.slice(0, k) : "")}</span></div>`;
+  };
+  const cabeca = (i) => (i === 0 && apps.length ? '<div class="cmd-grupo">Apps</div>' : i === apps.length && apps.length && arqs.length ? '<div class="cmd-grupo">Arquivos</div>' : "");
+  mencoesEl.innerHTML = mencVis.map((a, i) => cabeca(i) + linha(a, i)).join("")
     + (buscandoArquivos ? '<div class="cmd-espera">Procurando arquivos…</div>' : "");
   mencoesEl.classList.add("on"); fechaPicker();
   mencoesEl.querySelector(".cmd.on")?.scrollIntoView({ block: "nearest" });
@@ -659,7 +689,14 @@ function fechaMencoes() { mencoesEl.classList.remove("on"); mencVis = []; mencSe
 function escolheMencao(a) {
   const m = mencaoAtual();
   if (!m || !a) return fechaMencoes();
-  const aspas = /\s/.test(a.c), corpo = (aspas ? '@"' : "@") + a.c;
+  if (a.dica) { computador = true; guardaEscolha({ computador }); atualizaEscolhas(); entrada.focus(); mostraMencoes(); return; }
+  const nome = a.app ? a.nome : a.c, aspas = /\s/.test(nome), corpo = (aspas ? '@"' : "@") + nome;
+  if (a.app) {
+    entrada.setRangeText(corpo + (aspas ? '" ' : " "), m.ini, m.fim, "end");
+    if (!anexos.some((x) => x.tipo === "app" && x.exe === a.exe)) anexos.push({ tipo: "app", nome: a.nome, exe: a.exe, nivel: a.nivel, icone: a.icone });
+    desenhaAnexos(); ajustaAltura(); atualizaEnviar(); fechaMencoes(); entrada.focus();
+    return;
+  }
   entrada.setRangeText(a.d ? corpo + "/" : corpo + (aspas ? '" ' : " "), m.ini, m.fim, "end");
   ajustaAltura(); atualizaEnviar(); mencSel = 0; entrada.focus();
   if (a.d) mostraMencoes(); else fechaMencoes();
@@ -675,12 +712,19 @@ let anexos = [];
 const anexosEl = $("anexos");
 const ehImagem = (nome) => /\.(png|jpe?g|gif|webp)$/i.test(nome);
 const urlArquivo = (c) => "file:///" + encodeURI(c.replace(/\\/g, "/")).replace(/#/g, "%23").replace(/\?/g, "%3F");
+const NIVEL_ROTULO = { ver: "Só ver", clicar: "Clicar", total: "Total" };
 function desenhaAnexos() {
   anexosEl.innerHTML = "";
   anexos.forEach((a, i) => {
     const d = document.createElement("div");
     d.className = "anexo" + (a.url ? " img" : ""); d.title = a.caminho || a.nome;
     if (a.url) { const img = document.createElement("img"); img.src = a.url; img.alt = a.nome; d.append(img); d.title = "Ver imagem"; d.onclick = (e) => { if (!e.target.closest(".tira")) abreImagem(a.url, a.nome); }; }
+    else if (a.tipo === "app") {
+      d.classList.add("app"); d.title = a.exe;
+      if (a.icone) { const img = document.createElement("img"); img.src = a.icone; img.alt = ""; d.append(img); }
+      const n = document.createElement("span"); n.textContent = a.nome; d.append(n);
+      const nv = document.createElement("em"); nv.textContent = NIVEL_ROTULO[a.nivel] || NIVEL_ROTULO.total; d.append(nv);
+    }
     else { d.innerHTML = a.tipo === "texto" ? ICONE.editar : ICONE.arquivo; const n = document.createElement("span"); n.textContent = a.nome; d.append(n); }
     if (a.tipo === "texto") { d.classList.add("colado"); d.title = "Clique para ver e editar"; d.onclick = (e) => { if (!e.target.closest(".tira")) editaColado(a); }; }
     const x = document.createElement("button"); x.className = "tira"; x.title = "Remover"; x.innerHTML = ICONE.erro;
@@ -1808,18 +1852,18 @@ function trocaFila(id) {
 }
 function desenhaFila() {
   const el = $("fila");
-  el.innerHTML = fila.map((f, i) => `<div class="na-fila"><span class="rot">Na fila</span><span class="txt">${esc(f.t || f.junto.map((x) => x.nome).join(", "))}</span><button class="icone" data-i="${i}" title="Tirar da fila">${ICONE.erro}</button></div>`).join("");
+  el.innerHTML = fila.map((f, i) => `<div class="na-fila"><span class="rot">Na fila</span><span class="txt">${esc(f.t || reais(f.junto).map((x) => x.nome).join(", "))}</span><button class="icone" data-i="${i}" title="Tirar da fila">${ICONE.erro}</button></div>`).join("");
   el.querySelectorAll("button").forEach((b) => (b.onclick = () => { fila.splice(+b.dataset.i, 1); desenhaFila(); }));
 }
 async function proximaDaFila() {
   if (rodando || !fila.length) return;
   const { t, junto } = fila.shift(); desenhaFila();
   if (!sessaoAtual && t) $("titulo").textContent = t.length > 60 ? t.slice(0, 60) + "…" : t;
-  const { texto: final, enviados } = juntaColados(t, junto);
+  const { texto: final, enviados, apps } = juntaColados(t, junto);
   meu(t, junto); window.somEvento?.("enviar");
   const bolha = col.lastElementChild;
   setRodando(true); turnoVisto = "novo"; turnoN = 0;
-  if (!(await vivo.enviar(final, enviados))) { setRodando(false); turnoVisto = null; bolha?.remove(); fila.unshift({ t, junto }); desenhaFila(); }
+  if (!(await vivo.enviar(final, enviados, apps))) { setRodando(false); turnoVisto = null; bolha?.remove(); fila.unshift({ t, junto }); desenhaFila(); }
 }
 
 // ---- plan ------------------------------------------------------------------------------

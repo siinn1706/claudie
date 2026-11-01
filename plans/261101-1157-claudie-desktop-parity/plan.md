@@ -37,6 +37,7 @@ Claudie gains the eight highest-value Claude Desktop capabilities it lacks, each
 | 06 | [Customize: plugins, skills, MCP logs, connector catalog and auth](phase-06-customize-ecosystem.md) | P2 | none | completed |
 | 07 | [Inline diff comments and review card](phase-07-diff-review.md) | P2 | none | completed |
 | 08 | [Quick Entry, claudie:// links, screen capture](phase-08-quick-entry-capture.md) | P3 | 05 | completed |
+| 09 | [@-mention apps for computer use](phase-09-computer-use-app-mentions.md) | P1 | 02, 04 | completed |
 
 ## Acceptance criteria (whole plan)
 

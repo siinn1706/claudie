@@ -4,13 +4,14 @@ const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 contextBridge.exposeInMainWorld("vivo", {
   estado: () => ipcRenderer.invoke("estado"),
-  enviar: (texto, anexos) => ipcRenderer.invoke("enviar", texto, anexos),
+  enviar: (texto, anexos, apps) => ipcRenderer.invoke("enviar", texto, anexos, apps),
   parar: () => ipcRenderer.invoke("parar"),
   pararTarefa: (id) => ipcRenderer.invoke("parar_tarefa", id),
   permissao: (id, decisao, extra) => ipcRenderer.invoke("permissao", { id, decisao, ...extra }),
   nova: () => ipcRenderer.invoke("nova"),
   novaEm: (cwd) => ipcRenderer.invoke("nova_em", cwd),
-  injetar: (texto, anexos) => ipcRenderer.invoke("injetar", texto, anexos),
+  injetar: (texto, anexos, apps) => ipcRenderer.invoke("injetar", texto, anexos, apps),
+  appsComputador: () => ipcRenderer.invoke("apps_computador"),
   sessoes: (opcoes) => ipcRenderer.invoke("sessoes", opcoes),
   abrirSessao: (id, cwd) => ipcRenderer.invoke("abrir_sessao", id, cwd),
   pasta: (soEscolher) => ipcRenderer.invoke("pasta", soEscolher),

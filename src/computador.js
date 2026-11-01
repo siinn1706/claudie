@@ -8,10 +8,11 @@
 // startup or other platforms). main.js hands in what it owns through `deps`.
 
 import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
-import { screen, desktopCapturer, globalShortcut } from "electron";
+import { app, screen, desktopCapturer, globalShortcut, shell } from "electron";
 
 export const NOMES_COMPUTADOR = ["screenshot", "zoom", "cursor_position", "wait", "left_click", "right_click", "middle_click", "double_click", "triple_click", "left_click_drag", "mouse_move", "scroll", "type", "key", "hold_key"];
 export const FERRAMENTAS_COMPUTADOR = NOMES_COMPUTADOR.map((n) => `mcp__computer-use__${n}`);
@@ -28,7 +29,7 @@ const SEMPRE_BLOQUEADOS = new Set(["1password", "bitwarden", "keepass", "keepass
 const NIVEL_VER = new Set(["chrome", "msedge", "firefox", "brave", "opera", "vivaldi", "tradingview", "metatrader", "terminal64", "thinkorswim"]);
 // Shells, terminals, editors and system-configuration tools: anything that can run a command from typed text.
 const NIVEL_CLICAR = new Set(["explorer", "windowsterminal", "wt", "cmd", "powershell", "powershell_ise", "pwsh", "conhost", "openconsole", "bash", "wsl", "wslhost", "mintty", "putty", "kitty", "mobaxterm", "termius", "tabby", "hyper", "wezterm-gui", "alacritty",
-  "regedit", "mmc", "code", "code - insiders", "cursor", "windsurf", "zed", "notepad++", "sublime_text", "devenv", "idea64", "pycharm64", "webstorm64", "clion64", "rider64", "goland64", "phpstorm64", "rubymine64", "studio64", "eclipse"]);
+  "regedit", "mmc", "wscript", "cscript", "mshta", "rundll32", "msiexec", "regsvr32", "control", "code", "code - insiders", "cursor", "windsurf", "zed", "notepad++", "sublime_text", "devenv", "idea64", "pycharm64", "webstorm64", "clion64", "rider64", "goland64", "phpstorm64", "rubymine64", "studio64", "eclipse"]);
 const nivelDe = (exe) => (NIVEL_VER.has(norm(exe)) ? "ver" : NIVEL_CLICAR.has(norm(exe)) ? "clicar" : "total");
 // What kind of effect each tool has, and which of those each tier allows.
 const TIPO = { screenshot: "ler", zoom: "ler", cursor_position: "ler", wait: "ler", mouse_move: "mover", left_click: "clicar", right_click: "clicar", middle_click: "clicar", double_click: "clicar", triple_click: "clicar", left_click_drag: "clicar", scroll: "clicar", type: "teclar", key: "teclar", hold_key: "teclar" };
@@ -36,6 +37,98 @@ const PERMITE = { ver: ["ler", "mover"], clicar: ["ler", "mover", "clicar"], tot
 const JANELA_EXECUTAR = /^(Run|Executar|Chạy)$/i;
 
 const bloqueados = (cfg) => new Set([...SEMPRE_BLOQUEADOS, ...(cfg?.computerUse?.bloqueados || []).map(norm).filter(Boolean)]);
+
+// ---- apps a person can @-mention ---------------------------------------------------------
+// The apps with a visible window (only while computer control is on) plus the Start menu shortcuts,
+// minus the blocklist and Claudie. The answer is kept 30 s; the last list also says which
+// executables a mention may pre-approve.
+const NOME_NIVEL = { ver: "view", clicar: "click", total: "full" };
+let cacheApps = { em: 0, lista: [], janelas: false }, buscaApps = null, cacheMenu = { em: 0, lista: [] };
+const iconesApps = new Map(); // exe -> data URL, kept across refreshes
+const capitaliza = (exe) => { const n = path.basename(exe, ".exe"); return n.charAt(0).toUpperCase() + n.slice(1); };
+async function atalhosDoMenuIniciar() {
+  if (Date.now() - cacheMenu.em < 300000) return cacheMenu.lista;
+  const raizes = [process.env.ProgramData, process.env.APPDATA].filter(Boolean).map((d) => path.join(d, "Microsoft", "Windows", "Start Menu", "Programs"));
+  const achados = [];
+  const anda = async (dir, prof) => {
+    let itens = [];
+    try { itens = await fs.promises.readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of itens) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { if (prof < 3) await anda(p, prof + 1); continue; }
+      if (!/\.lnk$/i.test(e.name) || /uninstall|desinstal|gỡ cài/i.test(e.name)) continue;
+      try {
+        // A shortcut with arguments runs something else through that program (a script in cmd, an uninstaller).
+        const { target: alvo = "", args = "" } = shell.readShortcutLink(p);
+        if (!args && /\.exe$/i.test(alvo) && !/^unins/i.test(path.basename(alvo))) achados.push({ nome: e.name.replace(/\.lnk$/i, ""), exe: path.basename(alvo).toLowerCase(), caminho: alvo });
+      } catch {}
+    }
+  };
+  for (const r of raizes) await anda(r, 0);
+  cacheMenu = { em: Date.now(), lista: achados };
+  return achados;
+}
+// A shortcut can point at a network path that never answers, so an icon lookup gives up after 1.5 s.
+async function iconeDe(a) {
+  if (iconesApps.has(a.exe)) return iconesApps.get(a.exe);
+  if (a.caminho.startsWith("\\\\")) return "";
+  let icone = "";
+  try { icone = (await Promise.race([app.getFileIcon(a.caminho, { size: "normal" }), new Promise((_, no) => setTimeout(no, 1500))])).toDataURL(); } catch {}
+  if (icone) iconesApps.set(a.exe, icone);
+  return icone;
+}
+export function listaApps(cfg, comJanelas = true) {
+  if (process.platform !== "win32") return Promise.resolve([]);
+  if (Date.now() - cacheApps.em < 30000 && (cacheApps.janelas || !comJanelas)) return Promise.resolve(cacheApps.lista);
+  return buscaApps ||= montaApps(cfg, comJanelas).finally(() => { buscaApps = null; });
+}
+async function montaApps(cfg, comJanelas) {
+  let abertas = [];
+  if (comJanelas) { try { abertas = carregaWin32().janelasAbertas(); } catch { return cacheApps.lista; } }
+  const bl = bloqueados(cfg), proprio = norm(path.basename(process.execPath));
+  const menu = await atalhosDoMenuIniciar(), porExe = new Map();
+  const poe = (exe, nome, caminho, aberto) => {
+    const n = norm(exe);
+    if (!exe || n === proprio || bl.has(n) || n === "applicationframehost" || n === "textinputhost" || n === "shellexperiencehost") return;
+    const antes = porExe.get(exe);
+    if (antes) { antes.aberto ||= aberto; return; }
+    porExe.set(exe, { nome, exe, caminho, aberto });
+  };
+  for (const w of abertas) {
+    if (w.pid === process.pid || (norm(w.exe) === "explorer" && /^Program Manager$/i.test(w.titulo))) continue;
+    poe(w.exe, menu.find((m) => m.exe === w.exe)?.nome || capitaliza(w.exe), w.caminho, true);
+  }
+  for (const m of menu) poe(m.exe, m.nome, m.caminho, false);
+  const lista = [...porExe.values()].sort((a, b) => b.aberto - a.aberto || a.nome.localeCompare(b.nome));
+  await Promise.all(lista.map(async (a) => { a.nivel = nivelDe(a.exe); a.icone = await iconeDe(a); }));
+  cacheApps = { em: Date.now(), lista, janelas: comJanelas };
+  return lista;
+}
+// The apps a person mentioned that the picker could have offered (and that are not blocklisted since).
+// The list is rebuilt when nothing has been listed yet, so a hand-typed mention still counts.
+export async function appsMencionados(t, exes, cfg) {
+  if (!t?.cfg?.computador || !Array.isArray(exes) || !exes.length) return [];
+  if (!cacheApps.lista.length) await listaApps(cfg, true).catch(() => {});
+  const bl = bloqueados(cfg), concedidos = [];
+  for (const exe of exes) {
+    const a = cacheApps.lista.find((x) => x.exe === String(exe).toLowerCase());
+    if (a && !bl.has(norm(a.exe))) concedidos.push({ nome: a.nome, exe: a.exe, nivel: a.nivel });
+  }
+  return concedidos;
+}
+// Approves those apps for the turn, so the first-touch card is skipped for them. The tier is still enforced on every action.
+export function preAprova(t, concedidos) {
+  const cu = (t.cu ||= novoCu());
+  for (const a of concedidos) if (!cu.apps.has(a.exe)) { cu.apps.add(a.exe); cu.doTurno.add(a.exe); }
+}
+// The turn is over: the approvals that came from mentions end with it.
+export function esquecePreAprovados(t) {
+  if (!t?.cu?.doTurno.size) return;
+  for (const exe of t.cu.doTurno) t.cu.apps.delete(exe);
+  t.cu.doTurno.clear();
+}
+export const linhaApps = (concedidos) => (concedidos.length ? `The user granted computer control of: ${concedidos.map((a) => `${a.nome} (${a.exe}, ${NOME_NIVEL[a.nivel]})`).join(", ")}, for this turn.` : "");
+const novoCu = () => ({ apps: new Set(), doTurno: new Set(), ativo: false, n: 0, gen: 0, controles: new Set(), mapa: null });
 
 // ---- Win32 -----------------------------------------------------------------------------
 const VK_MODS = { ctrl: 0x11, control: 0x11, shift: 0x10, alt: 0x12, option: 0x12, super: 0x5b, win: 0x5b, windows: 0x5b, meta: 0x5b, cmd: 0x5b, command: 0x5b };
@@ -52,7 +145,7 @@ function carregaWin32() {
   let koffi;
   try { koffi = createRequire(import.meta.url)("koffi"); }
   catch { throw new Error("Não foi possível carregar o koffi, que o controle do computador usa."); }
-  const u32 = koffi.load("user32.dll"), k32 = koffi.load("kernel32.dll"), adv = koffi.load("advapi32.dll");
+  const u32 = koffi.load("user32.dll"), k32 = koffi.load("kernel32.dll"), adv = koffi.load("advapi32.dll"), dwm = koffi.load("dwmapi.dll");
   const POINT = koffi.struct("POINT", { x: "int32", y: "int32" });
   const MOUSEINPUT = koffi.struct("MOUSEINPUT", { dx: "int32", dy: "int32", mouseData: "uint32", dwFlags: "uint32", time: "uint32", dwExtraInfo: "uintptr_t" });
   const KEYBDINPUT = koffi.struct("KEYBDINPUT", { wVk: "uint16", wScan: "uint16", dwFlags: "uint32", time: "uint32", dwExtraInfo: "uintptr_t" });
@@ -69,6 +162,10 @@ function carregaWin32() {
     GetWindowTextW: u32.func("int __stdcall GetWindowTextW(intptr_t h, void *buf, int n)"),
     GetWindowThreadProcessId: u32.func("uint32 __stdcall GetWindowThreadProcessId(intptr_t h, void *pid)"),
     EnumChildWindows: u32.func("bool __stdcall EnumChildWindows(intptr_t h, EnumChildProc *cb, intptr_t lp)"),
+    EnumWindows: u32.func("bool __stdcall EnumWindows(EnumChildProc *cb, intptr_t lp)"),
+    IsWindowVisible: u32.func("bool __stdcall IsWindowVisible(intptr_t h)"),
+    GetWindowLongW: u32.func("int32 __stdcall GetWindowLongW(intptr_t h, int i)"),
+    DwmGetWindowAttribute: dwm.func("int32 __stdcall DwmGetWindowAttribute(intptr_t h, uint32 a, void *v, uint32 n)"),
     VkKeyScanW: u32.func("int16 __stdcall VkKeyScanW(uint16 c)"),
     OpenProcess: k32.func("intptr_t __stdcall OpenProcess(uint32 a, bool i, uint32 pid)"),
     QueryFullProcessImageNameW: k32.func("bool __stdcall QueryFullProcessImageNameW(intptr_t h, uint32 fl, void *buf, void *n)"),
@@ -107,26 +204,46 @@ function carregaWin32() {
     return achado;
   };
 
+  // What is known of a top-level window: its title, process and executable.
+  const infoDe = (topo) => {
+    const tb = Buffer.alloc(2 * 512), n = f.GetWindowTextW(topo, tb, 512);
+    const titulo = tb.toString("utf16le", 0, Math.max(0, n) * 2);
+    let pid = pidDe(topo);
+    const abre = (p) => f.OpenProcess(0x1000, false, p);
+    let proc = pid ? abre(pid) : 0;
+    let caminho = proc ? caminhoDe(proc) : "";
+    if (norm(path.basename(caminho)) === "applicationframehost") {
+      const filho = filhoHospedado(topo, pid), p2 = filho ? abre(filho) : 0;
+      if (p2) { f.CloseHandle(proc); proc = p2; pid = filho; caminho = caminhoDe(proc) || caminho; }
+    }
+    if (!proc || !caminho) { if (proc) f.CloseHandle(proc); throw new Error("Não foi possível identificar o app dessa janela (processo protegido ou elevado)."); }
+    const elevado = !minhaElevacao && tokenElevado(proc);
+    f.CloseHandle(proc);
+    return { exe: path.basename(caminho).toLowerCase(), caminho, titulo, pid, elevado };
+  };
+
   win32 = {
     // The window at a physical screen point (the foreground one without a point).
     janelaEm(x, y) {
       const h = x === undefined ? f.GetForegroundWindow() : f.WindowFromPoint({ x, y });
       if (!h) throw new Error("Área protegida do Windows (tela de bloqueio, UAC ou desktop seguro).");
-      const topo = f.GetAncestor(h, 2) || h;
-      const tb = Buffer.alloc(2 * 512), n = f.GetWindowTextW(topo, tb, 512);
-      const titulo = tb.toString("utf16le", 0, Math.max(0, n) * 2);
-      let pid = pidDe(topo);
-      const abre = (p) => f.OpenProcess(0x1000, false, p);
-      let proc = pid ? abre(pid) : 0;
-      let caminho = proc ? caminhoDe(proc) : "";
-      if (norm(path.basename(caminho)) === "applicationframehost") {
-        const filho = filhoHospedado(topo, pid), p2 = filho ? abre(filho) : 0;
-        if (p2) { f.CloseHandle(proc); proc = p2; pid = filho; caminho = caminhoDe(proc) || caminho; }
-      }
-      if (!proc || !caminho) { if (proc) f.CloseHandle(proc); throw new Error("Não foi possível identificar o app dessa janela (processo protegido ou elevado)."); }
-      const elevado = !minhaElevacao && tokenElevado(proc);
-      f.CloseHandle(proc);
-      return { exe: path.basename(caminho).toLowerCase(), caminho, titulo, pid, elevado };
+      return infoDe(f.GetAncestor(h, 2) || h);
+    },
+    // The visible top-level windows a person would call open apps (no tool windows, no cloaked ones).
+    janelasAbertas() {
+      const lista = [];
+      const cb = koffi.register((h) => {
+        try {
+          if (!f.IsWindowVisible(h) || (f.GetWindowLongW(h, -20) & 0x80)) return true;
+          const cloaked = Buffer.alloc(4);
+          if (f.DwmGetWindowAttribute(h, 14, cloaked, 4) === 0 && u32le(cloaked)) return true;
+          const i = infoDe(h);
+          if (i.titulo) lista.push(i);
+        } catch {}
+        return true;
+      }, koffi.pointer(EnumChildProc));
+      try { f.EnumWindows(cb, 0); } finally { koffi.unregister(cb); }
+      return lista;
     },
     cursor() { const p = { x: 0, y: 0 }; f.GetCursorPos(p); return { x: p.x, y: p.y }; },
     mover(x, y) { if (!f.SetCursorPos(x, y)) throw new Error("O Windows não deixou mover o mouse."); },
@@ -298,7 +415,7 @@ async function acao(t, deps, nome, { pontos = null, combo = null } = {}, fn, sig
     if (t.remoto) throw new Recusa(tr("O controle do computador não funciona em turnos remotos ou agendados: ninguém está garantido diante do PC para ver o pedido e apertar Esc."));
     if (!t.cfg?.computador) throw new Recusa(tr("O controle do computador está desligado nesta conversa."));
     if (t.cfg.modo === "plan" && !leitura) throw new Recusa(tr("O modo plano só permite olhar a tela (captura, zoom, posição do mouse e espera)."));
-    const cu = (t.cu ||= { apps: new Set(), ativo: false, n: 0, gen: 0, controles: new Set(), mapa: null });
+    const cu = (t.cu ||= novoCu());
     cu.controles.add(ctl);
     if (signal.aborted) throw new Recusa(tr(INTERROMPIDO));
     const w = carregaWin32();
