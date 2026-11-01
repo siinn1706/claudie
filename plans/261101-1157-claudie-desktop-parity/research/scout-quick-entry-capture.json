@@ -1,0 +1,195 @@
+{
+ "feature": "quick-entry-capture: floating Quick Entry window, claudie:// deep links, screen/window/region capture attached as image",
+ "integration_points": [
+  {
+   "file": "src/main.js",
+   "line": 6,
+   "what": "Electron import: add `screen` and `desktopCapturer` (BrowserWindow, globalShortcut, nativeImage, dialog already imported)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 109,
+   "what": "`config` object (persisted by salvarConfig, 187, atomic tmp+rename). Add `config.entradaRapida = { atalho: 'Control+Alt+Space', ligada: true }` as a new key; lerConfig (179) already merges unknown keys, so no migration is needed."
+  },
+  {
+   "file": "src/main.js",
+   "line": 115,
+   "what": "`janelas` Map (webContents id -> j) and `principal` (116). The main-window registry. Add `let ultimaFocada = null` here, set in criarJanela via `win.on('focus', () => ultimaFocada = j)` and cleared in the `closed` handler."
+  },
+  {
+   "file": "src/main.js",
+   "line": 117,
+   "what": "`J(e)` resolves a window from an IPC event. It returns undefined for the quick-entry and overlay windows, so their IPC handlers must not use J(e). Check `e.sender.id === rapida?.webContents.id` instead."
+  },
+  {
+   "file": "src/main.js",
+   "line": 190,
+   "what": "`enviarEvento(j, ev)` pushes events to a main window's renderer. Use it for the new event types `entrada_rapida` and `link_pedido`."
+  },
+  {
+   "file": "src/main.js",
+   "line": 241,
+   "what": "`ajustaImagem(dados, mime)` shrinks images over 5 MB b64 or 8000 px. `montaPrompt` (255, 268-270) already runs it on `{dados, mime}` attachments. A capture returned as base64 PNG needs no new send path."
+  },
+  {
+   "file": "src/main.js",
+   "line": 807,
+   "what": "`criarJanela(sessao)`: `closed` handler at 839-846 (destroy the quick window and overlay when `janelas.size` reaches 0, because a hidden window blocks `window-all-closed`). `loadFile` with `{query:{sessao}}` at 847 already supports claudie://session/<id>. `did-finish-load` at 854."
+  },
+  {
+   "file": "src/main.js",
+   "line": 886,
+   "what": "IPC `enviar` handler. It refuses while a turn is active. The renderer's `envia()` goes through it, so Quick Entry and deep-link prompts must travel renderer-side via `envia()` and not call `turno()` directly. That keeps the chat bubble, setRodando and the injetar path working."
+  },
+  {
+   "file": "src/main.js",
+   "line": 900,
+   "what": "`anexo_soltou` / `anexosPermitidos` (160): trusted paths for abrir_arquivo. Captures are in-memory base64, so they need no entry here. `anexar` IPC at 904 is the file-dialog analogue."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1315,
+   "what": "IPC `abrir_sessao` and `nova_em` (1412). nova_em sets `config.cwd = j.cwd`, resets sessionId and sends a `config` event. Extract its body into `defineCwd(j, cwd)` to reuse for the `claudie://new?cwd=` link. The renderer-side equivalent is `novaNoProjeto(cwd)` (app.js:996)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1558,
+   "what": "IPC `config`: generic key merge. Do not use it for the shortcut, because main must re-register. Add a dedicated `rapida_atalho` handler near it."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1701,
+   "what": "`atalhoGlobal()`: registers Control+Shift+Space (show/minimize the window). Keep it unchanged and add `registraRapida()` beside it, called from the same whenReady line."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1723,
+   "what": "`instanciaUnica` / `requestSingleInstanceLock`. Add the cold-start deep link here by scanning `process.argv` for `claudie://` right after the lock, and store it in `linkPendente`."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1725,
+   "what": "`app.on('second-instance', () => ...)` ignores argv today. Change the signature to `(_e, argv)`, find `argv.find(a => a.startsWith('claudie://'))` and call `tratarLink(url)`. Windows delivers deep links this way. Add `app.on('open-url', (e, url) => { e.preventDefault(); tratarLink(url); })` for macOS, which is harmless on Windows."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1834,
+   "what": "`app.whenReady`: after `criarJanela()` add `registraProtocolo(); registraRapida();` and flush `linkPendente` once the principal window reports ready."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1839,
+   "what": "`will-quit` already runs `globalShortcut.unregisterAll()`, which covers the new shortcut. 1840 `window-all-closed` quits, so Quick Entry must be destroyed, not just hidden, when the last main window closes."
+  },
+  {
+   "file": "src/preload.cjs",
+   "line": 77,
+   "what": "Add to the `vivo` bridge: `capturaFontes()`, `capturaFonte(id)`, `capturaRegiao()`, `rapidaAtalho(acel)`, `linkResposta` is not needed because the confirm is native. Add `janelaPronta()`. A separate src/preload-rapida.cjs exposes `rapida.{enviar, fechar, capturar, aoAbrir}` for the quick window and `captura.{rect, cancelar}` for the overlay."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 341,
+   "what": "`aoEvento` switch: add `case 'entrada_rapida'` calling `entradaRapida(ev)`: if `ev.nova` then `await novaConversa()`; push `ev.anexos` onto `anexos` (shape as in 624) then `desenhaAnexos()`; `entrada.value = ev.texto; envia()`."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 566,
+   "what": "`anexos` array and `desenhaAnexos` (570). An image attachment is `{nome, dados(b64), mime, url}`. The pasted-image push at 624 is the template. For captures use `url: 'data:image/png;base64,' + dados` (CSP img-src already allows data:)."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 628,
+   "what": "`$('clipe').onclick` currently opens the file dialog directly. Replace it with a small popover with two items, Arquivos... (the current handler) and Captura de tela..., reusing the popover pattern at 1010-1041 (`popAberto`, `fechaEscolhas`). The screen picker (thumbnail grid plus a 'Selecionar região' tile) is a second popover or a floating window from os.js."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1761,
+   "what": "End of the init IIFE (1775): call `vivo.janelaPronta()` so main can flush queued events (a cold-start deep link or quick-entry) only after the renderer is initialised."
+  },
+  {
+   "file": "src/renderer/index.html",
+   "line": 111,
+   "what": "`#clipe` button inside `.composer-base`. Add the popover container next to it. CSP at line 5 stays as is for the main window."
+  },
+  {
+   "file": "src/renderer/personalizar.js",
+   "line": 222,
+   "what": "Customize panel 'geral' tab. Add a shortcut row (read-only input that records a key combination on keydown, plus an on/off `chaveT`) that calls `vivo.rapidaAtalho(acelerador)` and shows an error if registration fails. Defaults object at line 14."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1741,
+   "what": "Ctrl+/ shortcuts list: add an entry for the Quick Entry shortcut. The README 'Shortcuts and credits' section (line 112) and 'Testing' (126) need a short docs update."
+  },
+  {
+   "file": "package.json",
+   "line": 29,
+   "what": "`build` has no `protocols`. Add `\"protocols\": [{\"name\": \"Claudie\", \"schemes\": [\"claudie\"]}]` (mainly for macOS/Linux metadata). On Windows NSIS the runtime `app.setAsDefaultProtocolClient` (HKCU) is the reliable registration. `files` (36) is `src/**/*`, so new html/js files ship automatically."
+  }
+ ],
+ "design": "\nNEW FILES: src/rapida.html + src/rapida.js + src/preload-rapida.cjs (Quick Entry window), src/captura.js (main-side capture helpers, no dependency on main.js state), src/captura-regiao.html + captura-regiao.js (overlay). All plain ESM/CJS like the rest. Both HTML files need their own meta CSP (default-src 'self'; script-src 'self'; img-src data:) and a transparent background. i18n: add a new parts file src/renderer/i18n/parts/entrada-rapida.json (pt key -> en/vi); it loads automatically (i18n.js readdirSync). Use `t()` in main for native dialogs.\n\n1) QUICK ENTRY (main.js)\n- `let rapida = null`. `criaRapida()`: `new BrowserWindow({width:640,height:168,frame:false,transparent:true,alwaysOnTop:true,skipTaskbar:true,resizable:false,show:false,webPreferences:{preload:preload-rapida.cjs,sandbox:true,contextIsolation:true}})`; `setAlwaysOnTop(true,'screen-saver')`; loadFile rapida.html; `on('blur', escondeRapida)`. The window is created once and hidden, which makes the shortcut instant.\n- `mostraRapida()`: position it on `screen.getDisplayNearestPoint(screen.getCursorScreenPoint())`, horizontally centred and at about 28% of the height. Then `show(); focus(); webContents.send('rapida:abre')`. The renderer resets the textarea, clears attachments and focuses. Toggle: if visible, `escondeRapida()`.\n- `registraRapida()`: `globalShortcut.unregister(old)` then `globalShortcut.register(config.entradaRapida.atalho, alterna)`. If it returns false, keep `rapidaErro` and report it to the Customize panel. DEFAULT 'Control+Alt+Space' (what Claude Desktop uses on Windows). Alt+Space is NOT the default because it clashes with the Windows system-menu hotkey and PowerToys Run (default Alt+Space). Control+Shift+Space stays on `atalhoGlobal()`; reject the same accelerator for both in the setter.\n- IPC `rapida_atalho(acel)`: validate with a regex (modifier+key), set `config.entradaRapida`, `salvarConfig()`, `registraRapida()`, return `{ok, erro}`. Wire the Customize 'geral' tab to it.\n- IPC `rapida_enviar({texto, anexos, nova})` (guard `e.sender === rapida.webContents`): target `j = ultimaFocada?.fechada ? principal : ultimaFocada || principal`; `escondeRapida()`; restore/show/focus `j.win`; `despachaParaJanela(j, {tipo:'entrada_rapida', texto, anexos, nova})`. Limit the text to 100k characters and `anexos` to 6 base64 images.\n- `despachaParaJanela(j, ev)`: if `j.pronta` call `enviarEvento(j, ev)`, else push to `j.fila`. The new IPC `janela_pronta` (J(e)) sets `j.pronta = true` and flushes `j.fila`. This also covers cold-start deep links while the intro is showing.\n- Conversation choice in the Quick Entry UI: a toggle chip 'Nova conversa' (default on when the focused window is idle or empty, otherwise 'Conversa atual'). Enter sends, Shift+Enter inserts a newline, Esc hides, paste-image works (copy the FileReader code at app.js:617-625), and the camera button calls IPC `rapida_capturar`.\n- `rapida_capturar`: hide Quick Entry, wait about 150 ms, run `capturaRegiaoNoDisplay(cursorDisplay)`, then re-show Quick Entry and return `{nome, dados, mime}` or null.\n- criarJanela `closed` handler: if `janelas.size === 0` call `rapida?.destroy()` and close any overlay, so `window-all-closed` can quit.\n\n2) SCREEN CAPTURE (src/captura.js, exports used by main.js IPC)\n- `listaFontes(janelasNossas)`: `desktopCapturer.getSources({types:['screen','window'], thumbnailSize:{width:320,height:200}, fetchWindowIcons:false})` returning `[{id, nome, tipo, thumb: s.thumbnail.toDataURL()}]`, excluding our own windows via `BrowserWindow.getMediaSourceId()`. IPC `captura_fontes`.\n- `capturaFonte(id, tipo)`: `getSources({types:[tipo], thumbnailSize: tipo==='screen' ? display.size*scaleFactor : {3840,2160}})`, find by id, `toPNG()`. Before it, hide the calling window (`j.win.hide()` or minimize), wait about 200 ms, and always restore it in a `finally`. IPC `captura_fonte` returns `{nome, dados(b64), mime:'image/png'}`.\n- REGION: `capturaRegiao(display)` first grabs a full-resolution screen source for that display (thumbnailSize = display.bounds * scaleFactor, matching by `display_id`). Then it opens a fullscreen transparent frameless alwaysOnTop overlay (`setBounds(display.bounds)`, `focus`, cursor crosshair) that loads captura-regiao.html: it dims the screen, the user drags a rectangle and a clear hole follows it. Release sends IPC `captura_rect({x,y,w,h})`, Esc or right-click sends `captura_cancela`. Main crops: `img.crop({x: round(x*sf), y: round(y*sf), width: round(w*sf), height: round(h*sf)})` using nativeImage, then `toPNG().toString('base64')`. Reject rects smaller than 8x8. It returns a Promise that resolves null on cancel and always closes the overlay. Only one capture runs at a time (`capturando` flag). The filename is `captura-AAAAMMDD-HHMMSS.png`.\n- Composer popover item 'Captura de tela...' opens a picker: tile 'Selecionar região' first, then the screens and windows from `vivo.capturaFontes()` with thumbnails. A click calls `vivo.capturaFonte(id)` or `vivo.capturaRegiao()`. The result is `anexos.push({nome, dados, mime, url:'data:image/png;base64,'+dados}); desenhaAnexos()`. The existing montaPrompt then sends it as an image block, and `ajustaImagem` handles size.\n\n3) claudie:// DEEP LINK (main.js, near the single-instance block at 1723)\n- `registraProtocolo()` in whenReady: `if (process.defaultApp) { if (process.argv.length >= 2) app.setAsDefaultProtocolClient('claudie', process.execPath, [path.resolve(process.argv[1])]); } else app.setAsDefaultProtocolClient('claudie');`. Skip it when `VIVO_PASTA`/`VIVO_JS` is set or when the app is unpackaged (unless `VIVO_LINK=1`), so a dev run never steals the installed app's registration. Call `registraProtocolo` before `requestSingleInstanceLock`'s ready work is irrelevant, it only needs `app` ready on Windows.\n- `linkDoArgv(argv) = argv.find(a => /^claudie:\\/\\//i.test(a))`. Cold start: `linkPendente = linkDoArgv(process.argv)`, handled after the principal window is ready. Warm start: `second-instance (_e, argv)` and `open-url`.\n- `tratarLink(raw)`: `new URL(raw)` inside try/catch; `u.protocol==='claudie:'`; `acao = u.hostname`. Cases:\n  - `new`: `prompt = u.searchParams.get('prompt')` (cap 8000 characters), `cwd = u.searchParams.get('cwd')` (must pass `fs.statSync(cwd).isDirectory()` and not be UNC, else ignored with a warning in the dialog).\n  - `session/<id>`: `u.pathname.slice(1)` must match `/^[0-9a-f-]{36}$/i`; then `criarJanela(id)` (focus the existing window if its sessionId is already `id`). No prompt is sent, so no confirmation is needed.\n  - Anything else: ignore.\n- ALWAYS CONFIRM: `dialog.showMessageBox(janelaAlvo.win, {type:'question', buttons:[t('Enviar'), t('Cancelar')], defaultId:1, cancelId:1, title:t('Link do Claudie'), message:t('Um link quer iniciar uma conversa no Claudie'), detail: t('Pasta: {0}', cwd||atual) + '\\n\\n' + prompt.slice(0,800)})`. This is a native modal tied to the target window, and the default button is Cancel. Only on 'Enviar': `if (cwd) defineCwd(j, cwd)` (extracted from nova_em), then `despachaParaJanela(j, {tipo:'entrada_rapida', texto: prompt, anexos: [], nova:true, cwd})`. Do not auto-send without confirmation, ever; a link with an empty prompt just opens a new conversation (and the cwd if valid) with no confirm needed. Reuse the 'entrada_rapida' renderer path; when `ev.cwd` is set the renderer calls `mostraPasta(ev.cwd)` and `carregaSessoes()` as `novaNoProjeto` does.\n\n4) RENDERER `entradaRapida(ev)` in app.js: `if (ev.cwd) { mostraPasta(ev.cwd); todosComandos = buscandoComandos = null; carregaSessoes(); } if (ev.nova) await novaConversa(); anexos = [...ev.anexos.map(a => ({...a, url: 'data:'+a.mime+';base64,'+a.dados}))]; desenhaAnexos(); entrada.value = ev.texto; ajustaAltura(); envia();`. `envia()` already handles the busy turn (injetar) and a failed send (restores the text).\n\n5) DOCS: README 'Shortcuts and credits' (line 112) gets the Quick Entry shortcut, the claudie:// format and the capture button. README 'Testing' gets a note on how to try a link in dev (`electron . \"claudie://new?prompt=hi\"` after VIVO_LINK=1).\n",
+ "files_to_create": [
+  "src/captura.js",
+  "src/rapida.html",
+  "src/rapida.js",
+  "src/preload-rapida.cjs",
+  "src/captura-regiao.html",
+  "src/captura-regiao.js",
+  "src/renderer/i18n/parts/entrada-rapida.json"
+ ],
+ "files_to_modify": [
+  "src/main.js",
+  "src/preload.cjs",
+  "src/renderer/app.js",
+  "src/renderer/index.html",
+  "src/renderer/app.css",
+  "src/renderer/personalizar.js",
+  "package.json",
+  "README.md"
+ ],
+ "reuse": [
+  "src/main.js:241 ajustaImagem and :255 montaPrompt (image attachments from {dados,mime}, no new send path)",
+  "src/main.js:187 salvarConfig / :179 lerConfig (persist config.entradaRapida with no migration)",
+  "src/main.js:190 enviarEvento (main -> renderer events)",
+  "src/main.js:1412 nova_em body (cwd switch, to be extracted as defineCwd)",
+  "src/main.js:807 criarJanela(sessao) plus the renderer's ?sessao= query handling at app.js:1761 (claudie://session/<id>)",
+  "src/main.js:1701 atalhoGlobal as the pattern for globalShortcut (unregisterAll at 1839 cleans up)",
+  "src/main.js:22 t() for native dialog strings, with i18n parts JSON auto-loaded by src/i18n.js:16",
+  "src/renderer/app.js:399 envia() (busy-turn injection, failure restore), :986 novaConversa, :996 novaNoProjeto, :570 desenhaAnexos, :617-627 pasted-image push shape, :657 nota",
+  "src/renderer/app.js:1010-1041 composer popover pattern (popAberto, fechaEscolhas) for the attach menu",
+  "src/renderer/personalizar.js:222-231 chaveT/segmentos helpers for the settings row",
+  "src/renderer/app.js:314-330 permission-card button layout (visual reference only; the link confirm is a native dialog)"
+ ],
+ "risks": [
+  "Windows registration: electron-builder `protocols` does not write the HKCU registry for NSIS, so runtime setAsDefaultProtocolClient is the reliable path. It must not run in dev or test profiles, or it hijacks the installed app's claudie:// handler. Dev needs process.execPath plus the app path argument.",
+  "Windows delivers claudie:// in argv for both cold start and second-instance; the argv URL can be quoted or have a trailing slash, so parse with new URL() and trim it. The VIVO_ATALHOS bypass skips the single-instance lock and must also skip protocol handling.",
+  "Quick Entry is a hidden BrowserWindow: it keeps the app alive past the last main window (window-all-closed would never fire), so destroy it when janelas.size hits 0. J(e) is undefined for its IPC, so any reused handler written with J(e) will crash on it; use dedicated channels and sender checks.",
+  "Control+Alt+Space default can still be taken by another app (register returns false). Alt+Space conflicts with the system window menu and PowerToys Run. Surface the failure in Customize, never silently.",
+  "desktopCapturer on Windows: window thumbnails can be black for some protected or GPU windows, and window thumbnail size does not scale like screens. Hide the Claudie window before the capture and always restore it in finally. HiDPI: the crop rect is in CSS px, so multiply by display.scaleFactor and take the screen at full pixel size. Multi-monitor mixed DPI is the sharpest edge; the overlay is limited to one display (cursor or target window's).",
+  "A transparent fullscreen overlay can be covered by an alwaysOnTop 'screen-saver' level window; give the overlay the same level and focus it; Esc must always close it (failsafe timeout of about 60 s).",
+  "A deep-link or quick-entry event arriving while the renderer is still in the intro or not initialised: hence the j.pronta/j.fila queue and the janela_pronta IPC. A prompt sent into a conversation that is running in another window is refused by `enviar` (883-889); the renderer shows its existing error.",
+  "Security: deep-link text is untrusted. The confirm dialog is native (not renderer HTML), shows the full prompt and folder, defaults to Cancel, caps the length, and validates cwd (existing directory, no UNC path, which would trigger an NTLM network lookup as noted at main.js:166). Prompts from the Quick Entry window itself are typed by the user and need no confirm.",
+  "Large base64 over IPC (a 4K PNG is a few MB): fine, but cap attachments, and ajustaImagem already shrinks at send time."
+ ],
+ "open_questions": [
+  "Default Quick Entry shortcut: Control+Alt+Space (recommended, matches Claude Desktop, no known Windows conflict) versus the Alt+Space the brief suggested (conflicts with system menu and PowerToys Run)? Needs a decision.",
+  "Should dev runs (npm start) register claudie://? Proposed: only with VIVO_LINK=1, never in packaged-less test profiles.",
+  "Should the claudie://session/<id> link open a new window (simple, proposed) or reuse the last-focused window via abrir_sessao?",
+  "The region overlay covers only one display (cursor or target window). Is a multi-display overlay required, or is one monitor enough for v1?",
+  "Should Quick Entry default to 'Nova conversa' always, or follow the focused window (current when it has a conversation open)? Proposed: a visible toggle defaulting to new.",
+  "The composer has no attach menu today (the paperclip opens a file dialog directly). Confirm turning it into a two-item popover (files, screenshot) is the intended 'composer menu', versus adding a separate camera button next to #clipe (KISS alternative).",
+  "Does electron-builder 26 NSIS register `protocols` on Windows? I did not verify against the docs (no web lookup done), so treat runtime registration as primary until checked."
+ ],
+ "new_dependencies": [],
+ "verification": [
+  "node --check src/main.js src/captura.js src/rapida.js src/captura-regiao.js; node --check src/preload.cjs src/preload-rapida.cjs; node --check src/renderer/app.js src/renderer/personalizar.js (each separately; plain ESM/CJS, no build)",
+  "Validate i18n JSON: node -e \"JSON.parse(require('fs').readFileSync('src/renderer/i18n/parts/entrada-rapida.json','utf8'))\" and check that every pt key used in new UI strings exists",
+  "Launch with test profile: `VIVO_JS=\"document.title\" VIVO_FOTO=shot.png npm start` to confirm the main window still loads and the new clipe popover renders (screenshot, then read it)",
+  "Quick Entry: run the app, press Control+Alt+Space from another app: window appears centred on the cursor's display, typing + Enter closes it and sends into the last focused window as a new conversation; Esc and blur hide it; second press toggles; repeat after closing all main windows, to verify the app quits (no ghost process)",
+  "Shortcut conflict: occupy the accelerator with another app (or register twice), change it in Customize, confirm the error message appears and the old one is restored",
+  "Deep link, warm: with the app open run `Start-Process \"claudie://new?prompt=ola&cwd=F:/Nam/UIT/Claudie\"` (needs VIVO_LINK=1 dev registration or the packaged build): native confirm dialog appears with prompt and folder, Cancel does nothing, Enviar creates a new conversation in that folder and sends. Cold: close the app, run the same URL, same behaviour after the window loads. Also `claudie://session/<id>` for a real session id, an invalid id, `claudie://new?cwd=\\\\\\\\host\\\\share` (must be ignored) and an 8000+ character prompt (capped)",
+  "Capture: composer paperclip -> Captura de tela: thumbnails of screens and windows (not Claudie itself) appear; choosing a screen attaches a PNG chip, sending produces an image block (`VIVO_LOG=1` shows events); region selector: drag crops the right area on a 125%/150% DPI display (compare pixel size = rect * scaleFactor), Esc cancels, Claudie window is restored in all paths",
+  "Packaged check: `npm run dist`, install, confirm HKCU\\Software\\Classes\\claudie exists (`reg query HKCU\\Software\\Classes\\claudie`), and the link works from the browser Win+R",
+  "Process hygiene after tests (rules/process-management.md): list and stop any electron processes started by the test runs"
+ ]
+}

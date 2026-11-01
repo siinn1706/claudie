@@ -1,0 +1,231 @@
+{
+ "feature": "scheduler-tray: local scheduled tasks (agendadas) plus tray, close-to-tray, open at login, keep-awake",
+ "integration_points": [
+  {
+   "file": "src/main.js",
+   "line": 6,
+   "what": "Electron import: add Tray, Menu, Notification, powerSaveBlocker, powerMonitor. `nativeImage` already imported. `renameSession` (line 7) is already imported and sets the sidebar title of a run's session."
+  },
+  {
+   "file": "src/main.js",
+   "line": 16,
+   "what": "Add a new import `{ iniciaAgenda, ... } from \"./agendadas.js\"`. Naming caution: `tarefas.js` / `tarefas` already mean background tasks of a turn (workflows, agents, shells). Use `agendadas` / `rotinas` for scheduled tasks to avoid a clash."
+  },
+  {
+   "file": "src/main.js",
+   "line": 66,
+   "what": "`query(args)` wrapper: finds the Claude exe, applies the API-key env, adds `extraArgs.chrome`, then calls `querySdk({...args, options:{...extra, ...args.options}})`. The headless run calls this same wrapper, so it gets sign-in and exe resolution for free. It throws synchronously when Claude Code is not found, so the run must wrap the call in try/catch and record a failed run."
+  },
+  {
+   "file": "src/main.js",
+   "line": 78,
+   "what": "`configPath()` uses `app.getPath('userData')`. Put the schedule in `path.join(app.getPath('userData'), 'agendadas.json')`, not in config.json, because config.json is rewritten by every settings change and is a flat bag shared with the window."
+  },
+  {
+   "file": "src/main.js",
+   "line": 115,
+   "what": "`janelas` Map (webContents id to {win, sessionId, atual, cwd}), `principal` (line 116), `turnos` Set (line 119, every open Claude Code process, persistent per conversation), `vivaDe`/`turnoDe` (121-122). Persistent processes are per conversation: `turno()` reuses `viva` if idle and the same cwd, otherwise `encerra(viva)` and spawns one. The scheduled run must NOT use `turno()`. It needs no window, `j`, or `caixa`. Run it as a one-shot `query()` with a string prompt and a disposable AbortController, outside `turnos`."
+  },
+  {
+   "file": "src/main.js",
+   "line": 125,
+   "what": "`MODOS = ['default','acceptEdits','plan','auto']`. Validate the task's permission mode against it (bypassPermissions is deliberately not offered). `cfgSessao`/`guardaCfg` (126-128) store model/modo/esforco per session id in `config.porSessao`. After a run learns its session_id, call `guardaCfg(sid, {model, modo})` and `salvarConfig()` so opening the run in the sidebar shows the chosen model and mode."
+  },
+  {
+   "file": "src/main.js",
+   "line": 141,
+   "what": "`avisaTurnos()` broadcasts {tipo:'turnos', rodando, aguardando} to all windows. Reuse it for the sidebar spinner: register the run in a `rodandoAgendadas` Set and add its sessionId to `rodando` once known (small edit inside `avisaTurnos`). Add `atualizaEnergia()` calls here as the single place that observes 'a turn started or ended'."
+  },
+  {
+   "file": "src/main.js",
+   "line": 179,
+   "what": "`lerConfig()` and `salvarConfig()` (187-189: tmp file plus rename, atomic) are the pattern for agendadas.json. Factor a tiny `gravaJson(arquivo, obj)` from salvarConfig and reuse it for both."
+  },
+  {
+   "file": "src/main.js",
+   "line": 190,
+   "what": "`enviarEvento(j, ev)` sends to one window (guards isDestroyed). Broadcast with `for (const o of janelas.values()) enviarEvento(o, ev)`, as done at lines 144, 1565, 1691. New events: {tipo:'agendadas', lista}, {tipo:'abrir_agendadas'}, {tipo:'foco_entrada'}."
+  },
+  {
+   "file": "src/main.js",
+   "line": 301,
+   "what": "`tituloAutomatico` and the title-generation `query` at 304-306 are the existing precedent for a headless one-shot with `persistSession:false`, `settingSources:[]`, `maxTurns`. A scheduled run differs: `persistSession` stays default (true) so the run is a normal session, and `settingSources` stays default so the project's CLAUDE.md, hooks and MCP servers apply."
+  },
+  {
+   "file": "src/main.js",
+   "line": 522,
+   "what": "`aplicaIcone()` builds the nativeImage from `config.visual.icone` or `src/icone.png`. Extract `iconeAtual()` (the img computation) and use it for both windows and `tray.setImage`. `src/icone.png` and `src/icone-512.png` exist; use a 16 or 32 px `resize` for the tray."
+  },
+  {
+   "file": "src/main.js",
+   "line": 560,
+   "what": "`turno()` shows how a turn is wired (options at 592-621, loop at 630-716, `result` message at 708 gives subtype and duration, `session_id` seen at 639). Mirror only the minimum in `executaAgendada`: iterate `for await (const msg of q)`, capture `msg.session_id`, final `msg.type==='result'` (subtype, is_error, `result` text, duration_ms, total_cost_usd). Pass `permissionMode`, `model`, `cwd`, `abortController`, `systemPrompt:{type:'preset',preset:'claude_code'}`, and `canUseTool` that denies with a message (nobody is there to approve, so only tools allowed by the mode or the project's settings run). `mcpServers:{claudie: servidorTemasPara(...)}` is not needed."
+  },
+  {
+   "file": "src/main.js",
+   "line": 807,
+   "what": "`criarJanela(sessao)`: `new BrowserWindow` at 808; `win.on('closed')` at 839-846 aborts running turns of that window (line 841) and reassigns `principal`. For close-to-tray add `win.on('close', (ev) => { if (!sairDeVez && ultimaVisivel(j) && deveFicarNaBandeja()) { ev.preventDefault(); win.hide(); } })` BEFORE 'closed', so turns keep running (the window is hidden, not destroyed, and nothing at 841 fires). `ultimaVisivel` = no other window in `janelas` is visible."
+  },
+  {
+   "file": "src/main.js",
+   "line": 883,
+   "what": "`estado` handler (885) returns `{...config, ...}`, so new keys read by the settings UI come through. `focar` (1391) restores and focuses a window; reuse the same 3 lines as `mostraJanela()` for tray show, second-instance and shortcut."
+  },
+  {
+   "file": "src/main.js",
+   "line": 901,
+   "what": "`janela_nova` handler calls `criarJanela(sessao)`; the tray 'Nova janela' calls `criarJanela()` directly. `nova` (1255) and `nova_em` (1412) show how a window starts a new conversation (j.sessionId=null, j.atual=null, enviarEvento config); the tray 'Quick entry' does `mostraJanela(); nova state; enviarEvento(j,{tipo:'foco_entrada'})`."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1301,
+   "what": "`sessoes` handler uses `listSessions({dir|limit})`; scheduled runs show here automatically because the SDK writes the transcript under ~/.claude/projects and `vigiaSessoes()` (1688-1698) already fires `sessoes_mudaram` on any .jsonl write. Only the title needs help: after the run, `renameSession(sid, '<name> - <date>', {dir: task.cwd})` (precedent: line 1392)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1315,
+   "what": "`abrir_sessao(id, cwd)` is what the renderer calls to open a session. Notification click and the history list's 'Open run' reuse it; from main use `mostraJanela()` then `enviarEvento(principal,{tipo:'abrir_sessao_pedido', id, cwd})` and let the renderer call `abreSessao()` (app.js:1765)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1541,
+   "what": "`ipcMain.handle('config')` (1558): `resto` keys are merged into config and saved. `visual_salvar` (1570) stores `config.visual` wholesale, and Customize writes `visual.geral.*` there. New toggles (`geral.fecharNaBandeja`, `geral.abrirNoLogin`, `geral.manterAcordado`) live in `config.visual.geral` like `notificacoes`; in `visual_salvar` call `aplicaGeral()` which does `app.setLoginItemSettings({openAtLogin, args:['--oculto']})` (only if packaged), toggles the tray, and recomputes `atualizaEnergia()`."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1700,
+   "what": "`atalhoGlobal()` (Ctrl+Shift+Space toggles the window, 1702-1707). With close-to-tray the window may be hidden: its `else` branch already does restore, show and focus, so it works. Reuse its body as `mostraJanela()`."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1725,
+   "what": "`second-instance` handler: already show+focus principal; replace the body with `mostraJanela()` so a hidden-in-tray window comes back. If the process was started with `--oculto` (login start), skip `win.show()` (create the window with `show:false`, or simply `win.hide()` after creation) when `app.getLoginItemSettings().wasOpenedAtLogin` or argv has `--oculto`."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1832,
+   "what": "`before-quit` handler: aborts all turns and kills terminals. Add `sairDeVez = true`, stop the agenda timer and abort running scheduled runs (`rodandoAgendadas`), release powerSaveBlocker. Tray 'Quit' calls `app.quit()`."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1837,
+   "what": "`app.whenReady()` chain: add `criaBandeja(); iniciaAgenda();` after `criarJanela()`. `iniciaAgenda` loads agendadas.json, runs catch-up, arms the timer. Respect `--oculto` for the first window."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1840,
+   "what": "`app.on('window-all-closed', () => app.quit())`: replace with `() => { if (!deveFicarNaBandeja()) app.quit(); }` for the case where windows really are destroyed (for example the last window closed while nothing was scheduled, then a task gets created from nowhere, which cannot happen; keep it as a safety net). `deveFicarNaBandeja()` = `geral.fecharNaBandeja !== false && (agendadasAtivas>0 || [...turnos].some(t=>t.ativo) || rodandoAgendadas.size>0)`."
+  },
+  {
+   "file": "src/preload.cjs",
+   "line": 19,
+   "what": "Add `agendadas: () => invoke('agendadas')`, `agendadaSalvar: (t) => invoke('agendada_salvar', t)`, `agendadaApagar: (id)`, `agendadaPausar: (id, pausada)`, `agendadaRodar: (id)`, `agendadaHistorico: (id)`, `agendadaParar: (id)`, `agendadaProxima: (spec)` (preview of next runs for the editor) next to the other `vivo.*` entries (lines 6-60). Events arrive through the existing single stream (`aoEvento` app.js:66)."
+  },
+  {
+   "file": "src/renderer/index.html",
+   "line": 43,
+   "what": "Sidebar footer `.side-base` with `.linha` buttons (`temasBtn`, `personalBtn`, `creditosBtn`): add `<button class=\"linha\" id=\"agendadasBtn\">` with a clock svg and the label 'Tarefas agendadas'. Add `<script src=\"agendadas.js\"></script>` after line 167 (`tarefas.js`)."
+  },
+  {
+   "file": "src/renderer/os.js",
+   "line": 16,
+   "what": "`janelinha(id, titulo, {largura, altura, aoFechar})` returns `{el, corpo, fecha}`: use it for the list+history window and for the editor, exactly as tarefas.js (renderer) builds the background-tasks sheet (`tfSheet`)."
+  },
+  {
+   "file": "src/renderer/tarefas.js",
+   "line": 1,
+   "what": "Template for the renderer module: module-level state, `svg()` icon helper, `TF_ESTADO` map, cards built once and updated by event snapshots. New `src/renderer/agendadas.js` follows this shape (prefix `ag`)."
+  },
+  {
+   "file": "src/renderer/personalizar.js",
+   "line": 234,
+   "what": "Settings tab 'geral': add `chaveT('geral.fecharNaBandeja','Continuar na bandeja ao fechar', ...)`, `chaveT('geral.abrirNoLogin','Abrir ao iniciar o Windows', ...)`, `chaveT('geral.manterAcordado','Manter o computador acordado enquanto o Claude trabalha', ...)`. Add the defaults to the `geral:` object at line 14 (`fecharNaBandeja:true, abrirNoLogin:false, manterAcordado:true`). The `chaveT` helper is defined at line 214."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 85,
+   "what": "Event `parado` fires window-side notifications through `avisaSistema` (1733), which only fires when `document.hasFocus()` is false and uses the Web `Notification` API. That is fine for interactive turns but NOT for scheduled runs, since the window may be hidden or destroyed. Scheduled completion must use Electron's main-process `Notification` in agendadas.js. Respect `config.visual.geral.notificacoes !== false`. Click handler: `mostraJanela()` plus open the run's session."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 344,
+   "what": "Central `aoEvento` switch: add cases `agendadas` (update sidebar badge or list), `abrir_agendadas` (call `abreAgendadas()`), `foco_entrada` (`entrada.focus()`), `abrir_sessao_pedido` (call `abreSessao(id, titulo)`). `abreSessao` is used at 1765."
+  },
+  {
+   "file": "src/renderer/i18n/parts/",
+   "line": 0,
+   "what": "Add `agendadas.json` (pt key to {en, vi}) for every new UI string, in both the renderer and the main-process `t()` used for tray labels and notifications (`criaT(idioma)`, main.js:22). Tray menu labels must be rebuilt when the language changes (`visual_salvar`)."
+  },
+  {
+   "file": "README.md",
+   "line": 126,
+   "what": "'Testing' section: document new env vars (for example `VIVO_AGENDA_AGORA=<id>` to run a task at launch) and add a feature paragraph; `docs/` is the evergreen home if there is a settings table."
+  }
+ ],
+ "design": "New module src/agendadas.js (ESM, Portuguese identifiers), initialised from main.js with an injected context so it does not import main.js: `iniciaAgenda({ pastaDados, rodaQuery, renomeia, guardaCfgSessao, avisa, notifica, tr, modos: MODOS, aoMudarEnergia })`. Keeps main.js growth to glue (about 80 lines for tray and close-to-tray and settings).\n\nData (userData/agendadas.json, array, atomic tmp+rename, same pattern as salvarConfig 187-189): { id (uuid), nome, prompt, cwd, model, modo (in MODOS), repete: { tipo: 'horaria'|'diaria'|'dias_uteis'|'semanal'|'cron', minuto, hora, dia (0-6), cron: '*/15 9-17 * * 1-5' }, pausada, proxima (epoch ms), ultima: { inicio, fim, estado: 'ok'|'erro'|'parada'|'perdida', sessionId, erro, custo }, historico: [last 30 runs {inicio, fim, estado, sessionId, resumo (first 200 chars of result), recuperada}] }.\n\nSchedule math, pure and in agendadas.js: `proximaExecucao(repete, depoisDe)`. Hourly, daily, weekdays and weekly are computed directly. 'cron-lite' is `parseCron(expr)` (5 fields, supports `*`, `n`, `a-b`, `*/n`, `a-b/n`, comma lists, validated with clear errors) plus `proximaCron(c, depoisDe)` stepping minute by minute up to 366 days (cheap, no library). Local time zone, DST-safe because it builds Dates from components. Weekdays means Mon-Fri.\n\nTimer: a single `setTimeout` for the earliest non-paused `proxima`, capped at 2^31-1 ms (re-arm when it fires or whenever the list changes): `rearma()`. Also re-arm and check due tasks on `powerMonitor.on('resume')`, so sleep does not hold a stale timer. `vencidas()` returns the tasks with proxima <= now.\n\nCatch-up at startup (`iniciaAgenda`): for each non-paused task with proxima < now, run it ONCE (coalesce multiple missed slots), mark `recuperada:true`, then compute proxima from now. A grace limit keeps it sane: if the miss is older than the repeat interval times 1 and older than 24 h for hourly kinds, record a 'perdida' history entry without running (easy rule: run if missed within 24 h, else mark perdida). Runs are serialised through a simple queue (`fila`, concurrency 1, or 2) so waking up with five tasks does not start five Claude Codes at once.\n\nRun (`executaAgendada(tarefa, {manual})`): create AbortController, store in `rodando` Map(id to {ac, inicio, sessionId}); `atualizaEnergia()`. `const q = query({ prompt: tarefa.prompt, options: { cwd, model: model||undefined, permissionMode: modo, systemPrompt: {type:'preset',preset:'claude_code'}, abortController: ac, canUseTool: async () => ({behavior:'deny', message:'Execução agendada: ninguém para aprovar.'}) } })` using the existing `query()` wrapper (main.js:66; it is synchronous-throwing, so wrap in try/catch). persistSession defaults to true, so the run is an ordinary session. `for await (msg of q)`: on the first msg.session_id call `guardaCfgSessao(sid,{model,modo})` (main.js:128) and `renomeia(sid, nome + ' - ' + data, cwd)` (renameSession, main.js:1392 precedent) so the sidebar shows it, and broadcast `avisaTurnos` (rodando includes the id). On `result` take `subtype`, `is_error`, `result`, `total_cost_usd`. In finally: delete from `rodando`, write history, compute proxima if scheduled, persist, `notifica`, `atualizaEnergia()`, broadcast `{tipo:'agendadas', lista}`. Validate before the run: cwd exists (else erro 'pasta sumiu'), modo in MODOS. Stop: `ac.abort()` (also from `before-quit`).\n\nNotify (main process, not the renderer, because the window can be hidden): `new Notification({ title: nome, body: ok ? resumo : erro }).on('click', () => { mostraJanela(); abrir sessao })` gated by `config.visual?.geral?.notificacoes !== false`. AUMID already set (main.js:1715). Strings through `tr()`.\n\nKeep-awake (main.js): `let bloqueio = null; function atualizaEnergia() { const precisa = geral.manterAcordado !== false && ([...turnos].some(t=>t.ativo) || agenda.rodandoQtd() > 0); if (precisa && bloqueio == null) bloqueio = powerSaveBlocker.start('prevent-app-suspension'); else if (!precisa && bloqueio != null) { powerSaveBlocker.stop(bloqueio); bloqueio = null; } }`. Call it from `avisaTurnos()` (141, already called on every start/stop of a turn), from the agenda's `aoMudarEnergia`, and from `visual_salvar`. Use 'prevent-app-suspension' (system stays awake, display may sleep).\n\nTray (main.js): `criaBandeja()` builds `new Tray(iconeAtual().resize({width:16,height:16}))`, tooltip 'Claudie' and a rebuild function `montaMenuBandeja()` using `Menu.buildFromTemplate`: Mostrar Claudie (mostraJanela), Nova janela (criarJanela()), Entrada rápida (mostraJanela + new conversation state + `foco_entrada` event), Tarefas agendadas (mostraJanela + `abrir_agendadas` event; submenu showing up to 5 next runs and 'Rodar agora' optional), separator, Sair (`sairDeVez=true; app.quit()`). `tray.on('click', mostraJanela)`. Rebuild the menu on language change, on agenda changes and when `turnos` change (shows 'N tarefas rodando'). The tray is created always (Windows convention) while the app runs, so no ghost window state; destroy it in `will-quit`.\n\nClose-to-tray: `deveFicarNaBandeja()` as above; `win.on('close')` intercept in `criarJanela` hides the last visible window rather than closing it (keeps `turnos` and scheduled timers alive; avoids line 841's abort). Show a one-time balloon/notification 'O Claudie continua na bandeja' (config flag `avisouBandeja`). `window-all-closed` (1840) becomes conditional as a fallback. `sairDeVez` is set in `before-quit`.\n\nOpen at login: setting `geral.abrirNoLogin`; `aplicaGeral()` calls `app.setLoginItemSettings({ openAtLogin: !!v, args: ['--oculto'] })` only when `app.isPackaged` (dev Electron must not register itself). On start, `process.argv.includes('--oculto')` makes the first window start hidden (`show:false` in criarJanela, shown by tray or second-instance); only hide when a tray exists. Needs the tray to avoid an invisible app.\n\nIPC (all `ipcMain.handle`, validated and sanitised in agendadas.js, strings sliced, id lookup, repete validated by `validaRepete`): `agendadas` (list incl. proxima and running flag), `agendada_salvar` (create or update, returns {tarefa}|{erro}), `agendada_apagar`, `agendada_pausar(id, bool)`, `agendada_rodar(id)` (run now, does not move proxima), `agendada_parar(id)`, `agendada_historico(id)`, `agendada_proxima(repete)` (preview text in the editor for the next 3 runs), `pasta` already exists for choosing a cwd (main.js:1404; reuse or `dialog.showOpenDialog`). Events main to window: `agendadas` (snapshot), `abrir_agendadas`, `foco_entrada`, `abrir_sessao_pedido {id, cwd}`.\n\nRenderer (src/renderer/agendadas.js): `abreAgendadas()` opens `janelinha('agendadas', 'Tarefas agendadas', {largura:520})` (os.js:16) listing tasks (name, repeat summary, next run, last result chip, state; buttons Rodar agora, Pausar/Retomar, Histórico, Editar, Apagar) and a '+ Nova' button. Editor is a second janelinha 'agendada-editor' with fields: name, prompt textarea, folder (button using `vivo.pasta`-like dialog), model select (reuse the options already in `mostraEscolhas`, app.js), permission mode select (MODOS), repeat kind select and the conditional fields (time, weekday, cron text plus a live next-3-runs preview via `vivo.agendadaProxima`). History view lists runs with an 'Abrir conversa' that calls `abreSessao`. Sidebar button `#agendadasBtn` and a Customize 'Geral' block for the three new toggles. i18n in `parts/agendadas.json`.\n\nName collision to avoid: keep file, IPC names and CSS prefix `agendada*` / `ag-`.",
+ "files_to_create": [
+  "F:/Nam/UIT/Claudie/src/agendadas.js",
+  "F:/Nam/UIT/Claudie/src/renderer/agendadas.js",
+  "F:/Nam/UIT/Claudie/src/renderer/i18n/parts/agendadas.json"
+ ],
+ "files_to_modify": [
+  "F:/Nam/UIT/Claudie/src/main.js",
+  "F:/Nam/UIT/Claudie/src/preload.cjs",
+  "F:/Nam/UIT/Claudie/src/renderer/index.html",
+  "F:/Nam/UIT/Claudie/src/renderer/app.js",
+  "F:/Nam/UIT/Claudie/src/renderer/personalizar.js",
+  "F:/Nam/UIT/Claudie/src/renderer/app.css",
+  "F:/Nam/UIT/Claudie/README.md"
+ ],
+ "reuse": [
+  "src/main.js:66 query() wrapper (exe resolution, API key, chrome flag) for the headless run",
+  "src/main.js:125 MODOS to validate permission mode; src/main.js:126-128 cfgSessao/guardaCfg to record model/mode for the run's session",
+  "src/main.js:187-189 salvarConfig atomic tmp+rename pattern for agendadas.json",
+  "src/main.js:190 enviarEvento and the broadcast loop used at 144/1565/1691",
+  "src/main.js:141 avisaTurnos as the single hook that sees turns start/stop (energy), and to mark the run's session as running in the sidebar",
+  "src/main.js:522 aplicaIcone (extract icon computation for the tray)",
+  "src/main.js:1391 focar and 1700-1707 atalhoGlobal body to build mostraJanela()",
+  "src/main.js:1392 renameSession usage for naming the run's session; src/main.js:1688 vigiaSessoes already refreshes the sidebar on new transcripts",
+  "src/main.js:1315 abrir_sessao and renderer app.js:1765 abreSessao for opening a run",
+  "src/main.js:22 criaT(idioma) for main-process strings (tray, notifications)",
+  "src/renderer/os.js:16 janelinha() for list and editor windows; src/renderer/tarefas.js as module template",
+  "src/renderer/personalizar.js:214 chaveT and 14 geral defaults for the new toggles",
+  "src/renderer/app.js:66 aoEvento and the switch at 344 for new events",
+  "src/main.js:307 and 1127 precedents of headless one-shot query() options"
+ ],
+ "new_dependencies": [],
+ "risks": [
+  "close-to-tray: win.on('closed') at main.js:839-846 aborts running turns of that window (line 841). Intercepting 'close' and hiding the window avoids it, but the hidden renderer keeps running animated wallpapers (CPU/GPU). Throttling is on by default for hidden windows, but verify with VIVO_METRICAS; consider `win.webContents.setBackgroundThrottling(true)` and a 'hidden' event that pauses the wallpaper engine.",
+  "Headless runs have no approver: canUseTool denies, so in 'default' mode most tools fail. The editor should default to 'acceptEdits' or 'auto' and explain it. bypassPermissions is intentionally not offered (MODOS excludes it); adding it would need allowDangerouslySkipPermissions and an explicit user decision.",
+  "Scheduled runs execute arbitrary prompts with file/shell access unattended: the folder and mode are the whole safety boundary. Validate cwd exists, store the schedule only in userData, never run a task whose file was edited externally with an unknown mode (re-validate on load).",
+  "Catch-up can cause a burst on wake or startup: serialise through a queue (concurrency 1) and coalesce missed slots to one run; define the grace window (24 h) as a constant.",
+  "setTimeout is not reliable across sleep: re-arm on powerMonitor 'resume'; cap the delay at 2^31-1 ms.",
+  "Single-instance lock (main.js:1723): a login start with --oculto plus a user click goes through second-instance, which must show the window. Test profile (VIVO_PASTA/VIVO_JS) uses a separate userData, so a test schedule file does not touch the user's; setLoginItemSettings must only run when app.isPackaged.",
+  "Name clash: 'tarefas' already means background tasks (src/tarefas.js, src/renderer/tarefas.js, IPC parar_tarefa). Use agendadas/rotinas for scheduled work.",
+  "A session run in a task cwd that is also open interactively in a window: the new run is a fresh session, so there is no conflict, but `cwd` in a git repo can collide with the user's working tree edits; this is inherent to the feature.",
+  "Notification on Windows needs the AUMID (set at main.js:1715) and for the installed app to have a Start Menu shortcut; in dev (`npm start`) toasts may not show.",
+  "API key sign-in (`config.entrar === 'chave'`) is handled inside query(), but a login that expires makes scheduled runs fail: record the error text and notify, do not retry in a loop.",
+  "SDK option names (permissionMode, canUseTool deny shape, result fields total_cost_usd/result) are taken from the existing code usage in main.js and from the documented Agent SDK; confirm against code.claude.com/docs/en/agent-sdk since node_modules cannot be read here."
+ ],
+ "verification": [
+  "`node --check src/main.js && node --check src/agendadas.js && node --check src/preload.cjs && node --check src/renderer/agendadas.js` after each step.",
+  "Pure-function check of schedule math without Electron: `node -e \"import('./src/agendadas.js').then(m=>{...proximaExecucao/parseCron cases: '*/15 9-17 * * 1-5', weekly Sunday, DST day, invalid input...})\"` (keep the exports side-effect free so this works).",
+  "Launch with a test profile: `set VIVO_PASTA=F:\\tmp&& set VIVO_LOG=1&& npm start`; in the window, create a task (every hour, folder, acceptEdits, prompt 'say hi') and press Run now; confirm the log shows the run, the sidebar gets a new session titled with the task name, history shows the result, and a notification appears.",
+  "Same with `VIVO_JS=\"vivo.agendadaRodar(id)\" VIVO_FOTO=screen.png` (README Testing section) to script the run and screenshot the list window.",
+  "Catch-up: edit `%APPDATA%\\Claudie-teste\\agendadas.json` setting `proxima` to a past time, restart, confirm exactly one run with `recuperada:true` and a new `proxima`; set it older than 24 h, confirm a 'perdida' entry and no run.",
+  "Pause: paused task never fires at its time; resume recomputes proxima.",
+  "Tray: icon appears; each menu item works (Show, New window, Quick entry focuses an empty composer, Scheduled tasks opens the janelinha, Quit exits and `tasklist` shows no leftover electron/claude processes).",
+  "Close-to-tray: with a turn running or one task scheduled, click X: window hides, turn continues (VIVO_LOG events keep flowing), tray click restores; with nothing scheduled and idle, X quits the app. Check `window-all-closed` fallback.",
+  "Keep-awake: while a turn or run is active `powerSaveBlocker.isStarted(id)` is true (log it under VIVO_LOG); false after it ends or when the setting is off; `powercfg /requests` shows Electron during a run.",
+  "Open at login (packaged build, `npm run dist`): toggle on, check Task Manager > Startup shows Claudie and `app.getLoginItemSettings().openAtLogin`; reboot or sign out and in starts hidden in the tray.",
+  "Process hygiene per process-management rule: after tests, make sure no stray electron.exe or claude.exe remain (netstat/tasklist) and that quitting aborts running scheduled queries."
+ ],
+ "open_questions": [
+  "Quick entry: is a reused main window focused on an empty composer enough, or should it be a small separate frameless always-on-top input window (more code: a second BrowserWindow, its own html, and IPC to hand the text to a new conversation)? Design assumes the KISS option.",
+  "Catch-up policy: run once if missed within 24 h, else record as missed. Is 24 h the wanted window, and should hourly tasks be capped to the latest slot only?",
+  "Permission mode default for scheduled runs, and whether to offer bypassPermissions (needs an explicit decision; currently excluded).",
+  "Concurrency of scheduled runs: serialised (1) or small parallelism (2)? Assumed 1.",
+  "Should a scheduled run honour the project's own settings/MCP/CLAUDE.md (default settingSources) or run isolated? Assumed default (loaded), as it must behave like a normal Claude Code session.",
+  "Tray exists always, or only when close-to-tray/scheduled tasks are on? Assumed always (Windows convention, needed for 'open at login hidden')."
+ ]
+}

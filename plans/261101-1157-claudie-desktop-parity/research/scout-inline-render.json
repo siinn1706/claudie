@@ -1,0 +1,141 @@
+{
+ "feature": "inline-render: sandboxed mermaid/svg/html fences with Code/Preview toggle, plus an Artifacts floating window (html/svg/md files Claude wrote this conversation)",
+ "integration_points": [
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/app.js",
+   "line": 38,
+   "what": "marked.use config (raw html escaped, image allowlist). Leave unchanged: fences already come out as <pre><code class=\"language-mermaid|svg|html\"> and the renderer.html override stays, so no marked change is needed. The upgrade happens in decora()."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/app.js",
+   "line": 41,
+   "what": "decora(el): the code-block renderer. It wraps each <pre> in .codigo with a .codigo-topo header (lang + Copiar). Add a param `final` (default false) and, when final and lang is mermaid/svg/html/htm, append a Code/Preview toggle button to .codigo-topo and a lazily built preview pane (iframe) next to the pre. Guard with the existing `parentElement.classList.contains('codigo')` skip, so mark upgraded boxes with dataset.vis to avoid doing it twice."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/app.js",
+   "line": 126,
+   "what": "fechaSegmento(): the only point where a streamed reply is complete -> call decora(segmento, true). Streaming call at line 169 (texto(), re-renders innerHTML every 45 ms, which would destroy and flicker iframes) stays decora(segmento) with no final flag, so code blocks stay plain code while streaming."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/app.js",
+   "line": 970,
+   "what": "History replay path: `decora(el)` for restored Claude messages -> change to decora(el, true). Line 328 (plan card) can also pass true or stay as is."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/app.js",
+   "line": 191,
+   "what": "ferramenta(id, nome, e, fim): builds each tool card and stores d._nome and d._entrada (file_path, content for Write; old_string/new_string for Edit). Live events (line 348) and history replay (line 972) both go through it, so a DOM scan of .ferr cards covers live and restored conversations. No changes needed here."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/os.js",
+   "line": 71,
+   "what": "alteracoes(): existing pattern that scans col.querySelectorAll('.ferr') for Write/Edit/MultiEdit cards, skipping failed ones (.estado.erro), reading c._entrada.file_path. Copy this scan for artefatos(): filter ext html/htm/svg/md/markdown, dedupe by path keeping last card order."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/os.js",
+   "line": 16,
+   "what": "janelinha(id, titulo, {largura, altura, aoFechar}) returns {el, corpo, fecha}; calling again with the same id re-raises it. Window position, size and pin are persisted per id in localStorage. Pinned windows reopen via ABRE_JANELINHA[id] (line 11, run at line 64), so register ABRE_JANELINHA.artefatos."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/os.js",
+   "line": 177,
+   "what": "botaoAlt: header icon button with .badge, inserted before $('atalhosBtn'); contaAlteracoes() (line 181) refreshes the badge and calls janelinhas.get('alteracoes').redesenha(). The MutationObserver at line 187 already fires (debounced 200 ms) whenever .ferr cards are added or removed in col. Mirror this for an artifacts button, or hook the same observer through a shared callback."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/index.html",
+   "line": 5,
+   "what": "CSP meta: script-src 'self', frame-src claudie-we:, img-src 'self' data: blob: file:. srcdoc iframes are not blocked by frame-src (not a fetch), but a srcdoc document INHERITS this policy, so inline <script> inside an html fence is blocked. This is the key constraint (see design and risks). No change is required for the srcdoc approach."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/index.html",
+   "line": 148,
+   "what": "<script src=\"../../node_modules/marked/lib/marked.umd.js\"> is the existing no-bundler dependency precedent. Add the new files after os.js (line 165): <script src=\"artefatos.js\"></script>. Mermaid is NOT added here; it is injected lazily."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/main.js",
+   "line": 157,
+   "what": "Path trust helpers: dentroDeRaizPermitida(alvo) (162), caminhoRealSeguro(abs) (168), J(e) (117), abreArquivo (169). The new artefato_ler IPC must use caminhoRealSeguro + dentroDeRaizPermitida exactly like abrir_link (1142-1164) so Claude-written files outside the conversation folders cannot be read."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/main.js",
+   "line": 1137,
+   "what": "Place ipcMain.handle('artefato_ler', ...) next to abrir_arquivo/abrir_link (1137-1164)."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/preload.cjs",
+   "line": 61,
+   "what": "Add artefatoLer: (caminho) => ipcRenderer.invoke('artefato_ler', caminho) next to abrirArquivo (line 61); exposed on window.vivo."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/main.js",
+   "line": 1741,
+   "what": "OPTIONAL interactive-html upgrade: claudie-we is already registered with registerSchemesAsPrivileged and served by servePapelWeb() (1742). A twin scheme claudie-art would let main return html with its own CSP response header so scripts work; the same hook is where the frame-src claudie-art: change in index.html would pair."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/app.css",
+   "line": 148,
+   "what": ".codigo / .codigo-topo styles. Add .codigo-vis (toggle button), .codigo-previa (iframe, width 100%, height ~320px, background #fff, border 0) next to them; add artifacts-window styles next to .janelinha rules around line 1197 (.janelinha .jl-corpo.tf is the pattern for a per-window body class)."
+  },
+  {
+   "file": "F:/Nam/UIT/Claudie/src/renderer/i18n/parts/",
+   "line": 0,
+   "what": "Add inline-render.json with Portuguese-key entries {pt: {en, vi}} for: Visualizar, Código, Artefatos da conversa, Nenhum artefato nesta conversa ainda., Abrir arquivo, Não deu pra ler o arquivo., Não deu pra desenhar o diagrama. Same shape as alteracoes-git.json. Parts are auto-loaded by i18n.js (no registration list found in main.js or preload.cjs)."
+  }
+ ],
+ "design": "1. Fences. New file src/renderer/artefatos.js (classic script, loaded after os.js; uses globals esc, ICONE, svg, md, col, janelinha, janelinhas, ABRE_JANELINHA, aoEvento, nota, vivo). Defines `previaDe(lang, codigo) -> Promise<string|null>` returning a full HTML document string for srcdoc, and `montaPrevia(caixa, lang, codigo)`.\n - svg: previaDe wraps the fence in a minimal doc. html/htm: the fence text itself (add a <base target=_blank>-free doc; wrap fragments in <!doctype html><meta charset>). mermaid: `await carregaMermaid()` then `mermaid.render('m'+n, codigo)` which returns {svg}; wrap that svg string in the same doc. mermaid failure (syntax error) -> return null and the toggle stays on Code with a small note.\n - Every srcdoc doc starts with `<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:\">` (a meta tag can only tighten the inherited policy) and a body style for readable defaults, plus `color-scheme` so it follows light/dark.\n - iframe: `el = document.createElement('iframe'); el.setAttribute('sandbox', '')` (empty sandbox: no scripts, no same-origin, no forms, no popups, no top-navigation); el.srcdoc = doc; el.loading='lazy'. Add `allow-scripts` ONLY if the optional claudie-art path is built (see open_questions). Never allow-same-origin.\n - `carregaMermaid()`: lazy, memoized promise that appends `<script src=\"vendor/mermaid.min.js\">` (relative to index.html, allowed by script-src 'self') on first mermaid fence, then `mermaid.initialize({startOnLoad:false, securityLevel:'strict', theme: document.body.classList.contains('light') ? 'default':'dark'})`. Strict level makes mermaid sanitize labels through DOMPurify, and the SVG still lands in a script-less sandboxed iframe.\n - Toggle: extend decora(el, final=false) in app.js:41. When `final` and lang in {mermaid,svg,html,htm}: add `<button class=\"codigo-vis\">Visualizar</button>` to .codigo-topo; on click, build the preview pane once (montaPrevia), hide the <pre>, show the iframe, and swap the label to 'Código' (toggle back shows pre again). mermaid and svg open on Preview by default (a diagram is what the reader wants), html opens on Code. Mark caixa.dataset.vis=1 so repeated decora calls skip it. Copy button keeps copying pre.innerText (works in both modes since the pre stays in the DOM, just hidden).\n - Streaming safety: texto() (app.js:169) rewrites .corpo.innerHTML every 45 ms, so decora without `final` there; only fechaSegmento() (126) and history replay (970) pass final=true. This avoids iframe churn and half-written mermaid.\n2. Mermaid shipping (no bundler): vendor a single prebuilt file, do NOT depend on the npm package at runtime. mermaid's dist/mermaid.min.js is a self-contained browser bundle that sets window.mermaid. Commit it to src/renderer/vendor/mermaid.min.js plus a short src/renderer/vendor/README note (version, license MIT, source). Reasons: electron-builder includes all production dependencies' node_modules, and mermaid's package.json lists dozens of d3/dagre deps that would bloat the installer and asar for no benefit since they are already bundled in dist; `files: src/**/*` in package.json already packs src/renderer/vendor into the asar with no config change. Loading with a relative path works in the asar the same way marked.umd.js does (index.html:148). Add the credit link next to marked in app.js:1584 (about box) and a Mermaid (MIT) mention. Lazy loading keeps ~3 MB of JS off startup.\n3. Artifacts window. artefatos.js: `artefatos()` scans `col.querySelectorAll('.ferr')` like os.js:71 (names Write/Edit/MultiEdit, skip `.estado.erro`, file_path extension /\\.(html?|svg|md|markdown)$/i), returns Map path -> {nome, ext, ultimo card}. `abreArtefatos()` calls `janelinha('artefatos','Artefatos da conversa',{largura:620,altura:460})`, body = left list (button per file with name and ext tag) and right preview pane; selecting an item calls `await vivo.artefatoLer(caminho)`; on {texto} it builds the doc via previaDe-like helper: svg/html as above, md via `md(texto)` (renderer already escapes raw html) wrapped in the same CSP doc; shows the same sandbox iframe plus buttons 'Abrir arquivo' (vivo.abrirArquivo) and a Code/Preview toggle reusing montaPrevia. If artefato_ler fails (file removed/undone) fall back to `card._entrada.content` when the last tool was Write, else show 'Não deu pra ler o arquivo.'. `ABRE_JANELINHA.artefatos = () => abreArtefatos()` so pinning works. Add a header icon button before `$('atalhosBtn')` with a badge count, refreshed from the same debounced MutationObserver pattern (os.js:187) via a small `contaArtefatos()`; also call `janelinhas.get('artefatos')?.redesenha?.()` from it. Reset happens naturally: col is cleared on new/opened conversation, so the list is per conversation.\n4. IPC. main.js near line 1137: `ipcMain.handle('artefato_ler', (e, caminho) => {...})`: reject non-string; `const j = J(e); base = j?.atual?.cwd || j?.cwd || config.cwd; real = caminhoRealSeguro(path.resolve(base, caminho)); if (!real || !dentroDeRaizPermitida(real)) return {erro:'fora'}; if (!/\\.(html?|svg|md|markdown)$/i.test(real)) return {erro:'tipo'}; const st = fs.statSync(real); if (!st.isFile() || st.size > 2*1024*1024) return {erro:'grande'}; return {texto: fs.readFileSync(real,'utf8'), nome: path.basename(real)}`. Preload: `artefatoLer: (c) => ipcRenderer.invoke('artefato_ler', c)`. No new window/permission surface; read-only.\n5. i18n: all new UI strings are Portuguese keys in src/renderer/i18n/parts/inline-render.json.\n6. Docs: README Features list gets one line (preview of mermaid/svg/html and Artifacts window); no architecture docs exist to update beyond this.",
+ "files_to_create": [
+  "F:/Nam/UIT/Claudie/src/renderer/artefatos.js",
+  "F:/Nam/UIT/Claudie/src/renderer/vendor/mermaid.min.js",
+  "F:/Nam/UIT/Claudie/src/renderer/i18n/parts/inline-render.json"
+ ],
+ "files_to_modify": [
+  "F:/Nam/UIT/Claudie/src/renderer/app.js",
+  "F:/Nam/UIT/Claudie/src/renderer/app.css",
+  "F:/Nam/UIT/Claudie/src/renderer/index.html",
+  "F:/Nam/UIT/Claudie/src/main.js",
+  "F:/Nam/UIT/Claudie/src/preload.cjs",
+  "F:/Nam/UIT/Claudie/README.md"
+ ],
+ "reuse": [
+  "F:/Nam/UIT/Claudie/src/renderer/os.js:16 janelinha() for the Artifacts window (drag, resize, pin, persisted pos/size)",
+  "F:/Nam/UIT/Claudie/src/renderer/os.js:71-80 alteracoes() as the template for scanning .ferr cards for Write/Edit paths",
+  "F:/Nam/UIT/Claudie/src/renderer/os.js:177-187 botaoAlt + contaAlteracoes + MutationObserver for the badge button and refresh",
+  "F:/Nam/UIT/Claudie/src/renderer/os.js:11 ABRE_JANELINHA for pinned window restore",
+  "F:/Nam/UIT/Claudie/src/renderer/app.js:41-56 decora() and copia() for the fence box and copy button",
+  "F:/Nam/UIT/Claudie/src/renderer/app.js:39 md() for markdown artifact preview",
+  "F:/Nam/UIT/Claudie/src/main.js:162-168 dentroDeRaizPermitida / caminhoRealSeguro and abrir_link (1142-1164) as the path-validation pattern",
+  "F:/Nam/UIT/Claudie/src/main.js:169 abreArquivo via vivo.abrirArquivo (preload.cjs:61) for the Open file button",
+  "F:/Nam/UIT/Claudie/src/renderer/app.js:1239 existing sandboxed iframe precedent (wallpapers) for attribute handling",
+  "F:/Nam/UIT/Claudie/src/renderer/i18n/parts/alteracoes-git.json as the i18n part format"
+ ],
+ "new_dependencies": [
+  "mermaid (vendored prebuilt dist/mermaid.min.js, MIT, ~3 MB; copied to src/renderer/vendor/, not added to package.json dependencies)"
+ ],
+ "risks": [
+  "CSP inheritance: a srcdoc iframe inherits the app's CSP (script-src 'self'), so inline <script> in html fences or svg <script> will NOT run. This is safe by default, but interactive html artifacts (charts, apps) show static markup only. Mermaid is unaffected because it renders in the parent and only the finished SVG goes into the iframe.",
+  "decora() runs every 45 ms during streaming and replaces innerHTML; building iframes there would flicker and re-render mermaid constantly. Must gate on final=true (fechaSegmento and history replay only). An unclosed fence at turn end is fine since marked auto-closes it.",
+  "Mermaid in the parent page: v11 should not need unsafe-eval, but this must be confirmed by launching with VIVO_JS and reading the console for CSP violations. securityLevel must be 'strict'; labels with html are sanitized by mermaid's DOMPurify. mermaid.render() needs a unique id per call and leaves temp nodes in body on error (remove element with id 'd'+id).",
+  "Empty sandbox attribute blocks <a target=_blank> and form submits; links in html previews are dead (intended). Do not add allow-popups or allow-top-navigation. Never allow-same-origin together with allow-scripts.",
+  "srcdoc is a string in an attribute, so very large html fences (MBs) are slow; cap preview size (e.g. skip Preview over ~500 KB and keep Code).",
+  "Artifacts scan is DOM-based like alteracoes(): Edit-only files Claude did not Write this conversation still count (they were written/modified by Claude, acceptable), and files changed by Bash (cat >, sed) are not detected. Disk content may diverge from the card after undo; the fallback to _entrada.content is only valid for Write.",
+  "artefato_ler must keep the dentroDeRaizPermitida + UNC guard (caminhoRealSeguro) so Claude cannot be steered into reading arbitrary files via the Artifacts window; size capped at 2 MB, ext whitelisted.",
+  "Vendored mermaid.min.js grows the repo and asar by ~3 MB and must be re-copied manually on upgrades (document version in a README beside it). The Bash/Glob hooks in this environment blocked inspecting the vendor path and node_modules, so the exact mermaid dist filename and size were not verified; confirm with docs (mermaid.js.org usage: dist/mermaid.min.js exposes global `mermaid`)."
+ ],
+ "open_questions": [
+  "Should html fences run scripts? Recommended default is no (srcdoc, inherited CSP, empty sandbox). Opt-in design if yes: register a claudie-art scheme beside claudie-we (main.js:1741), keep an in-memory id -> html Map filled via an IPC, serve it via protocol.handle with a Content-Security-Policy response header (default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'), add `claudie-art:` to frame-src in index.html:5 and use sandbox=\"allow-scripts\". That departs from 'srcdoc' as written in the request.",
+  "Default tab: Preview for mermaid/svg and Code for html is proposed; confirm.",
+  "Should the Artifacts list include files changed only by Bash redirection? Current design says no (Write/Edit/MultiEdit tool events only, as specified).",
+  "Mermaid theme: follow body.light at render time only, or re-render when the theme changes? Proposed: render at toggle time only."
+ ],
+ "verification": [
+  "node --check F:/Nam/UIT/Claudie/src/main.js && node --check F:/Nam/UIT/Claudie/src/renderer/app.js && node --check F:/Nam/UIT/Claudie/src/renderer/os.js && node --check F:/Nam/UIT/Claudie/src/renderer/artefatos.js && node --check F:/Nam/UIT/Claudie/src/preload.cjs",
+  "node -e \"for (const f of require('fs').readdirSync('src/renderer/i18n/parts')) JSON.parse(require('fs').readFileSync('src/renderer/i18n/parts/'+f,'utf8'))\" to validate the new i18n part",
+  "Launch with VIVO_LOG=1 VIVO_TESTE=\"Draw a mermaid flowchart, an inline svg circle and a small html card, each in its own fenced block\" npm start (separate Claudie-teste profile); confirm each fence shows a Preview toggle, previews render, toggle returns to code, Copy still copies source",
+  "Screenshot check: VIVO_JS=\"document.querySelector('.codigo-vis')?.click(); 'ok'\" VIVO_FOTO=scratch.png npm start, then read the png",
+  "Security check in the window console via VIVO_JS: iframe.sandbox.value must be '' (no allow-same-origin), iframe.contentDocument must be null (opaque origin, access throws), and an html fence with <script>document.title='x'</script> must not execute and must log a CSP violation",
+  "Ask Claude to Write demo.html, logo.svg and notes.md in the test folder, then Edit demo.html; the Artifacts button badge shows 3, the window lists them, preview matches disk content after the Edit, Open file launches the default app",
+  "Confirm a path outside the conversation folders returns {erro:'fora'} from vivo.artefatoLer (VIVO_JS=\"await vivo.artefatoLer('C:/Windows/win.ini')\")",
+  "Load an existing conversation (history replay, app.js:970) containing a mermaid fence and confirm previews appear; start a new conversation and confirm the Artifacts list empties",
+  "Pin the Artifacts window, restart, confirm it reopens (ABRE_JANELINHA path); check the installed build with npm run dist that src/renderer/vendor/mermaid.min.js is inside the asar"
+ ]
+}

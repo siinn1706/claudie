@@ -350,6 +350,8 @@ body.themed .acoes { width: fit-content; border-radius: 9px; background: var(--v
 .escolha .chip svg:last-child { width: 12px; height: 12px; opacity: 0.6; transition: transform 0.2s var(--ease); }
 .escolha .chip[aria-expanded="true"] { background: var(--active); color: var(--ui); }
 .escolha .chip[aria-expanded="true"] svg:last-child { transform: rotate(180deg); }
+.escolha .chip.perigo { color: #ef6a60; background: color-mix(in srgb, #ef4b40 14%, transparent); }
+.escolha .chip.perigo:hover { background: color-mix(in srgb, #ef4b40 22%, transparent); }
 .escolha-pop { position: absolute; bottom: calc(100% + 10px); left: -4px; z-index: 30; width: 290px; padding: 6px; border-radius: 14px; border: 1px solid var(--line-2); background: #232221; color: #ecebe7; box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
   opacity: 0; transform: translateY(6px) scale(0.98); transform-origin: bottom left; pointer-events: none; transition: opacity 0.16s, transform 0.22s var(--ease); }
 .escolha-pop.on { opacity: 1; transform: none; pointer-events: auto; }

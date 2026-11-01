@@ -3,7 +3,7 @@
 // messages are forwarded to the window as small events, and tool permission
 // requests wait for the person's answer in the window.
 
-import { app, BrowserWindow, ipcMain, dialog, shell, globalShortcut, nativeImage, protocol, net, safeStorage } from "electron";
+import { app, BrowserWindow, Menu, ipcMain, dialog, shell, globalShortcut, nativeImage, protocol, net, safeStorage } from "electron";
 import { query as querySdk, listSessions, getSessionMessages, renameSession, deleteSession, forkSession, createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import atualizador from "electron-updater";
@@ -122,15 +122,29 @@ const vivaDe = (id) => id && [...turnos].find((t) => t.sessionId === id && !t.ca
 const turnoDe = (id) => { const t = vivaDe(id); return t?.ativo ? t : undefined; };
 // Model, permission mode, effort and ultracode belong to each conversation
 // (config.porSessao); the top-level values are only what a new one starts with.
-const MODOS = ["default", "acceptEdits", "plan", "auto"];
-const cfgSessao = (id) => ({ model: config.model || "", modo: config.modo || "default", esforco: config.esforco || "", ultracode: !!config.ultracode, ...(id && config.porSessao?.[id]) });
-const cfgJ = (j) => cfgSessao(j?.sessionId);
+const MODOS = ["default", "acceptEdits", "plan", "auto", "bypassPermissions"];
+const BYPASS = "bypassPermissions";
+const ROTULO_MODO = { default: "Perguntar", acceptEdits: "Aceitar edições", plan: "Modo plano", auto: "Automático", bypassPermissions: "Ignorar permissões" };
+// The default for new conversations is never bypass, even if a hand-edited config says so.
+const cfgSessao = (id) => {
+  const x = { model: config.model || "", modo: config.modo === BYPASS ? "default" : config.modo || "default", esforco: config.esforco || "", ultracode: !!config.ultracode, ...(id && config.porSessao?.[id]) };
+  return { ...x, modo: MODOS.includes(x.modo) ? x.modo : "default" };
+};
+// Bypass of a conversation that has no session yet lives on the window, never in config.
+const cfgJ = (j) => ({ ...cfgSessao(j?.sessionId), ...(!j?.sessionId && j?.modoBypass ? { modo: BYPASS } : {}) });
+// Forgets the conversation a window held (and a bypass chosen for it).
+const limpaConversa = (j) => { j.sessionId = null; j.atual = null; j.modoBypass = false; };
 const guardaCfg = (id, c) => { (config.porSessao ||= {})[id] = { model: c.model || "", modo: c.modo || "default", esforco: c.esforco || "", ultracode: !!c.ultracode }; };
 // Pushes a change into a running turn; what the CLI refuses waits for the next message.
 async function aplicaNoTurno(t, m) {
   const falhou = [];
   const tenta = async (chave, fn) => { try { await fn(); } catch { falhou.push(chave); } };
-  if ("modo" in m) await tenta("modo", () => t.q.setPermissionMode(m.modo || "default"));
+  if ("modo" in m) {
+    // The bypass switch is only honored by a Claude Code started with it, so entering or leaving it reopens.
+    const entra = m.modo === BYPASS && !t.comBypass, sai = m.modo !== BYPASS && t.comBypass;
+    if (entra || sai) falhou.push("modo");
+    else await tenta("modo", () => t.q.setPermissionMode(m.modo || "default"));
+  }
   if ("model" in m) await tenta("model", () => t.q.setModel(m.model || undefined));
   if ("esforco" in m) await tenta("esforco", () => t.q.applyFlagSettings({ effortLevel: m.esforco || null }));
   // A Claude Code started without Dynamic Workflows can't take ultracode live; it reopens with them on.
@@ -584,6 +598,7 @@ async function turno(j, texto, anexos) {
   if (novo) t.primeiro = texto;
   let contexto = 0, pedidoEm = 0;
   t.cfg = { ...cfgJ(j) };
+  t.comBypass = t.cfg.modo === BYPASS;
   // Until the query exists the window follows no tagged stream, so a setup failure is sent untagged.
   const aviso = (x) => (t.q ? ev(x) : enviarEvento(t.j, x));
   try {
@@ -595,6 +610,8 @@ async function turno(j, texto, anexos) {
       model: t.cfg.model || undefined,
       resume: t.sessionId || undefined,
       permissionMode: t.cfg.modo,
+      // Only a process opened in bypass can be switched into it (a Remote Control client included).
+      allowDangerouslySkipPermissions: t.cfg.modo === BYPASS ? true : undefined,
       effort: t.cfg.esforco || undefined,
       // Ultracode: Claude plans a workflow of many agents for each real task. It
       // only works with Dynamic Workflows on, so Claudie turns that on for this session.
@@ -639,7 +656,7 @@ async function turno(j, texto, anexos) {
       if (msg.session_id && msg.session_id !== t.sessionId) {
         t.sessionId = msg.session_id;
         if (novo && !config.porSessao?.[t.sessionId]) { guardaCfg(t.sessionId, t.cfg); salvarConfig(); }
-        if (t.j.atual === t) t.j.sessionId = t.sessionId;
+        if (t.j.atual === t) { t.j.sessionId = t.sessionId; t.j.modoBypass = false; }
         ev({ tipo: "sessao", id: t.sessionId }); avisaTurnos();
       }
       if (msg.type === "system" && msg.subtype === "bridge_state") {
@@ -648,6 +665,18 @@ async function turno(j, texto, anexos) {
         ev({ tipo: "pensando", tokens: msg.estimated_tokens });
       } else if (msg.type === "system" && msg.subtype === "init") {
         ev({ tipo: "info", modelo: msg.model, cwd: msg.cwd, modo: msg.permissionMode });
+        // The first init says what the CLI really started with (it can refuse bypass); the window follows it.
+        if (msg.permissionMode && msg.permissionMode !== t.cfg.modo) {
+          const era = t.cfg.modo;
+          t.comBypass = msg.permissionMode === BYPASS;
+          // A bypass the CLI reports is never saved: only the confirmation dialog can store it.
+          if (!t.comBypass) {
+            t.cfg = { ...t.cfg, modo: msg.permissionMode };
+            if (t.sessionId) guardaCfg(t.sessionId, { ...cfgSessao(t.sessionId), modo: msg.permissionMode });
+            salvarConfig(); avisaConfig();
+          }
+          ev({ tipo: "aviso", texto: tr("O Claude Code não aceitou o modo pedido ({0}) e abriu em outro modo.", tr(ROTULO_MODO[era] || era)) });
+        }
         t.workflows = !!msg.tools?.includes("Workflow");
         if (t.cfg.ultracode && !t.workflows) ev({ tipo: "aviso", texto: AVISO_SEM_WORKFLOWS });
       } else if (trataMensagem(t, msg)) {
@@ -948,7 +977,7 @@ ipcMain.handle("permissao", (_e, { id, decisao, texto, modo }) => {
   if (decisao === "negar") p.resolve({ behavior: "deny", message: feedback ? (plano ? `A pessoa quer ajustar o plano antes de seguir: ${feedback}` : `A pessoa negou e pediu: ${feedback}`) : "A pessoa negou." });
   else if (plano) {
     // Approving a plan leaves plan mode for the mode the person chose, in the running turn and in the saved choice.
-    const novo = MODOS.includes(modo) && modo !== "plan" ? modo : "default";
+    const novo = MODOS.includes(modo) && modo !== "plan" && modo !== BYPASS ? modo : "default";
     p.resolve({ behavior: "allow", updatedPermissions: [{ type: "setMode", mode: novo, destination: "session" }] });
     mudaConfig(p.t.j, { modo: novo }, p.t.sessionId);
   } else p.resolve({ behavior: "allow", updatedPermissions: decisao === "sempre" ? p.suggestions : undefined });
@@ -1252,7 +1281,7 @@ ipcMain.handle("desfazer", async (e, { uuid, simular }) => {
   finally { solta(); ac.abort(); q.return?.().catch(() => {}); }
 });
 // A running turn keeps going in the background; the window starts afresh.
-ipcMain.handle("nova", (e) => { const j = J(e); j.sessionId = null; j.atual = null; enviarEvento(j, { tipo: "config", ...cfgJ(j) }); return true; });
+ipcMain.handle("nova", (e) => { const j = J(e); limpaConversa(j); enviarEvento(j, { tipo: "config", ...cfgJ(j) }); return true; });
 // The Claude app (Code tab) keeps its own record of each conversation — the
 // title it shows, whether it is archived — next to the transcript Claude Code
 // writes. Reading those records lets the list use the same names the person
@@ -1315,7 +1344,7 @@ ipcMain.handle("saida", (e, id) => saidasCheias.get(String(id)) ?? null);
 ipcMain.handle("abrir_sessao", async (e, id, cwd) => {
   const j = J(e);
   if (cwd && cwd !== j.cwd && fs.existsSync(cwd)) j.cwd = cwd;
-  j.sessionId = id; j.atual = null;
+  j.sessionId = id; j.atual = null; j.modoBypass = false;
   let hist = [];
   try { hist = await historico(id, cwd || j.cwd); } catch {}
   if (j.sessionId !== id) return null;
@@ -1336,8 +1365,8 @@ ipcMain.handle("ramificar", async (e, { id, uuid, titulo, cwd }) => {
   try {
     const dir = cwd && fs.existsSync(cwd) ? cwd : j.cwd;
     const r = await forkSession(origem, { dir, upToMessageId: uuid || undefined, title: titulo || undefined });
-    guardaCfg(r.sessionId, cfgSessao(origem)); salvarConfig();
-    j.cwd = dir; j.sessionId = r.sessionId;
+    guardaCfg(r.sessionId, { ...cfgSessao(origem), modo: cfgSessao(origem).modo === BYPASS ? "default" : cfgSessao(origem).modo }); salvarConfig();
+    j.cwd = dir; j.sessionId = r.sessionId; j.modoBypass = false;
     return { id: r.sessionId, titulo: titulo || "Ramo", cwd: dir };
   } catch (e) { console.log("[ramificar]", e?.message || e); return null; }
 });
@@ -1397,7 +1426,7 @@ ipcMain.handle("apagar", async (e, id, cwd) => {
     await deleteSession(id, { dir: cwd || J(e).cwd });
     textoDasSessoes.delete(id); esqueceTarefas(id);
     if (config.porSessao?.[id]) { delete config.porSessao[id]; salvarConfig(); }
-    for (const o of janelas.values()) if (o.sessionId === id) { o.sessionId = null; if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
+    for (const o of janelas.values()) if (o.sessionId === id) { limpaConversa(o); if (o !== J(e)) enviarEvento(o, { tipo: "apagada", id }); }
     return true;
   } catch { return false; }
 });
@@ -1406,13 +1435,13 @@ ipcMain.handle("pasta", async (e) => {
   const r = await dialog.showOpenDialog(j.win, { title: t("Pasta do projeto"), defaultPath: j.cwd, properties: ["openDirectory"] });
   if (r.canceled || !r.filePaths[0]) return null;
   // A turn running here keeps its own folder and goes on in the background.
-  config.cwd = j.cwd = r.filePaths[0]; j.sessionId = null; j.atual = null; salvarConfig(); return j.cwd;
+  config.cwd = j.cwd = r.filePaths[0]; limpaConversa(j); salvarConfig(); return j.cwd;
 });
 // A new conversation straight in a project from the sidebar, no folder dialog.
 ipcMain.handle("nova_em", (e, cwd) => {
   const j = J(e);
   if (!cwd || !fs.existsSync(cwd)) return null;
-  config.cwd = j.cwd = cwd; j.sessionId = null; j.atual = null; salvarConfig();
+  config.cwd = j.cwd = cwd; limpaConversa(j); salvarConfig();
   enviarEvento(j, { tipo: "config", ...cfgJ(j) });
   return j.cwd;
 });
@@ -1445,7 +1474,7 @@ ipcMain.handle("worktree_criar", async (e, texto) => {
   }
   const r = await git(j.cwd, ["worktree", "add", "-b", ramo, dir]);
   if (r.erro) return { erro: (r.err || String(r.erro.message)).trim().split("\n").pop() };
-  config.cwd = j.cwd = dir; j.sessionId = null; salvarConfig();
+  config.cwd = j.cwd = dir; limpaConversa(j); salvarConfig();
   return { cwd: dir, ramo };
 });
 ipcMain.handle("worktree_remover", async (e, cwd) => {
@@ -1462,7 +1491,7 @@ ipcMain.handle("worktree_remover", async (e, cwd) => {
   // from the main repo, so the folder being removed is not git's own cwd; no --force: uncommitted work keeps it
   const r = await git(w.raiz, ["worktree", "remove", w.topo]);
   if (r.erro) return { erro: (r.err || String(r.erro.message)).trim().split("\n").pop() };
-  for (const o of janelas.values()) if (mesmoCaminho(o.cwd, w.topo)) { o.cwd = w.raiz; o.sessionId = null; if (config.cwd && mesmoCaminho(config.cwd, w.topo)) config.cwd = w.raiz; }
+  for (const o of janelas.values()) if (mesmoCaminho(o.cwd, w.topo)) { o.cwd = w.raiz; limpaConversa(o); if (config.cwd && mesmoCaminho(config.cwd, w.topo)) config.cwd = w.raiz; }
   salvarConfig();
   return { cwd: w.raiz };
 });
@@ -1544,7 +1573,12 @@ async function mudaConfig(j, mudanca, id = j.sessionId) {
   if (m.modo && !MODOS.includes(m.modo)) delete m.modo;
   const turnosAfetados = [...turnos].filter((t) => t.q && !t.caixa?.fechada && ((id && t.sessionId === id) || (!id && t === j.atual)));
   if (id) guardaCfg(id, { ...cfgSessao(id), ...m });
-  else Object.assign(config, m);
+  else {
+    // A conversation not yet started can be in bypass, but the default for new ones never is.
+    if ("modo" in m) j.modoBypass = m.modo === BYPASS;
+    const { modo, ...resto } = m;
+    Object.assign(config, resto, modo && modo !== BYPASS ? { modo } : {});
+  }
   for (const t of turnosAfetados) t.cfg = { ...t.cfg, ...m };
   salvarConfig(); avisaConfig();
   const falhou = new Set();
@@ -1555,8 +1589,23 @@ async function mudaConfig(j, mudanca, id = j.sessionId) {
   }
   return [...falhou];
 }
+async function confirmaBypass(j) {
+  const r = await dialog.showMessageBox(j.win, {
+    type: "warning", noLink: true, buttons: [t("Cancelar"), t("Ativar")], defaultId: 0, cancelId: 0,
+    message: t("Ignorar todas as permissões?"),
+    detail: t("O Claude vai editar arquivos e rodar comandos sem pedir aprovação. Use só em pastas e projetos em que você confia.\n\nPasta: {0}", j.cwd || ""),
+  });
+  return r.response === 1;
+}
 ipcMain.handle("config", async (e, mudanca) => {
   const { model, modo, esforco, ultracode, ...resto } = mudanca || {}, j = J(e);
+  if (modo === BYPASS && cfgJ(j).modo !== BYPASS) {
+    const devolve = () => ({ ...config, ...cfgJ(j), depois: [] });
+    if (j.confirmandoBypass) return devolve();
+    const id = j.sessionId; j.confirmandoBypass = true;
+    const ok = await confirmaBypass(j).finally(() => { j.confirmandoBypass = false; });
+    if (!ok || j.sessionId !== id) { avisaConfig(); return devolve(); }
+  }
   if (Object.keys(resto).length) { config = { ...config, ...resto }; salvarConfig(); }
   const depois = await mudaConfig(j, Object.fromEntries(Object.entries({ model, modo, esforco, ultracode }).filter(([, v]) => v !== undefined)));
   return { ...config, ...cfgJ(j), depois };
@@ -1834,6 +1883,8 @@ app.on("before-quit", () => { for (const t of turnos) { encerra(t); t.ac.abort()
 app.whenReady().then(() => {
   if (!instanciaUnica) return;
   if (process.env.VIVO_ATALHOS) { criaAtalhos(); app.quit(); return; }
+  // The default menu minus DevTools, whose Ctrl+Shift+I belongs to the model picker.
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: "editMenu" }, { label: "View", submenu: [{ role: "reload" }, { role: "forceReload" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }] }, { role: "windowMenu" }]));
   servePapelWeb(); trazDoNomeAntigo(); lerConfig(); criarJanela(); setTimeout(aquecerClaude, 1500); atalhoGlobal(); vigiaSessoes(); iniciaAtualizacoes();
 });
 app.on("will-quit", () => globalShortcut.unregisterAll());

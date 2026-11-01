@@ -37,7 +37,7 @@ The source code stays in Portuguese. [`src/renderer/i18n/i18n.js`](src/renderer/
 
 ### Talking to Claude
 
-- **Model and permissions**: pick them in the sidebar; each menu explains its options. In "Ask" mode, each tool that needs approval shows a card with Allow, Always this session and Deny; "Tell Claude what to do instead" is sent along with Deny. When Claude presents a plan (plan mode), the card renders it as Markdown and lets you approve into Ask, Edit without asking or Auto, or keep planning with a note.
+- **Model and permissions**: pick them in the sidebar; each menu explains its options. "Bypass permissions" (red chip) lets Claude edit files and run commands without asking; it is only in the permission menu, asks for confirmation in a native dialog showing the folder, is saved for that conversation only (a new one starts in Automatic, a branch falls back to Ask), and never appears in plan approval or the shortcut cycle. Deny rules and hooks of Claude Code still apply. In "Ask" mode, each tool that needs approval shows a card with Allow, Always this session and Deny; "Tell Claude what to do instead" is sent along with Deny. When Claude presents a plan (plan mode), the card renders it as Markdown and lets you approve into Ask, Edit without asking or Auto, or keep planning with a note.
 - **Effort**: the bar next to the model sets how much Claude thinks, from Default to Maximum.
 - **Ultracode**: the switch on the effort card makes Claude build a multi-agent workflow for each task (Claude Code's `ultracode`). It uses much more of your limit and needs workflows enabled in Claude Code (on Pro, `enableWorkflows` in `/config`) and a model with the xhigh level.
 - **Attachments**: the paperclip, dragging files onto the window, or pasting images (Ctrl+V). Images go to Claude (ones too large for the API are shrunk automatically; if they still don't fit, the app warns and doesn't send them); other files are opened by path. Click an image to view it full size; Esc closes.
@@ -110,6 +110,8 @@ Claude Code's mascot is everywhere. On launch it assembles from tiles; on the ho
 ### Shortcuts and credits
 
 - Ctrl+Shift+Space shows Claudie from anywhere; Ctrl+/ lists all shortcuts.
+- **Esc** interrupts the running reply (a pending permission card is denied). When a menu, picker, panel, floating window or popover is open, Esc closes that first and a second Esc interrupts; it is ignored while typing in other fields and during IME composition.
+- Ctrl+Shift+M cycles Ask, Accept edits, Plan and Auto (also while Claude works); Ctrl+Shift+I, Ctrl+Shift+E and Ctrl+Shift+P open the model, effort and permission menus (press again to close).
 - **Credits** (sidebar): who made each artwork and each part of the app.
 
 ## Project structure

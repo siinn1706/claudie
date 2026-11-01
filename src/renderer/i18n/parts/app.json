@@ -259,5 +259,16 @@
   "Nova conversa neste projeto": { "en": "New conversation in this project", "vi": "Cuộc trò chuyện mới trong dự án này" },
   "Não achei a pasta deste projeto.": { "en": "Couldn't find this project's folder.", "vi": "Không tìm thấy thư mục của dự án này." },
   "Enviar (com o Claude trabalhando, entra na resposta em andamento)": { "en": "Send (while Claude works, it goes into the running reply)", "vi": "Gửi (khi Claude đang làm, tin nhắn vào ngay lượt đang chạy)" },
-  "Enviar agora": { "en": "Send now", "vi": "Gửi ngay" }
+  "Enviar agora": { "en": "Send now", "vi": "Gửi ngay" },
+  "Interromper a resposta (se nada estiver aberto, fecha menus e painéis)": { "en": "Interrupt the reply (if nothing is open, closes menus and panels)", "vi": "Ngắt câu trả lời (nếu không có gì đang mở thì đóng menu và bảng)" },
+  "Alternar o modo de permissão": { "en": "Cycle the permission mode", "vi": "Chuyển vòng chế độ quyền" },
+  "Escolher o modelo": { "en": "Choose the model", "vi": "Chọn mô hình" },
+  "Escolher o esforço": { "en": "Choose the effort", "vi": "Chọn mức nỗ lực" },
+  "Escolher as permissões": { "en": "Choose the permissions", "vi": "Chọn quyền" },
+  "Modo: {0}": { "en": "Mode: {0}", "vi": "Chế độ: {0}" },
+  "Edita arquivos e roda comandos sem pedir aprovação. Só para projetos em que você confia.": { "en": "Edits files and runs commands without asking for approval. Only for projects you trust.", "vi": "Chỉnh sửa tệp và chạy lệnh mà không xin phê duyệt. Chỉ dùng cho dự án bạn tin tưởng." },
+  "Ignorar todas as permissões?": { "en": "Skip all permissions?", "vi": "Bỏ qua mọi quyền?" },
+  "O Claude vai editar arquivos e rodar comandos sem pedir aprovação. Use só em pastas e projetos em que você confia.\n\nPasta: {0}": { "en": "Claude will edit files and run commands without asking for approval. Use only on folders and projects you trust.\n\nFolder: {0}", "vi": "Claude sẽ chỉnh sửa tệp và chạy lệnh mà không xin phê duyệt. Chỉ dùng với thư mục và dự án bạn tin tưởng.\n\nThư mục: {0}" },
+  "Ativar": { "en": "Enable", "vi": "Bật" },
+  "O Claude Code não aceitou o modo pedido ({0}) e abriu em outro modo.": { "en": "Claude Code did not accept the requested mode ({0}) and opened in another mode.", "vi": "Claude Code không chấp nhận chế độ đã yêu cầu ({0}) và đã mở ở chế độ khác." }
 }

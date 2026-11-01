@@ -1,0 +1,160 @@
+{
+ "feature": "keys-modes: Esc interrupts turn, shortcuts for model/effort/permission pickers and mode cycling (Ctrl+Shift+M), bypassPermissions mode with confirmation, shortcut list update",
+ "integration_points": [
+  {
+   "file": "src/main.js",
+   "line": 125,
+   "what": "MODOS: append \"bypassPermissions\" (['default','acceptEdits','plan','auto','bypassPermissions']). This also fixes the strip at line 1544 and the plan-approval whitelist at line 951 (which excludes only plan; bypass must NOT be offered there, so add `&& modo !== 'bypassPermissions'` at 951)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 591,
+   "what": "query() options (permissionMode at line 597): add `allowDangerouslySkipPermissions: true`. The SDK requires it both to start in bypass and for q.setPermissionMode('bypassPermissions') mid-turn (aplicaNoTurno line 133). Safe to always pass because entry to the mode is gated by the confirmation dialog in the config handler. If live switch is refused, aplicaNoTurno reports failure and mudaConfig sets t.reiniciar (line 1553), so the next message reopens in bypass."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1558,
+   "what": "ipcMain.handle('config'): before mudaConfig, if modo==='bypassPermissions' and cfgJ(j).modo !== 'bypassPermissions', await dialog.showMessageBox(BrowserWindow.fromWebContents(e.sender)/J(e).win, {type:'warning', buttons:['Cancelar','Ativar'], defaultId:0, cancelId:0, message, detail}) (dialog already imported at line 6). On cancel drop modo from the change and call avisaConfig() (line 1565) so the chip reverts to the stored value. Confirmation lives in main so every entry path (picker, Ctrl+Shift+M cycle, remote) goes through it. No native confirm()/dialog pattern for this exists in main.js yet; renderer uses window.confirm in painel.js:45,217 as precedent, but main dialog is safer (cannot be bypassed by the renderer)."
+  },
+  {
+   "file": "src/main.js",
+   "line": 937,
+   "what": "ipcMain.handle('parar') already does a.q.interrupt() with ac.abort() fallback and checks a.ativo. Reuse as the Esc action; no new IPC channel needed. preload.cjs:8 exposes it as vivo.parar()."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1544,
+   "what": "mudaConfig strips unknown modos via MODOS.includes; with MODOS extended it keeps bypassPermissions. Also main.js:108 PADROES stays 'auto' (never default to bypass)."
+  },
+  {
+   "file": "src/renderer/index.html",
+   "line": 116,
+   "what": "Add `<option value=\"bypassPermissions\">Ignorar permissões</option>` after the auto option in <select id=\"modo\"> (lines 112-117). The select is the hidden source of truth (app.js:1005 mostraEscolhas, :1007 onchange, :1071 montaEscolha)."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1015,
+   "what": "ESCOLHAS.modo.itens: add bypassPermissions description (e.g. 'Roda tudo sem perguntar, inclusive comandos e edições. Use só em ambiente de confiança.'). Menu rows are generated from sel.options (menuEscolha, line 1066)."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1060,
+   "what": "ICONES_MODO: add bypassPermissions icon (e.g. svg shield with a slash / warning triangle path). Falls back to ICONES_MODO.default if missing (line 1071), so only cosmetic. Optionally add a CSS class on the chip (red accent) in the stylesheet when value is bypassPermissions."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1007,
+   "what": "$('modo').onchange fires guardaEscolha => vivo.config(m). Since main may reject (user cancels), mostraEscolhas (line 1005) is re-run by the 'config' event from avisaConfig (check the case 'config' in the event switch near app.js:344) so the chip reverts. Verify that handler calls mostraEscolhas."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1155,
+   "what": "Window-level keydown Escape: replace with `if (e.key==='Escape') { if (!fechaAlgo(e)) interrompe(); }`. Also remove `if (e.key === 'Escape') fechaPicker();` at line 453 (entrada handler runs first and would close the picker, making the window handler think nothing was open). Lines 444/450 already stopPropagation for mentions/commands menus, and the capture handler at line 611 stopImmediatePropagation for the lightbox, so those keep priority untouched. Line 1374 (bibBusca) stays but should also not interrupt: it runs on the target first, then bubbles to window; since picker is open at that time fechaAlgo will see it... but fechaPicker at 1374 already closed it. Fix by making bibBusca handler stopPropagation too (or drop it, window handler closes picker)."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1148,
+   "what": "Same keydown handler: add shortcuts. Ctrl+Shift+M => cicloModo(); Ctrl+Shift+L => abreEscolhaDe('modelo'); Ctrl+Shift+E => abreEscolhaDe('esforco'); Ctrl+Shift+P => abreEscolhaDe('modo'). Add before the existing Ctrl+N rule? Note line 1150 `e.ctrlKey && key n` already shares ctrl+shift+n guard at 1149 with return; follow same pattern (preventDefault + return). Use e.code (KeyM etc.) for layout independence."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1042,
+   "what": "abreEscolha(pop) / montaEscolha (line 1047) keep `pop` and `btn` private in closure. Add a registry: `const botoesEscolha = {}`; inside montaEscolha set `botoesEscolha[id] = btn` (btn.click() calls abreEscolha(pop) via line 1055, which toggles and handles aria-expanded). Then abreEscolhaDe = (id) => botoesEscolha[id]?.click() after fechaEscolhas() if another is open. Keyboard nav inside menus: focus first .opcao so arrows/Enter work (menu buttons are native <button>, add ArrowUp/Down handler optional, effort slider already handles arrows while open per comment at line 1073)."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1005,
+   "what": "cicloModo(): const ordem = [...$('modo').options].map(o=>o.value) but exclude 'bypassPermissions' from the cycle unless currently in it (Claude Code Desktop cycles default->acceptEdits->plan->auto; bypass only when enabled). Next = ordem[(i+1)%n]; $('modo').value = next; $('modo').dispatchEvent(new Event('change')); atualizaEscolhas() (that is exactly what escolhe() does at line 1053). Show brief nota() with the new mode name (nota exists, app.js:998). Decision for bypass: cycle skips it; it is only reachable via picker + confirmation, so Ctrl+Shift+M never triggers the dialog."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 662,
+   "what": "$('enviar').onclick = () => (rodando ? vivo.parar() : envia()). interrompe() = () => { if (rodando) vivo.parar(); } (rodando is the module var at line 58, set by setRodando line 380). Reuse the same call; no duplicate stop logic."
+  },
+  {
+   "file": "src/renderer/os.js",
+   "line": 264,
+   "what": "Esc handler: fechaRadial() + close janelinhas that are focus-within. Because it is a window bubble listener registered after app.js's or before (script order), the interrupt must not fire when this closes something. In fechaAlgo(e) also treat `document.querySelector('.janelinha:focus-within:not(.fixa)')` and `$('radial')?.classList.contains('on')` (os.js:256-258 radial) as 'something open' and return true without closing (os.js closes them). Alternative with less coupling: have fechaAlgo only report, and make os.js:264 and tarefas.js:96 call e.preventDefault() when they close something; app.js interrompe only if !e.defaultPrevented. Prefer this: add preventDefault in os.js:264 (only when a radial or janelinha was actually closed) and tarefas.js:96, then app.js checks e.defaultPrevented. Listener order across scripts then matters: check index.html script order so os.js/tarefas.js load before the app.js keydown registration, otherwise use the DOM-query approach."
+  },
+  {
+   "file": "src/renderer/tarefas.js",
+   "line": 96,
+   "what": "Esc closes the tasks floating sheet only when document.activeElement===body and no .personal.on/.lightbox.on. This is the case where the user presses Esc with focus on body: must close the sheet and NOT interrupt. Handle via preventDefault/defaultPrevented or by querying '.janelinha' open state as above."
+  },
+  {
+   "file": "src/renderer/terminal.js",
+   "line": 64,
+   "what": "Esc in the terminal input only refocuses the composer (entrada.focus()); it runs on the target, then bubbles to window and would interrupt the Claude turn. Add e.stopPropagation() there (or e.preventDefault()) so Esc in the terminal does not interrupt."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 855,
+   "what": "Inline rename/create inputs (app.js:855, 946, painel.js:205) use Enter/Escape to commit/cancel on the target; Esc bubbles to window and would interrupt. Add stopPropagation in these three onkeydown handlers for Escape (or make interrompe ignore events whose target is an INPUT other than #entrada: `e.target.closest('input,textarea') && e.target !== entrada`). The target-based guard is KISS and covers all current and future inputs (perm-fb feedback input in app.js:327 too, plus personalizar inputs)."
+  },
+  {
+   "file": "src/renderer/app.js",
+   "line": 1740,
+   "what": "abreAtalhos() list A: add rows [\"Esc\", \"Interromper a resposta (se nada estiver aberto, fecha menus e painéis)\"] replacing the existing 'Fechar menus e painéis' row, plus ['Ctrl + Shift + M','Alternar o modo de permissão'], ['Ctrl + Shift + L','Escolher o modelo'], ['Ctrl + Shift + E','Escolher o esforço'], ['Ctrl + Shift + P','Escolher as permissões']. Rows are Portuguese keys passed through esc() and translated by the i18n runtime."
+  },
+  {
+   "file": "src/renderer/i18n/parts/app.json",
+   "line": 252,
+   "what": "Add pt->en/vi entries for every new string: shortcut descriptions (neighbor entries at lines 252, 255 show the format), 'Ignorar permissões' (option label), the bypass description, the mode toast text. app.json:143 is where the auto description lives. Option labels live in html-extras-themes.json:150-165 (format is multi-line); put 'Ignorar permissões' there next to 'Automático'."
+  },
+  {
+   "file": "src/main.js",
+   "line": 1700,
+   "what": "globalShortcut Ctrl+Shift+Space is unaffected. Esc must stay an in-window DOM handler (not globalShortcut) so it never steals Esc system-wide."
+  },
+  {
+   "file": "README.md",
+   "line": 0,
+   "what": "Update the shortcut/permission-mode mention only if README lists them (docs impact: user-visible behavior). Not verified, grep README for 'Ctrl+K' or 'Automático'."
+  }
+ ],
+ "design": "1) Main process (src/main.js).\n - Line 125: MODOS = [\"default\",\"acceptEdits\",\"plan\",\"auto\",\"bypassPermissions\"]. Line 951: keep plan approval from landing in bypass: `MODOS.includes(modo) && modo !== \"plan\" && modo !== \"bypassPermissions\"`.\n - query options (line 591-607): add allowDangerouslySkipPermissions: true. Required by the SDK to enter bypass at start or via q.setPermissionMode('bypassPermissions') (Query.setPermissionMode accepts PermissionMode which includes 'bypassPermissions'; source: code.claude.com/docs/en/agent-sdk permissions page). aplicaNoTurno (line 133) needs no change; refusal flows to t.reiniciar.\n - ipcMain.handle('config', line 1558): new helper `async function confirmaBypass(j)` => dialog.showMessageBox(j.win, {type:'warning', buttons:[T('Cancelar'),T('Ativar')], defaultId:0, cancelId:0, noLink:true, message:'Ignorar todas as permissões?', detail:'O Claude vai editar arquivos e rodar comandos sem pedir aprovação. Use só em pastas e projetos em que você confia.'}).then(r=>r.response===1). In the handler: `if (modo === 'bypassPermissions' && cfgJ(j).modo !== 'bypassPermissions' && !(await confirmaBypass(j))) { avisaConfig(); return {...config, ...cfgJ(j), depois: []}; }` (modo is destructured at line 1559). Need to check how the main process translates strings (DICIONARIO/idioma() at line 1569) and reuse that helper for the dialog text, fall back to pt.\n - No new IPC for Esc: reuse ipcMain.handle('parar', line 937) via preload vivo.parar.\n2) Renderer (src/renderer/app.js).\n - Registry: in montaEscolha (1047) add `botoes[id] = btn`. `const abreEscolhaDe = (id) => { if (popAberto && popAberto !== botoes[id].nextElementSibling) fechaEscolhas(); botoes[id].click(); botoes[id].nextElementSibling.querySelector('.opcao.on, .esf-col')?.focus?.(); }`.\n - `function cicloModo()`: ordem = ['default','acceptEdits','plan','auto']; cur = $('modo').value; next = ordem[(ordem.indexOf(cur)+1)%ordem.length] (from bypass, indexOf=-1 so it goes to 'default'); set $('modo').value, dispatch 'change' (reuses guardaEscolha => vivo.config), atualizaEscolhas(), nota(label). bypass is deliberately not in the cycle so the shortcut can never trigger the confirmation dialog.\n - `const interrompe = () => { if (rodando) vivo.parar(); }`.\n - `function fechaAlgo()` returns true if any of: picker.classList.contains('open'), menu 'on', comandosEl 'on', popAberto, creditos 'on', personal 'on', somPop 'on', remotoPop 'on' (the exact set at line 1155); closes them via the same fechaX functions and returns true. Lightbox (611 capture) and mention/command menus (444/450 stopPropagation) already take priority and never reach it. os.js radial/janelinhas and tarefas.js sheet: make them e.preventDefault() when they close something (os.js:264, tarefas.js:96) and have the window handler do `if (e.defaultPrevented) return;` first; or check script order in index.html. Also ignore Esc whose target is an input/textarea other than #entrada (rename inputs, perm-fb, bibBusca, terminal input) and ignore e.isComposing (IME, user types Vietnamese) and e.repeat.\n - Window keydown (line 1148-1156): `if (e.key==='Escape') { if (!e.defaultPrevented && !fechaAlgo() && !inputAlheio(e)) interrompe(); }`, plus shortcuts using e.code: Ctrl+Shift+KeyM => cicloModo(); Ctrl+Shift+KeyL => abreEscolhaDe('modelo'); Ctrl+Shift+KeyE => abreEscolhaDe('esforco'); Ctrl+Shift+KeyP => abreEscolhaDe('modo'); each preventDefault + return, placed next to the Ctrl+Shift+N rule (line 1149). Chosen letters avoid existing Ctrl+N/B/K/J/`/ and Ctrl+Shift+N; verify none collide with the Electron default menu accelerators (DevTools Ctrl+Shift+I, reload Ctrl+R).\n - Remove line 453 fechaPicker (window handler owns it) and stopPropagation the bibBusca Esc (1374).\n - Bypass UI: option in index.html:116, ESCOLHAS.modo.itens description, ICONES_MODO icon, optional red .chip style when value is bypassPermissions. Cancel path: main calls avisaConfig() which sends {tipo:'config',...} and the renderer's config case runs mostraEscolhas to revert the select value.\n - abreAtalhos (1740): add the four shortcut rows and reword the Esc row; add i18n keys in src/renderer/i18n/parts/app.json (shortcuts, bypass description) and html-extras-themes.json (option label).\n3) Edge cases: Esc with no running turn is a no-op; pending permission card (t.pendentes) during a turn: interrupt aborts via signal handler line 617 which denies pending cards, acceptable (matches CLI). Interrupt while remote-controlled turn works the same (a.ativo check in 'parar'). Bypass is per-conversation (guardaCfg), does not become the global default for new chats because mudaConfig with id writes porSessao only; for a brand-new unsaved chat (no id) Object.assign(config, m) would persist bypass as the default, so in that branch (main.js:1547) downgrade: do not persist bypassPermissions into config.modo (store 'auto'... or apply to session only), to avoid new conversations silently starting in bypass.",
+ "files_to_modify": [
+  "F:/Nam/UIT/Claudie/src/main.js",
+  "F:/Nam/UIT/Claudie/src/renderer/app.js",
+  "F:/Nam/UIT/Claudie/src/renderer/index.html",
+  "F:/Nam/UIT/Claudie/src/renderer/os.js",
+  "F:/Nam/UIT/Claudie/src/renderer/tarefas.js",
+  "F:/Nam/UIT/Claudie/src/renderer/terminal.js",
+  "F:/Nam/UIT/Claudie/src/renderer/painel.js",
+  "F:/Nam/UIT/Claudie/src/renderer/i18n/parts/app.json",
+  "F:/Nam/UIT/Claudie/src/renderer/i18n/parts/html-extras-themes.json",
+  "F:/Nam/UIT/Claudie/src/renderer/style.css (optional bypass chip accent; locate the actual stylesheet)"
+ ],
+ "reuse": [
+  "src/main.js:937 ipcMain 'parar' (interrupt with abort fallback) and src/preload.cjs:8 vivo.parar for Esc",
+  "src/main.js:130 aplicaNoTurno + :1541 mudaConfig + :1558 'config' IPC for mode changes (live setPermissionMode, reiniciar fallback, avisaConfig revert)",
+  "src/main.js:6 dialog already imported for the confirmation",
+  "src/renderer/app.js:1004 guardaEscolha / :1005 mostraEscolhas / :1053 escolhe() change-dispatch pattern for cicloModo",
+  "src/renderer/app.js:1041-1045 fechaEscolhas/abreEscolha toggling for opening pickers by shortcut",
+  "src/renderer/app.js:662 enviar button already uses rodando ? vivo.parar() : envia()",
+  "src/renderer/app.js:1739 abreAtalhos list A for the Ctrl+/ shortcuts",
+  "src/renderer/app.js:444,450,611 existing stopPropagation/stopImmediatePropagation Esc priority for menus and lightbox",
+  "src/renderer/app.js:998 nota() toast for mode feedback"
+ ],
+ "verification": [
+  "node --check src/main.js && node --check src/renderer/app.js && node --check src/renderer/os.js && node --check src/renderer/tarefas.js && node --check src/renderer/terminal.js && node --check src/renderer/painel.js",
+  "Validate JSON of the two edited i18n parts: node -e \"JSON.parse(require('fs').readFileSync('src/renderer/i18n/parts/app.json','utf8'))\" (and html-extras-themes.json)",
+  "Launch the app per README Testing section; start a long turn, press Esc with composer focused: turn stops. Open model picker then Esc: only the picker closes, turn keeps running; second Esc interrupts",
+  "Esc priority checks: with lightbox open, @ mention menu, / command menu, shortcut list (Ctrl+/), Customize panel, a focused janelinha, the tasks sheet, the terminal input, a rename input: Esc only closes that surface and never interrupts",
+  "Press Ctrl+Shift+M repeatedly: chip cycles Ask, Accept edits, Plan, Auto and wraps; works mid-turn (check q.setPermissionMode applied, config.json porSessao updated)",
+  "Ctrl+Shift+L / E / P open model, effort, permissions menus; pressing again closes",
+  "Pick Ignorar permissoes: native warning dialog appears; Cancel reverts the chip and config.json, Activate sets modo=bypassPermissions in porSessao and a Bash/Edit tool call runs without a permission card; confirm init event reports permissionMode bypassPermissions",
+  "Restart the app and open an existing conversation in bypass: it resumes in bypass; a brand-new conversation starts with the default (auto), not bypass",
+  "Plan approval card still offers only default/acceptEdits/auto",
+  "Ctrl+/ list shows the new rows in pt, en and vi (VIVO_JS + VIVO_FOTO screenshot from README Testing)"
+ ],
+ "open_questions": [
+  "Shortcut letters for model/effort/permission pickers: Desktop only documents Ctrl+Shift+M for cycling mode; Ctrl+Shift+L/E/P are proposed and need a collision check with Electron menu accelerators (is a default menu set in main.js, or Menu.setApplicationMenu(null)?).",
+  "Should bypassPermissions be in the Ctrl+Shift+M cycle? Proposed no (so the shortcut never raises the dialog); Desktop cycles it only when enabled.",
+  "Confirm in main via dialog.showMessageBox vs renderer confirm() (painel.js uses confirm). Main chosen; need the translation helper available in main for the dialog text (DICIONARIO at main.js:1569).",
+  "Bypass for a brand-new chat with no sessionId: mudaConfig writes config.modo (main.js:1547); decide whether to refuse persisting bypass as the global default. Proposed: never persist it as default.",
+  "Esc during a pending permission/AskUserQuestion card: interrupt (abort denies the card). Acceptable, or should Esc dismiss the card only?",
+  "The README Testing section and docs were not read, so doc impact is unverified.",
+  "Whether the SDK refuses bypassPermissions when running as root or under managed policy (disableBypassPermissionsMode): setPermissionMode would throw and the existing t.reiniciar path restarts, which may loop; verify against SDK docs and consider surfacing an aviso when the init event's permissionMode differs from requested."
+ ]
+}

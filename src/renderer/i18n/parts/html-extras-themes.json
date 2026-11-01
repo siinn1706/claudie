@@ -163,6 +163,10 @@
     "en": "Auto",
     "vi": "Tự động"
   },
+  "Ignorar permissões": {
+    "en": "Bypass permissions",
+    "vi": "Bỏ qua quyền"
+  },
   "Quanto o Claude pensa antes de responder": {
     "en": "How much Claude thinks before replying",
     "vi": "Mức độ Claude suy nghĩ trước khi trả lời"

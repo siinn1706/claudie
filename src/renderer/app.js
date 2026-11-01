@@ -450,7 +450,6 @@ entrada.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { e.stopPropagation(); fechaComandos(); return; }
   }
   if (e.key === "Enter" && !e.shiftKey && (geral().enviar !== "ctrl" || e.ctrlKey)) { e.preventDefault(); envia(); }
-  if (e.key === "Escape") fechaPicker();
 });
 const ajustaAltura = () => { entrada.style.height = "auto"; entrada.style.height = Math.min(240, entrada.scrollHeight) + "px"; };
 entrada.addEventListener("input", () => { ajustaAltura(); atualizaEnviar(); cmdSel = 0; mencSel = 0; mostraComandos(); mostraMencoes(); });
@@ -1002,9 +1001,10 @@ async function novaNoProjeto(cwd) {
 const mostraPasta = (p) => { $("pastaNome").textContent = p.split(/[\\/]/).pop() || p; $("pasta").title = p; const b = col.querySelector(".boas-pasta span"); if (b) b.textContent = $("pastaNome").textContent; };
 // Choices belong to this conversation; what a running turn cannot take applies from the next message.
 const guardaEscolha = (m) => vivo.config(m).then((r) => { if (rodando && r?.depois?.length) nota("Vale a partir da próxima mensagem."); });
-const mostraEscolhas = (c) => { $("modo").value = c.modo || "default"; $("modelo").value = c.model || ""; $("esforco").value = c.esforco || ""; ultracode = !!c.ultracode; atualizaEscolhas(); };
+let modoPendente = null;
+const mostraEscolhas = (c) => { if (c.modo === modoPendente) modoPendente = null; $("modo").value = c.modo || "default"; $("modelo").value = c.model || ""; $("esforco").value = c.esforco || ""; ultracode = !!c.ultracode; atualizaEscolhas(); };
 $("modelo").onchange = () => guardaEscolha({ model: $("modelo").value });
-$("modo").onchange = () => guardaEscolha({ modo: $("modo").value });
+$("modo").onchange = () => { modoPendente = null; guardaEscolha({ modo: $("modo").value }); };
 $("esforco").onchange = () => guardaEscolha({ esforco: $("esforco").value });
 
 // ---- composer choices ------------------------------------------------------------
@@ -1017,6 +1017,7 @@ const ESCOLHAS = {
     acceptEdits: "Edita arquivos sem perguntar; comandos ainda pedem aprovação.",
     plan: "Só lê e planeja. Não muda nada até você aprovar o plano.",
     auto: "Aprova sozinho o que é seguro e pergunta o resto.",
+    bypassPermissions: "Edita arquivos e roda comandos sem pedir aprovação. Só para projetos em que você confia.",
   } },
   modelo: { titulo: "Modelo", itens: {
     "": "O modelo padrão do seu Claude Code.",
@@ -1043,7 +1044,7 @@ function abreEscolha(pop) {
   const ja = popAberto === pop; fechaEscolhas(); if (ja) return;
   pop.classList.add("on"); pop.previousElementSibling.setAttribute("aria-expanded", "true"); popAberto = pop;
 }
-const escolhas = [];
+const escolhas = [], botoesEscolha = {};
 function montaEscolha(id, desenhaPop, rotulo, iconeDe) {
   const sel = $(id), velho = sel.closest(".chip"), icone = velho.querySelector("svg").outerHTML;
   const caixa = document.createElement("div"), btn = document.createElement("button"), pop = document.createElement("div");
@@ -1051,7 +1052,8 @@ function montaEscolha(id, desenhaPop, rotulo, iconeDe) {
   pop.className = "escolha-pop"; pop.setAttribute("role", "dialog");
   caixa.append(btn, pop); velho.replaceWith(caixa); caixaSelects.append(sel);
   const escolhe = (v) => { sel.value = v; sel.dispatchEvent(new Event("change")); atualiza(); };
-  const atualiza = () => { btn.innerHTML = `${iconeDe ? iconeDe(sel) : icone}<span>${esc(rotulo(sel))}</span>${seta}`; btn.title = ESCOLHAS[id]?.titulo || "Esforço"; desenhaPop(pop, sel, escolhe); };
+  botoesEscolha[id] = btn;
+  const atualiza = () => { btn.classList.toggle("perigo", sel.value === "bypassPermissions"); btn.innerHTML = `${iconeDe ? iconeDe(sel) : icone}<span>${esc(rotulo(sel))}</span>${seta}`; btn.title = ESCOLHAS[id]?.titulo || "Esforço"; desenhaPop(pop, sel, escolhe); };
   btn.onclick = (e) => { e.stopPropagation(); abreEscolha(pop); };
   pop.onclick = (e) => e.stopPropagation();
   escolhas.push(atualiza); atualiza();
@@ -1062,11 +1064,12 @@ const ICONES_MODO = {
   acceptEdits: svg('<path d="M14.5 5.5 18.5 9.5 9 19H5v-4z"/><path d="m13 7 4 4"/>'),
   plan: svg('<rect x="4.5" y="4" width="15" height="16.5" rx="2"/><path d="M8.5 9h7M8.5 12.5h7M8.5 16h4"/>'),
   auto: svg('<path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.6 2.6M15.4 15.4 18 18M6 18l2.6-2.6M15.4 8.6 18 6"/>'),
+  bypassPermissions: svg('<path d="M12 4 3.5 19h17z"/><path d="M12 10v4M12 16.8v.2"/>'),
 };
 const menuEscolha = (id) => (pop, sel, escolhe) => {
   const info = ESCOLHAS[id], icones = id === "modo" ? ICONES_MODO : null;
   pop.innerHTML = `<div class="pop-titulo">${info.titulo}</div>` + [...sel.options].map((o) => `<button class="opcao${o.value === sel.value ? " on" : ""}${icones ? " com-icone" : ""}" data-v="${esc(o.value)}">${icones ? `<span class="op-icone">${icones[o.value] || ""}</span>` : ""}<b>${esc(o.textContent)}</b><small>${esc(info.itens[o.value] || "")}</small>${ICONE.ok}</button>`).join("");
-  pop.querySelectorAll(".opcao").forEach((b) => (b.onclick = () => { escolhe(b.dataset.v); fechaEscolhas(); }));
+  pop.querySelectorAll(".opcao").forEach((b) => (b.onclick = () => { escolhe(b.dataset.v); fechaEscolhas(); if (!document.activeElement || document.activeElement === document.body) entrada.focus(); }));
 };
 montaEscolha("modo", menuEscolha("modo"), (s) => s.selectedOptions[0]?.textContent || "", (s) => ICONES_MODO[s.value] || ICONES_MODO.default);
 montaEscolha("modelo", menuEscolha("modelo"), (s) => s.selectedOptions[0]?.textContent || "");
@@ -1152,8 +1155,55 @@ addEventListener("keydown", (e) => {
   if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); pulaPrompt(e.key === "ArrowUp" ? -1 : 1); }
   if (e.ctrlKey && e.key === "/") { e.preventDefault(); creditos.classList.contains("on") ? fechaCreditos() : abreAtalhos(); }
   if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); recolhe(false); $("busca").focus(); $("busca").select(); }
-  if (e.key === "Escape") { fechaPicker(); fechaMenu(); fechaComandos(); fechaEscolhas(); fechaCreditos(); fechaPersonal(); somPop.classList.remove("on"); remotoPop.classList.remove("on"); }
+  if (e.ctrlKey && e.shiftKey && !e.altKey) {
+    const acao = { KeyM: cicloModo, KeyI: () => abreEscolhaDe("modelo"), KeyE: () => abreEscolhaDe("esforco"), KeyP: () => abreEscolhaDe("modo") }[e.code];
+    if (acao) { e.preventDefault(); acao(); return; }
+  }
+  if (e.key === "Escape") {
+    if (e.isComposing || e.keyCode === 229 || e.repeat) return;
+    const fechou = fechaAlgo();
+    if (fechou === "fechou") {
+      const a = document.activeElement;
+      if (!a || a === document.body || a.closest(".escolha-pop:not(.on)")) entrada.focus();
+    } else if (!fechou && !inputAlheio(e)) interrompe();
+  }
 });
+
+// ---- Esc and picker shortcuts ------------------------------------------------------------
+// Esc closes whatever is open first; with nothing open it interrupts the running turn.
+const interrompe = () => { if (rodando) vivo.parar(); };
+const inputAlheio = (e) => e.target.closest?.("input, textarea") && e.target !== entrada;
+const tarefasAbertaSemFoco = () => tfSheet && !tfSheet.j.el.classList.contains("fixa") && document.activeElement === document.body;
+// True when Esc had something to close. What this file owns is closed here; the radial menu,
+// floating windows and tasks sheet are only detected, their own handlers close them.
+function fechaAlgo() {
+  const aberto = picker.classList.contains("open") || menu.classList.contains("on") || comandosEl.classList.contains("on") || mencoesEl.classList.contains("on") || popAberto
+    || creditos.classList.contains("on") || $("personal").classList.contains("on") || somPop.classList.contains("on") || remotoPop.classList.contains("on");
+  if (aberto) {
+    fechaPicker(); fechaMenu(); fechaComandos(); fechaMencoes(); fechaEscolhas(); fechaCreditos(); fechaPersonal();
+    somPop.classList.remove("on"); remotoPop.classList.remove("on");
+    return "fechou";
+  }
+  return !!document.querySelector(".radial.on, .janelinha:not(.fixa):focus-within") || !!tarefasAbertaSemFoco();
+}
+function abreEscolhaDe(id) {
+  const btn = botoesEscolha[id]; if (!btn) return;
+  btn.click();
+  if (btn.getAttribute("aria-expanded") !== "true") { entrada.focus(); return; }
+  const pop = btn.nextElementSibling;
+  (pop.querySelector(".opcao.on, .esf-col.sel, .esf-auto.sel") || pop.querySelector("button"))?.focus();
+}
+// Ask, Accept edits, Plan, Auto and around; bypass is never reached from here.
+function cicloModo() {
+  const ordem = ["default", "acceptEdits", "plan", "auto"], sel = $("modo");
+  const proximo = ordem[(ordem.indexOf(modoPendente ?? sel.value) + 1) % ordem.length];
+  sel.value = proximo;
+  sel.dispatchEvent(new Event("change"));
+  modoPendente = proximo;
+  setTimeout(() => { if (modoPendente === proximo) modoPendente = null; }, 3000);
+  atualizaEscolhas();
+  nota(t("Modo: {0}", sel.selectedOptions[0]?.textContent || ""));
+}
 
 // ---- wallpaper and themes ---------------------------------------------------
 const OPT_BIG = { cw: 14, ch: 20, ss: 3 };
@@ -1371,7 +1421,6 @@ $("bibN").textContent = PECAS.size;
 }
 let timerBusca = null;
 $("bibBusca").addEventListener("input", () => { clearTimeout(timerBusca); timerBusca = setTimeout(filtraBib, 160); });
-$("bibBusca").addEventListener("keydown", (e) => { if (e.key === "Escape") fechaPicker(); });
 function filtraBib() {
   // Each word matches the start of a word (so "cat" finds cats, not "location").
   const termos = $("bibBusca").value.toLowerCase().split(/\s+/).filter(Boolean).map((t) => new RegExp("(^|[^a-z0-9])" + t.replace(/[^a-z0-9à-ú-]/g, "")));
@@ -1738,7 +1787,7 @@ function avisaSistema(titulo, corpo) {
 // ---- shortcuts ---------------------------------------------------------------------------
 function abreAtalhos() {
   const A = [["Enter", "Enviar (com o Claude trabalhando, entra na resposta em andamento)"], ["Ctrl + X, Ctrl + S", "Enviar agora"], ["Shift + Enter", "Nova linha"], ["/", "Comandos do app e do Claude Code"], ["Ctrl + N", "Nova conversa"], ["Ctrl + Shift + N", "Nova janela"], ["Ctrl + K", "Buscar nas conversas"],
-    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Fechar menus e painéis"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"]];
+    ["Ctrl + B", "Mostrar ou esconder a barra lateral"], ["Ctrl + J", "Mostrar ou esconder os detalhes"], ["Alt + ↑ / ↓", "Pular entre as suas mensagens"], ["Ctrl + V", "Colar imagem como anexo"], ["Esc", "Interromper a resposta (se nada estiver aberto, fecha menus e painéis)"], ["Ctrl + Shift + M", "Alternar o modo de permissão"], ["Ctrl + Shift + I", "Escolher o modelo"], ["Ctrl + Shift + E", "Escolher o esforço"], ["Ctrl + Shift + P", "Escolher as permissões"], ["Ctrl + /", "Esta lista"], ["Ctrl + Shift + Espaço", "Mostrar o Claudie de qualquer lugar"]];
   creditosCaixa.innerHTML = `<div class="cred-topo"><span class="marca"><b>Atalhos</b></span><button class="icone" id="fechaCreditos" title="Fechar (Esc)">${ICONE.erro}</button></div>
     <section class="atalhos">${A.map(([k, d]) => `<div><kbd>${esc(k)}</kbd><span>${esc(d)}</span></div>`).join("")}</section>`;
   creditosCaixa.querySelector("#fechaCreditos").onclick = fechaCreditos;
