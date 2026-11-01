@@ -15,7 +15,7 @@ import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { acharClaudeExe, acharClaudeExeAsync, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
-import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo, listaApps, appsMencionados, preAprova, esquecePreAprovados, linhaApps } from "./computador.js";
+import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo, listaApps, appsMencionados, preAprova, linhaApps } from "./computador.js";
 import { iniciaNavegador, FERRAMENTAS_NAVEGADOR, PROMPT_NAVEGADOR } from "./navegador.js";
 import { iniciaAgenda, traduzErro, validaRepete, proximaExecucao } from "./agendadas.js";
 import { nomeMcpValido, idPluginValido, fonteMercadoValida, lerSkills, criarSkill, apagarSkill, caminhoSkill, pastaDeSkills, catalogo, ansi, redige, ringLog } from "./extensoes.js";
@@ -615,7 +615,7 @@ function comecaTurno(t, uuid, comando) {
 }
 // The turn is over; the conversation's Claude Code stays open for the next one.
 function fimDoTurno(t, aviso) {
-  liberaControle(t); esquecePreAprovados(t);
+  liberaControle(t);
   // A turn that ends (or a process that dies while idle) must not leave cards waiting for an answer.
   for (const id of [...t.pendentes.keys()]) {
     pendentes.get(id)?.resolve({ behavior: "deny", message: "Cancelado." }); pendentes.delete(id);

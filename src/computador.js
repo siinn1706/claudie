@@ -116,19 +116,13 @@ export async function appsMencionados(t, exes, cfg) {
   }
   return concedidos;
 }
-// Approves those apps for the turn, so the first-touch card is skipped for them. The tier is still enforced on every action.
+// Approves those apps for the rest of the conversation, like the first-touch card does. The tier is still enforced on every action.
 export function preAprova(t, concedidos) {
   const cu = (t.cu ||= novoCu());
-  for (const a of concedidos) if (!cu.apps.has(a.exe)) { cu.apps.add(a.exe); cu.doTurno.add(a.exe); }
+  for (const a of concedidos) cu.apps.add(a.exe);
 }
-// The turn is over: the approvals that came from mentions end with it.
-export function esquecePreAprovados(t) {
-  if (!t?.cu?.doTurno.size) return;
-  for (const exe of t.cu.doTurno) t.cu.apps.delete(exe);
-  t.cu.doTurno.clear();
-}
-export const linhaApps = (concedidos) => (concedidos.length ? `The user granted computer control of: ${concedidos.map((a) => `${a.nome} (${a.exe}, ${NOME_NIVEL[a.nivel]})`).join(", ")}, for this turn.` : "");
-const novoCu = () => ({ apps: new Set(), doTurno: new Set(), ativo: false, n: 0, gen: 0, controles: new Set(), mapa: null });
+export const linhaApps = (concedidos) => (concedidos.length ? `The user granted computer control of: ${concedidos.map((a) => `${a.nome} (${a.exe}, ${NOME_NIVEL[a.nivel]})`).join(", ")}, for this conversation.` : "");
+const novoCu = () => ({ apps: new Set(), ativo: false, n: 0, gen: 0, controles: new Set(), mapa: null });
 
 // ---- Win32 -----------------------------------------------------------------------------
 const VK_MODS = { ctrl: 0x11, control: 0x11, shift: 0x10, alt: 0x12, option: 0x12, super: 0x5b, win: 0x5b, windows: 0x5b, meta: 0x5b, cmd: 0x5b, command: 0x5b };
