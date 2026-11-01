@@ -1273,7 +1273,8 @@ function montaEscolha(id, desenhaPop, rotulo, iconeDe) {
   const escolhe = (v) => { sel.value = v; sel.dispatchEvent(new Event("change")); atualiza(); };
   botoesEscolha[id] = btn;
   const atualiza = () => { btn.classList.toggle("perigo", sel.value === "bypassPermissions"); btn.innerHTML = `${iconeDe ? iconeDe(sel) : icone}<span>${esc(rotulo(sel))}</span>${seta}`; btn.title = ESCOLHAS[id]?.titulo || "Esforço"; desenhaPop(pop, sel, escolhe); };
-  btn.onclick = (e) => { e.stopPropagation(); abreEscolha(pop); };
+  // drawn again on open, so what it reads from main (the apps this conversation allowed) is current
+  btn.onclick = (e) => { e.stopPropagation(); desenhaPop(pop, sel, escolhe); abreEscolha(pop); };
   pop.onclick = (e) => e.stopPropagation();
   escolhas.push(atualiza); atualiza();
 }
@@ -1295,6 +1296,7 @@ const menuEscolha = (id) => (pop, sel, escolhe) => {
     pop.querySelector(".esf-ultra .chave").onclick = () => { computador = !computador; guardaEscolha({ computador }); atualizaEscolhas(); };
     // The apps this conversation already allowed; × takes one back, so it asks again next time.
     if (computador) vivo.computadorAprovados().then((l) => {
+      pop.querySelector(".cu-aprovados")?.remove();
       if (!l?.length || !pop.isConnected) return;
       const caixa = document.createElement("div"); caixa.className = "cu-aprovados";
       caixa.innerHTML = `<small>${t("Apps permitidos nesta conversa")}</small>` + l.map((a) => `<span class="cu-app">${esc(a.exe)} <em>${t(NIVEL_ROTULO[a.nivel] || NIVEL_ROTULO.total)}</em><button title="${t("Revogar")}" data-exe="${esc(a.exe)}">${ICONE.erro}</button></span>`).join("");
