@@ -201,7 +201,7 @@ $("somMusica").querySelector(".mus-prox").onclick = () => { if (!VIS.musica?.lig
 
 // ---- the panel ------------------------------------------------------------------------------
 const personal = $("personal"), caixaP = $("personalCaixa");
-const ABAS = [["geral", "Geral"], ["fundo", "Fundo"], ["cores", "Cores"], ["fontes", "Fontes"], ["sons", "Sons"], ["musica", "Música"], ["app", "Ícone e nome"]];
+const ABAS = [["geral", "Geral"], ["fundo", "Fundo"], ["cores", "Cores"], ["fontes", "Fontes"], ["sons", "Sons"], ["musica", "Música"], ["app", "Ícone e nome"], ["plugins", "Plugins"], ["skills", "Skills"], ["conectores", "Conectores"]];
 let abaP = "geral";
 const PALETAS = [
   ["Claude", { acento: "#d97757", vidro: "#110f0e" }], ["Oceano", { acento: "#3fb6d9", vidro: "#071a24" }], ["Neon", { acento: "#ff3ea5", vidro: "#0d0618" }],
@@ -218,6 +218,7 @@ const FMT = { pct, px: (v) => v + "px", n: (v) => v };
 async function desenhaAba() {
   const corpoP = caixaP.querySelector(".pz-corpo");
   caixaP.querySelectorAll(".pz-nav button").forEach((b) => b.classList.toggle("on", b.dataset.aba === (abaP === "we" ? "fundo" : abaP)));
+  if (window.desenhaExtensoes?.(abaP, corpoP, nota)) return;
   let h = "";
   if (abaP === "geral") {
     h = `<h3>Geral</h3><p class="pz-desc">Como o Claudie se comporta.</p>

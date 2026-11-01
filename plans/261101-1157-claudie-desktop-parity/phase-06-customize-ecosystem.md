@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Customize: plugins, skills, MCP logs, connector catalog and auth"
-status: pending
+status: completed
 priority: P2
 effort: "1.5 days"
 dependencies: []
@@ -82,20 +82,20 @@ Add Plugins, Skills and Connectors (catalog, sign-in, logs) tabs to the existing
 
 ## Tasks & Steps
 
-1. [ ] Spike (read-only): confirm from docs whether a dedicated per-skill disable setting exists and whether MCP debug output needs `debug-to-stderr`; record as two lines in the commit body, not in code comments.
-2. [ ] Run `claude plugin list --json --available`, `plugin marketplace list --json`, `claude mcp login --help`, `plugin install --help`; confirm shapes, `--scope` vs `-s`, `--keep-data`, whether `--` is accepted, and that `list --available` is `{installed, available}`.
-3. [ ] Create `src/extensoes.js`; exercise `lerSkills` (quoted, block-scalar, symlink, underscore/capital folder names), `criarSkill` (description with `:`/`#`), `caminhoSkill` traversal rejection, `redige`, `ringLog` with `node -e` against a temp dir.
-4. [ ] Extend `claudeCli` (opc) and write standalone `claudeJson` (maxBuffer, stdin end, parse on non-zero exit, tree kill on timeout).
-5. [ ] Add `nomeMcpValido` check at the top of `mcp_acao`; add `stderr` hook in `query()`, `logsMcp`, `nomesMcp`, redaction, failed-error push in `painel`, and `mcp_logs`/`mcp_logs_limpar`.
-6. [ ] Extract `adicionaMcp`; add `conectores_catalogo` and write `catalogo-conectores.json` with verified URLs/transports.
-7. [ ] Implement `mcp_acao` `entrar`/`sair`/`terminal` (cwd, single login, `before-quit` kill, timer cleanup, generalized `linhasPara`, reconnect, `reabreConversas`).
-8. [ ] Implement `plugins_lista`, `plugin_acao`, `mercado_acao` with validation, `filaPlugins` and cache invalidation.
-9. [ ] Implement skills IPC; `skill_criar`/`skill_apagar` drop `comandos|*` and call `reabreConversas()`.
-10. [ ] Add preload bridges.
-11. [ ] Build `extensoes.js` tabs (render tokens, escaping, empty state); hook into `personalizar.js`; script tag and CSS.
-12. [ ] Update `painel.js` controls (Entrar, Sair, Logs, Catálogo, `mcpAbreForm`).
-13. [ ] Write `i18n/parts/extensoes.json` (en + vi) covering every new Portuguese string, including `painel.js` ones.
-14. [ ] Update README; run Verification; commit `feat(customize): manage plugins, skills and connectors from Customize`.
+1. [x] Spike (read-only): confirm from docs whether a dedicated per-skill disable setting exists and whether MCP debug output needs `debug-to-stderr`; record as two lines in the commit body, not in code comments.
+2. [x] Run `claude plugin list --json --available`, `plugin marketplace list --json`, `claude mcp login --help`, `plugin install --help`; confirm shapes, `--scope` vs `-s`, `--keep-data`, whether `--` is accepted, and that `list --available` is `{installed, available}`.
+3. [x] Create `src/extensoes.js`; exercise `lerSkills` (quoted, block-scalar, symlink, underscore/capital folder names), `criarSkill` (description with `:`/`#`), `caminhoSkill` traversal rejection, `redige`, `ringLog` with `node -e` against a temp dir.
+4. [x] Extend `claudeCli` (opc) and write standalone `claudeJson` (maxBuffer, stdin end, parse on non-zero exit, tree kill on timeout).
+5. [x] Add `nomeMcpValido` check at the top of `mcp_acao`; add `stderr` hook in `query()`, `logsMcp`, `nomesMcp`, redaction, failed-error push in `painel`, and `mcp_logs`/`mcp_logs_limpar`.
+6. [x] Extract `adicionaMcp`; add `conectores_catalogo` and write `catalogo-conectores.json` with verified URLs/transports.
+7. [x] Implement `mcp_acao` `entrar`/`sair`/`terminal` (cwd, single login, `before-quit` kill, timer cleanup, generalized `linhasPara`, reconnect, `reabreConversas`).
+8. [x] Implement `plugins_lista`, `plugin_acao`, `mercado_acao` with validation, `filaPlugins` and cache invalidation.
+9. [x] Implement skills IPC; `skill_criar`/`skill_apagar` drop `comandos|*` and call `reabreConversas()`.
+10. [x] Add preload bridges.
+11. [x] Build `extensoes.js` tabs (render tokens, escaping, empty state); hook into `personalizar.js`; script tag and CSS.
+12. [x] Update `painel.js` controls (Entrar, Sair, Logs, Catálogo, `mcpAbreForm`).
+13. [x] Write `i18n/parts/extensoes.json` (en + vi) covering every new Portuguese string, including `painel.js` ones.
+14. [x] Update README; run Verification; commit `feat(customize): manage plugins, skills and connectors from Customize`.
 
 ## Security & Safety
 

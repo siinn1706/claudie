@@ -61,27 +61,35 @@ async function atualizaInfo() {
 // the main process (the SDK for the running query, the Claude Code CLI for the
 // config files); the form draft lives here so a refresh does not wipe it.
 let mcpForm = null, mcpMsg = null, mcpOcupado = "", mcpConfirma = "";
+const mcpLogsAbertos = new Set(), mcpLogTxt = new Map();
+const mcpNomeOk = (n) => /^[\w.-]{1,64}$/.test(n) && !n.startsWith("-");
 const MCP_ESTADO = { connected: "conectado", failed: "falhou", "needs-auth": "precisa de login", pending: "conectando", disabled: "desligado" };
 const MCP_ESCOPO = { user: "todos os projetos", project: "compartilhado no projeto", local: "só neste projeto", claudeai: "claude.ai", managed: "da organização", plugin: "plugin", dynamic: "temporário" };
 function mcpLinha(x) {
-  const claudeai = x.escopo === "claudeai" || x.nome.startsWith("claude.ai "), ocupado = mcpOcupado === x.nome;
+  const claudeai = x.escopo === "claudeai" || x.nome.startsWith("claude.ai "), lg = window.extLogin, entrando = lg?.nome === x.nome && !lg.fim, ocupado = mcpOcupado === x.nome || entrando;
+  const nomeOk = mcpNomeOk(x.nome) && !x.embutido && !claudeai;
   const meta = [x.embutido ? "" : window.t(MCP_ESCOPO[x.escopo] || x.escopo), x.ferramentas == null ? "" : x.ferramentas === 1 ? window.t("1 ferramenta") : window.t("{0} ferramentas", x.ferramentas)].filter(Boolean).join(" · ");
   const bt = (a, txt, cls = "") => `<button class="mcp-bt ${cls}" data-mcp="${a}" data-nome="${esc(x.nome)}" data-escopo="${esc(x.escopo)}"${ocupado ? " disabled" : ""}>${txt}</button>`;
   let acoes = "";
   if (claudeai) acoes = `<button class="mcp-bt" data-mcp-link="https://claude.ai/settings/connectors">Gerenciar no claude.ai</button>`;
   else if (!x.embutido) {
-    acoes = bt(x.estado === "disabled" ? "ligar" : "desligar", x.estado === "disabled" ? "Ligar" : "Desligar");
+    if (x.estado === "needs-auth" && nomeOk) acoes += bt("entrar", "Entrar", "forte");
+    acoes += bt(x.estado === "disabled" ? "ligar" : "desligar", x.estado === "disabled" ? "Ligar" : "Desligar");
     if (x.estado !== "disabled") acoes += bt("reconectar", "Reconectar");
+    if (nomeOk && (x.tipo === "http" || x.tipo === "sse") && x.estado === "connected") acoes += bt("sair", "Sair");
     if (["user", "project", "local"].includes(x.escopo)) acoes += mcpConfirma === x.nome ? bt("remover", "Confirmar remoção", "perigo") : bt("remover", "Remover");
   }
-  return `<div class="con-bloco"><div class="con" title="${esc(x.erro)}"><i class="${x.estado}"></i><span>${esc(x.nome)}</span><em>${ocupado ? "…" : MCP_ESTADO[x.estado] || x.estado}</em></div>`
+  if (nomeOk) acoes += bt("logs", mcpLogsAbertos.has(x.nome) ? "Esconder logs" : "Logs");
+  const entra = lg?.nome === x.nome ? `<p class="ext-msg">${esc(window.extRotuloLogin())}</p><pre class="ext-log" data-login="${esc(x.nome)}"></pre>${lg.fim && lg.codigo !== 0 && dados?.terminalExterno ? `<div class="con-acoes">${bt("terminal", "Abrir no terminal")}</div>` : ""}` : "";
+  const logs = mcpLogsAbertos.has(x.nome) ? `<pre class="ext-log" data-logs="${esc(x.nome)}"></pre><div class="con-acoes">${bt("logs-atualiza", "Atualizar")}${bt("logs-limpa", "Limpar")}</div>` : "";
+  return `<div class="con-bloco"><div class="con" title="${esc(x.erro)}"><i class="${x.estado}"></i><span>${esc(x.nome)}</span><em>${entrando ? window.t("entrando…") : ocupado ? "…" : MCP_ESTADO[x.estado] || x.estado}</em></div>`
     + (meta ? `<div class="con-meta">${esc(meta)}</div>` : "") + (x.erro && x.estado === "failed" ? `<div class="con-erro">${esc(x.erro)}</div>` : "")
-    + (acoes ? `<div class="con-acoes">${acoes}</div>` : "") + `</div>`;
+    + (acoes ? `<div class="con-acoes">${acoes}</div>` : "") + entra + logs + `</div>`;
 }
 function mcpRodape() {
   const f = mcpForm, campo = (n, ph, tipo = "text") => `<input type="${tipo}" data-f="${n}" placeholder="${ph}" value="${esc(f[n] || "")}" spellcheck="false" autocomplete="off">`, area = (n, ph) => `<textarea data-f="${n}" rows="2" placeholder="${ph}" spellcheck="false">${esc(f[n] || "")}</textarea>`;
   const msg = mcpMsg ? `<div class="${mcpMsg.erro ? "con-erro" : "con-ok"}">${esc(mcpMsg.erro || mcpMsg.ok)}</div>` : "";
-  if (!f) return `${msg}<button class="btn mcp-novo" data-mcp-form="abre">Adicionar conector</button>`;
+  if (!f) return `${msg}<button class="btn mcp-novo" data-mcp-form="abre">Adicionar conector</button> <button class="btn mcp-novo" data-mcp-catalogo>Catálogo</button>`;
   const http = f.transporte !== "stdio";
   return `${msg}<div class="mcp-form">
     ${campo("nome", "Nome (ex.: github)")}
@@ -91,11 +99,23 @@ function mcpRodape() {
     ${http ? area("cabecalhos", "Cabeçalhos (Nome: valor, um por linha)") : area("env", "Variáveis (NOME=valor, uma por linha)")}
     <div class="mcp-form-bt"><button class="btn" data-mcp-form="fecha">Cancelar</button><button class="btn forte" data-mcp-form="envia"${mcpOcupado === "novo" ? " disabled" : ""}>Adicionar</button></div></div>`;
 }
+async function mcpCarregaLogs(nome) {
+  const r = await vivo.mcpLogs(nome).catch(() => ({ linhas: [] }));
+  mcpLogTxt.set(nome, r.linhas || []);
+  const pre = [...info.querySelectorAll(".ext-log[data-logs]")].find((p) => p.dataset.logs === nome);
+  if (pre) window.extLogView(pre, r.linhas || []);
+}
 async function mcpExecuta(acao, nome, escopo) {
   if (acao === "remover" && mcpConfirma !== nome) { mcpConfirma = nome; desenhaInfo(); return; }
-  mcpConfirma = ""; mcpOcupado = nome; mcpMsg = null; desenhaInfo();
+  if (acao === "logs") { mcpLogsAbertos.has(nome) ? mcpLogsAbertos.delete(nome) : mcpLogsAbertos.add(nome); desenhaInfo(); return; }
+  if (acao === "logs-atualiza") { mcpCarregaLogs(nome); return; }
+  if (acao === "logs-limpa") { await vivo.mcpLogsLimpar(nome).catch(() => {}); mcpLogTxt.delete(nome); mcpCarregaLogs(nome); return; }
+  mcpConfirma = ""; mcpOcupado = nome; mcpMsg = null;
+  if (acao === "entrar") window.extLoginInicia(nome);
+  desenhaInfo();
   const r = await vivo.mcpAcao(acao, nome, escopo).catch((e) => ({ erro: String(e?.message || e) }));
-  mcpOcupado = ""; mcpMsg = r.erro ? { erro: r.erro } : acao === "remover" && dados?.rodando ? { ok: "Removido. A resposta em andamento só muda na próxima mensagem." } : null;
+  mcpOcupado = "";
+  if (acao === "entrar" && r.erro) window.extLoginInicia(""); mcpMsg = r.erro ? { erro: r.erro } : acao === "remover" && dados?.rodando ? { ok: "Removido. A resposta em andamento só muda na próxima mensagem." } : null;
   desenhaInfo(); atualizaInfo();
 }
 async function mcpEnvia() {
@@ -108,6 +128,10 @@ async function mcpEnvia() {
 }
 function mcpLiga() {
   info.querySelectorAll("[data-mcp]").forEach((b) => (b.onclick = () => mcpExecuta(b.dataset.mcp, b.dataset.nome, b.dataset.escopo)));
+  info.querySelectorAll("[data-mcp-catalogo]").forEach((b) => (b.onclick = () => abrePersonal("conectores")));
+  info.querySelectorAll(".ext-log[data-logs]").forEach((pre) => window.extLogView(pre, mcpLogTxt.get(pre.dataset.logs) || []));
+  info.querySelectorAll(".ext-log[data-login]").forEach((pre) => window.extLogView(pre, window.extLogin.linhas));
+  for (const n of mcpLogsAbertos) mcpCarregaLogs(n);
   info.querySelectorAll("[data-mcp-link]").forEach((b) => (b.onclick = () => vivo.link(b.dataset.mcpLink)));
   info.querySelectorAll("[data-mcp-form]").forEach((b) => (b.onclick = () => {
     const a = b.dataset.mcpForm;
@@ -117,6 +141,10 @@ function mcpLiga() {
   }));
   info.querySelectorAll("[data-f]").forEach((c) => c.addEventListener(c.tagName === "SELECT" ? "change" : "input", () => { mcpForm[c.dataset.f] = c.value; if (c.dataset.f === "transporte") desenhaInfo(); }));
 }
+// The catalog's key-based connectors open the form here, filled in.
+window.mcpAbreForm = (pre = {}) => { mcpForm = { transporte: "http", escopo: "user", ...pre }; mcpMsg = null; alternaInfo(true); };
+// a connector sign-in ended: show the new state
+addEventListener("extlogin", () => { if (document.body.classList.contains("info-aberta")) { desenhaInfo(); atualizaInfo(); } });
 function desenhaInfo() {
   const a = dados?.ambiente || {}, c = dados?.contexto, con = dados?.conectores || [];
   const nomePasta = (a.pasta || "").split(/[\\/]/).filter(Boolean).pop() || "";

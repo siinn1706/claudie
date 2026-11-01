@@ -18,6 +18,7 @@ import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
 import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo } from "./computador.js";
 import { iniciaNavegador, FERRAMENTAS_NAVEGADOR, PROMPT_NAVEGADOR } from "./navegador.js";
 import { iniciaAgenda, traduzErro, validaRepete, proximaExecucao } from "./agendadas.js";
+import { nomeMcpValido, idPluginValido, fonteMercadoValida, lerSkills, criarSkill, apagarSkill, caminhoSkill, pastaDeSkills, catalogo, ansi, redige, ringLog } from "./extensoes.js";
 import { iniciaTarefas, trataMensagem, fechaTudo, fundoLista, concluidasDe, esqueceTarefas, workflowEntrada, workflowSaida } from "./tarefas.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -65,14 +66,39 @@ function chaveApi() {
   if (!config.chaveApi) return "";
   try { return safeStorage.decryptString(Buffer.from(config.chaveApi, "base64")); } catch { return ""; }
 }
+// What Claude Code prints about its connectors, kept in memory per conversation folder and
+// server (cwd|name, cwd|* for lines that name none), capped, ANSI-stripped and redacted. Only
+// conversation queries pass logMcp: the throwaway helper queries would fill it with start-up noise.
+const logsMcp = new Map(), nomesMcp = new Map(); // nomesMcp: cwd -> names of its connectors
+// whole-name match, so "git" does not claim a line about "github"
+function citaNome(l, n) {
+  for (let i = l.indexOf(n); i >= 0; i = l.indexOf(n, i + 1)) {
+    if (!/[\w.-]/.test(l[i - 1] ?? " ") && !/[\w.-]/.test(l[i + n.length] ?? " ")) return true;
+  }
+  return false;
+}
+// a folder nobody has open any more keeps no connector names or logs
+function esquecePastaMcp(cwd) {
+  nomesMcp.delete(cwd);
+  for (const m of [logsMcp, ultimaFalhaMcp]) for (const k of [...m.keys()]) if (k.startsWith(cwd + "|")) m.delete(k);
+}
+function alimentaLogMcp(cwd, chunk) {
+  const nomes = nomesMcp.get(cwd);
+  for (const l of ansi(chunk).split(/\r?\n/)) {
+    if (!/mcp/i.test(l)) continue;
+    const nome = /MCP server "([^"]+)"/.exec(l)?.[1] || (nomes && [...nomes].find((n) => citaNome(l, n)));
+    ringLog(logsMcp, `${cwd}|${nome || "*"}`, l);
+  }
+}
 // every query goes through here: the person's Claude Code and the chosen sign-in
-function query(args) {
+function query({ logMcp, ...args }) {
   const exe = acharClaude();
   if (!exe && !temClaudeEmbutido()) throw new Error(claudeTentativas.length
     ? t("Não consegui iniciar o Claude Code neste computador. Tentei: {0}. Instale a versão nativa em code.claude.com/docs/en/setup (ou defina CLAUDE_CODE_PATH) e abra o Claudie de novo.", claudeTentativas.slice(0, 4).join("; "))
     : t("Não encontrei o Claude Code neste computador. Instale em code.claude.com/docs/en/setup e abra o Claudie de novo."));
   // SDK runs are non-interactive, where Claude Code loads Claude in Chrome only with --chrome
   const extra = { extraArgs: { chrome: null } };
+  if (logMcp) { extra.extraArgs["debug-to-stderr"] = null; extra.extraArgs.debug = "mcp"; extra.stderr = (d) => alimentaLogMcp(logMcp, String(d)); }
   if (exe) extra.pathToClaudeCodeExecutable = exe;
   const chave = config.entrar === "chave" ? chaveApi() : "";
   if (chave) extra.env = { ...process.env, ANTHROPIC_API_KEY: chave };
@@ -645,6 +671,7 @@ async function turno(j, texto, anexos) {
   try {
   t.caixa = caixaDeEntrada(texto === null ? null : montaPrompt(texto, anexos, uuid, (m) => enviarEvento(j, { tipo: "erro", texto: m })));
   const q = t.q = query({
+    logMcp: t.cwd,
     prompt: t.caixa.gerador,
     options: {
       cwd: t.cwd,
@@ -707,6 +734,7 @@ async function turno(j, texto, anexos) {
           }
           ev({ tipo: "aviso", texto: tr("O Claude Code não aceitou o modo pedido ({0}) e abriu em outro modo.", tr(ROTULO_MODO[era] || era)) });
         }
+        if (Array.isArray(msg.mcp_servers)) nomesMcp.set(t.cwd, new Set(msg.mcp_servers.map((s) => s.name)));
         t.workflows = !!msg.tools?.includes("Workflow");
         if (t.cfg.ultracode && !t.workflows) ev({ tipo: "aviso", texto: AVISO_SEM_WORKFLOWS });
       } else if (trataMensagem(t, msg)) {
@@ -783,6 +811,7 @@ async function turno(j, texto, anexos) {
     t.caixa?.fecha();
     liberaControle(t);
     turnos.delete(t);
+    if (t.j.fechada && ![...turnos].some((o) => o.cwd === t.cwd)) esquecePastaMcp(t.cwd);
     // The bridge went with it; it comes back when the conversation opens again.
     if (remotos.has(t.sessionId)) avisaRemoto(t.sessionId, { estado: "desligado", url: "", texto: "" });
     if (t.j.atual === t) t.j.atual = null;
@@ -914,6 +943,7 @@ function criarJanela(sessao) {
     janelas.delete(id);
     terminalMata(j);
     navegadorFecha(j);
+    for (const p of filhosMcp) if (p.janela === j) matarArvore(p);
     if (principal === j) principal = janelas.values().next().value || null;
   });
   win.loadFile(path.join(here, "renderer", "index.html"), sessao ? { query: { sessao } } : undefined);
@@ -1109,21 +1139,121 @@ async function aplicaDesligados(q, cwd, st) {
   return alvo.length > 0;
 }
 const esquecePainel = () => { for (const k of respostas.keys()) if (k.startsWith("painel|")) respostas.delete(k); };
-function claudeCli(args, cwd) {
+function claudeCli(args, cwd, { timeout = 45000, max = 1500, maxBuffer = 1 << 20 } = {}) {
   const exe = acharClaude();
   if (!exe) return Promise.resolve({ erro: "Não encontrei o Claude Code neste computador." });
   const c = comandoClaude(exe, args);
-  return new Promise((ok) => execFile(c.cmd, c.args, { cwd, encoding: "utf8", windowsHide: true, timeout: 45000, maxBuffer: 1 << 20, env: c.env },
-    (erro, saida, err) => ok(erro ? { erro: String(err || saida || erro.message).trim().slice(0, 1500) } : { saida: String(saida).trim().slice(0, 1500) })));
+  return new Promise((ok) => execFile(c.cmd, c.args, { cwd, encoding: "utf8", windowsHide: true, timeout, maxBuffer, env: c.env },
+    (erro, saida, err) => ok(erro ? { erro: String(err || saida || erro.message).trim().slice(0, max) } : { saida: String(saida).trim().slice(0, max) })));
 }
+// Same CLI for the Customize tabs: --json results, long output, and children that never wait for input.
+// The last stdout line of an action holds its result ({outcome, message, failureCode, shownCommand});
+// a list prints the whole document. A non-zero exit still carries a result, so it is parsed first.
+function leJson(txt) {
+  const s = String(txt || "").trim();
+  if (!s) return null;
+  try { return JSON.parse(s); } catch {}
+  const linhas = s.split(/\r?\n/);
+  try { return JSON.parse(linhas.filter(Boolean).pop()); } catch {}
+  // a notice printed before the document: parse from the first line that opens it
+  const i = linhas.findIndex((l) => /^[{[]/.test(l));
+  if (i > 0) { try { return JSON.parse(linhas.slice(i).join("\n")); } catch {} }
+  return null;
+}
+function claudeJson(args, cwd, { timeout = 45000 } = {}) {
+  const exe = acharClaude();
+  if (!exe) return Promise.resolve({ erro: "Não encontrei o Claude Code neste computador.", semClaude: true });
+  const c = comandoClaude(exe, args);
+  return new Promise((ok) => {
+    let estourou = false, timer;
+    const filho = execFile(c.cmd, c.args, { cwd, encoding: "utf8", windowsHide: true, maxBuffer: 16 << 20, env: c.env, detached: process.platform !== "win32" }, (erro, saida, err) => {
+      clearTimeout(timer);
+      if (estourou) return ok({ erro: "O Claude Code demorou demais para responder.", terminal: true });
+      const dados = leJson(saida);
+      if (dados && !Array.isArray(dados) && typeof dados === "object" && "outcome" in dados) {
+        return ok(dados.outcome === "ok" ? { dados } : { dados, erro: String(dados.message || err || "Não deu certo.").slice(0, 1500), codigo: dados.failureCode });
+      }
+      if (dados != null) return ok({ dados });
+      if (!erro) return ok({ dados: null, texto: String(saida).trim().slice(0, 1500) });
+      ok({ erro: String(err || saida || erro?.message || "Resposta inesperada do Claude Code.").trim().slice(0, 1500) });
+    });
+    filho.stdin?.end();
+    timer = setTimeout(() => { estourou = true; matarArvore(filho); }, timeout);
+  });
+}
+
 // command line of a stdio server: split on spaces, keeping "quoted parts" together
 const quebraComando = (txt) => [...txt.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
 const ESCOPOS_MCP = ["user", "project", "local"];
 // Claude Code reads its connectors when it starts: idle ones close now, running ones after the turn.
 const reabreConversas = () => { for (const t of turnos) if (t.ativo) t.reiniciar = true; else encerra(t); };
+// One connector sign-in at a time: `claude mcp login` opens a loopback callback, so two would fight over it.
+let entrandoMcp = null;
+const filhosMcp = new Set();
+function mcpEntrar(j, nome) {
+  const exe = acharClaude();
+  if (!exe) return { erro: "Não encontrei o Claude Code neste computador." };
+  if (entrandoMcp) return { erro: "Já há um login de conector em andamento." };
+  const c = comandoClaude(exe, ["mcp", "login", nome]);
+  const p = spawn(c.cmd, c.args, { cwd: j.cwd, env: c.env, windowsHide: true, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+  p.janela = j; entrandoMcp = p; filhosMcp.add(p);
+  const linha = linhasPara(j, (l) => ({ tipo: "mcp_login", nome, linha: redige(l) }));
+  p.stdout.on("data", linha); p.stderr.on("data", linha);
+  let acabou = false;
+  const timer = setTimeout(() => matarArvore(p), 3 * 60e3);
+  const fim = async (codigo) => {
+    if (acabou) return;
+    acabou = true; clearTimeout(timer); filhosMcp.delete(p);
+    if (entrandoMcp === p) entrandoMcp = null;
+    if (codigo === 0) {
+      esquecePainel();
+      try { await comConsulta(j, (q) => q.reconnectMcpServer(nome)); } catch {}
+      esquecePainel(); reabreConversas();
+    }
+    enviarEvento(j, { tipo: "mcp_login", nome, fim: true, codigo });
+  };
+  p.on("error", (err) => { linha(Buffer.from(String(err.message || err) + "\n")); matarArvore(p); fim(-1); });
+  p.on("close", (codigo) => fim(codigo ?? -1));
+  return { ok: true };
+}
+// The same login in a terminal window of its own, for the case that needs a prompt (paste the redirect URL).
+const TERMINAIS_LINUX = [["x-terminal-emulator", "-e"], ["gnome-terminal", "--"], ["konsole", "-e"], ["xterm", "-e"]];
+const terminalLinux = () => {
+  for (const [exe, flag] of TERMINAIS_LINUX) for (const d of (process.env.PATH || "").split(path.delimiter)) if (d && fs.existsSync(path.join(d, exe))) return [exe, flag];
+  return null;
+};
+const terminalExterno = () => process.platform === "win32" || process.platform === "darwin" || !!terminalLinux();
+function mcpTerminal(j, nome) {
+  const exe = acharClaude();
+  if (!exe) return { erro: "Não encontrei o Claude Code neste computador." };
+  const c = comandoClaude(exe, ["mcp", "login", nome]);
+  const op = { cwd: j.cwd, env: c.env, detached: true, stdio: "ignore" };
+  let p;
+  if (process.platform === "win32") {
+    // start "" cmd /k "<command>": the empty quoted argument is the window title, the outer quotes keep the command in one piece
+    // cmd expands %NAME% even inside quotes and has no escape for it on a command line
+    if ([c.cmd, ...c.args, j.cwd].some((x) => x.includes("%"))) return { erro: "Um caminho com % não abre no terminal do Windows." };
+    const q = (x) => (/[\s&()^|<>]/.test(x) ? `"${x}"` : x);
+    p = spawn(resolveExe("cmd"), ["/c", "start", '""', "cmd", "/k", `"${[c.cmd, ...c.args].map(q).join(" ")}"`], { ...op, windowsVerbatimArguments: true });
+  } else if (process.platform === "darwin") {
+    const sh = (x) => "'" + x.replace(/'/g, "'\\''") + "'";
+    const cmd = `cd ${sh(j.cwd)} && ` + [c.cmd, ...c.args].map(sh).join(" ");
+    p = spawn("osascript", ["-e", `tell application "Terminal" to do script "${cmd.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`, "-e", 'tell application "Terminal" to activate'], op);
+  } else {
+    const t = terminalLinux();
+    if (!t) return { erro: "Não encontrei um terminal neste computador." };
+    p = spawn(t[0], [t[1], c.cmd, ...c.args], op);
+  }
+  p.on("error", () => {});
+  p.unref();
+  return { ok: true };
+}
 ipcMain.handle("mcp_acao", async (e, { acao, nome, escopo }) => {
   const j = J(e);
   if (typeof nome !== "string" || !nome || nome.startsWith("claude.ai ") || nome === "claudie" || nome === "computer-use") return { erro: "Esse conector não pode ser mudado aqui." };
+  // a name reaches the CLI as an argument: only plain names. The SDK calls take any name the session reports (plugins name theirs plugin:x:y).
+  const soSdk = acao === "ligar" || acao === "desligar" || acao === "reconectar";
+  if (!soSdk && !nomeMcpValido(nome)) return { erro: nome.startsWith("plugin:") ? "Os conectores de plugins são geridos pelo plugin." : "Nome de conector inválido." };
   try {
     if (acao === "remover") {
       if (!ESCOPOS_MCP.includes(escopo)) return { erro: "Esse conector não vem de um arquivo de configuração." };
@@ -1138,12 +1268,20 @@ ipcMain.handle("mcp_acao", async (e, { acao, nome, escopo }) => {
       return {};
     }
     if (acao === "reconectar") { await comConsulta(j, (q) => q.reconnectMcpServer(nome)); esquecePainel(); return {}; }
+    if (acao === "entrar") return mcpEntrar(j, nome);
+    if (acao === "terminal") return mcpTerminal(j, nome);
+    if (acao === "sair") {
+      const r = await claudeCli(["mcp", "logout", nome], j.cwd);
+      if (!r.erro) { esquecePainel(); reabreConversas(); }
+      return r;
+    }
   } catch (err) { esquecePainel(); return { erro: String(err?.message || err) }; }
   return { erro: "Ação desconhecida." };
 });
-ipcMain.handle("mcp_adicionar", async (e, d) => {
-  const j = J(e), nome = String(d?.nome || "").trim(), escopo = d?.escopo;
-  if (!/^[\w.-]{1,64}$/.test(nome)) return { erro: "Use só letras, números, ponto, hífen e sublinhado no nome." };
+// Adds a connector through the CLI (the form and the catalog both land here).
+async function adicionaMcp(j, d) {
+  const nome = String(d?.nome || "").trim(), escopo = d?.escopo;
+  if (!/^[\w.-]{1,64}$/.test(nome) || nome.startsWith("-")) return { erro: "Use só letras, números, ponto, hífen e sublinhado no nome." };
   if (!ESCOPOS_MCP.includes(escopo)) return { erro: "Escolha o escopo." };
   const linhas = (x) => String(x || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const env = linhas(d.env), cab = linhas(d.cabecalhos);
@@ -1162,7 +1300,136 @@ ipcMain.handle("mcp_adicionar", async (e, d) => {
   const r = await claudeCli(args, j.cwd);
   if (!r.erro) { esquecePainel(); reabreConversas(); }
   return r;
+}
+ipcMain.handle("mcp_adicionar", (e, d) => adicionaMcp(J(e), d));
+// What Claude Code printed for one connector of this conversation's folder.
+ipcMain.handle("mcp_logs", (e, { nome } = {}) => {
+  if (!nomeMcpValido(nome)) return { erro: "Nome de conector inválido." };
+  return { linhas: logsMcp.get(`${J(e).cwd}|${nome}`) || [] };
 });
+ipcMain.handle("mcp_logs_limpar", (e, { nome } = {}) => {
+  if (!nomeMcpValido(nome)) return { erro: "Nome de conector inválido." };
+  logsMcp.delete(`${J(e).cwd}|${nome}`);
+  return { linhas: [] };
+});
+// The catalog, each entry marked when this folder already has that server (by URL or by name).
+ipcMain.handle("conectores_catalogo", async (e) => {
+  const j = J(e);
+  let st = null, timer;
+  try { st = await Promise.race([comConsulta(j, (q) => q.mcpServerStatus()), new Promise((r) => (timer = setTimeout(() => r(null), 3000)))]); } catch {}
+  clearTimeout(timer);
+  const nomes = new Set((st || []).map((c) => c.name)), urls = new Set((st || []).map((c) => c.config?.url).filter(Boolean));
+  return { semClaude: !acharClaude(), itens: catalogo().map((c) => ({ ...c, jaAdicionado: nomes.has(c.id) || urls.has(c.url) })) };
+});
+
+// ---- plugins ---------------------------------------------------------------------------
+// Everything goes through the Claude Code CLI so the plugin settings stay Claude Code's own.
+// Writes run one at a time: a double click or a second window never edits the settings twice at once.
+let filaPlugins = Promise.resolve();
+const naFila = (fn) => (filaPlugins = filaPlugins.then(fn, fn));
+const VERBOS_PLUGIN = { instalar: "install", ativar: "enable", desativar: "disable", desinstalar: "uninstall", atualizar: "update" };
+const invalidaPlugins = () => {
+  for (const k of respostas.keys()) if (k.startsWith("plugins|") || k.startsWith("comandos|")) respostas.delete(k);
+  esquecePainel(); reabreConversas();
+};
+// What the CLI says about a write: done, or an error; consent that needs a terminal is never accepted for the person.
+function resultadoPlugin(r) {
+  if (r.dados?.shownCommand) return { erro: r.dados.message || r.erro || "Este plugin pede uma confirmação no terminal.", terminal: true };
+  if (r.terminal) return { erro: r.erro, terminal: true };
+  if (r.erro && r.codigo !== "already_in_goal_state") return { erro: r.erro };
+  invalidaPlugins();
+  return { ok: true, mensagem: r.dados?.message || r.texto || "" };
+}
+ipcMain.handle("plugins_lista", async (e) => {
+  const j = J(e);
+  if (!acharClaude()) return { semClaude: true };
+  try {
+    return await comCache(`plugins|${j.cwd}`, 20e3, async () => {
+      const [a, m] = await Promise.all([claudeJson(["plugin", "list", "--json", "--available"], j.cwd), claudeJson(["plugin", "marketplace", "list", "--json"], j.cwd)]);
+      if (a.erro || !a.dados) throw new Error(a.erro || "Resposta inesperada do Claude Code.");
+      return {
+        instalados: (a.dados?.installed || []).map((p) => ({ id: p.id, versao: p.version || "", escopo: p.scope || "", ativo: !!p.enabled })),
+        disponiveis: (a.dados?.available || []).map((p) => ({ id: p.pluginId, nome: p.name, descricao: String(p.description || "").slice(0, 300), mercado: p.marketplaceName || "", versao: p.version || "" })),
+        mercados: (Array.isArray(m.dados) ? m.dados : []).map((x) => ({ nome: x.name, fonte: x.repo || x.url || x.path || x.source || "" })),
+      };
+    });
+  } catch (err) { return { erro: String(err?.message || err) }; }
+});
+ipcMain.handle("plugin_acao", (e, d) => {
+  const j = J(e), verbo = VERBOS_PLUGIN[d?.acao];
+  if (!verbo) return { erro: "Ação desconhecida." };
+  if (!idPluginValido(d.id)) return { erro: "Identificador de plugin inválido." };
+  if (!ESCOPOS_MCP.includes(d.escopo)) return { erro: "Escolha o escopo." };
+  const args = ["plugin", verbo, d.id, "--scope", d.escopo, ...(verbo === "uninstall" ? ["--keep-data"] : []), "--json"];
+  return naFila(async () => resultadoPlugin(await claudeJson(args, j.cwd, { timeout: verbo === "install" || verbo === "update" ? 180e3 : 45e3 })));
+});
+ipcMain.handle("mercado_acao", (e, d) => {
+  const j = J(e), nome = typeof d?.nome === "string" ? d.nome.trim() : "";
+  let args;
+  if (d?.acao === "add") {
+    if (!fonteMercadoValida(d.fonte)) return { erro: "Fonte inválida: use usuario/repositorio, um endereço https ou uma pasta existente." };
+    if (!ESCOPOS_MCP.includes(d.escopo)) return { erro: "Escolha o escopo." };
+    args = ["plugin", "marketplace", "add", d.fonte.trim(), "--scope", d.escopo, "--json"];
+  } else if (d?.acao === "remove" || d?.acao === "update") {
+    if (nome ? !idPluginValido(nome) : d.acao === "remove") return { erro: "Nome de marketplace inválido." };
+    args = d.acao === "remove" ? ["plugin", "marketplace", "remove", nome, "--json"] : ["plugin", "marketplace", "update", ...(nome ? [nome, "--json"] : [])];
+  } else return { erro: "Ação desconhecida." };
+  return naFila(async () => {
+    const r = await claudeJson(args, j.cwd, { timeout: 180e3 });
+    return resultadoPlugin(r);
+  });
+});
+
+// ---- skills ----------------------------------------------------------------------------
+const aposSkills = () => { for (const k of respostas.keys()) if (k.startsWith("comandos|")) respostas.delete(k); reabreConversas(); };
+ipcMain.handle("skills_lista", async (e) => {
+  const j = J(e);
+  let cmds = [], timer;
+  try { cmds = await Promise.race([comandos(j), new Promise((r) => (timer = setTimeout(() => r([]), 6000)))]); } catch {}
+  clearTimeout(timer);
+  return { semClaude: !acharClaude(), skills: lerSkills(j.cwd), comandosPlugin: cmds.filter((c) => c.nome.includes(":")).map((c) => ({ nome: c.nome, descricao: c.descricao })) };
+});
+ipcMain.handle("skill_criar", (e, d) => {
+  try {
+    const r = criarSkill({ nome: d?.nome, descricao: d?.descricao, escopo: d?.escopo }, J(e).cwd);
+    if (r.ok) aposSkills();
+    return r;
+  } catch (err) { return { erro: String(err?.message || err) }; }
+});
+ipcMain.handle("skill_apagar", (e, d) => {
+  try {
+    const r = apagarSkill(d?.origem, d?.pasta, J(e).cwd);
+    if (r.ok) aposSkills();
+    return r;
+  } catch (err) { return { erro: String(err?.message || err) }; }
+});
+ipcMain.handle("skills_pasta", async (e, d) => {
+  const dir = pastaDeSkills(d?.origem, J(e).cwd);
+  if (!dir) return { erro: "Origem de skill inválida." };
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (err) { return { erro: String(err?.message || err) }; }
+  const falha = await shell.openPath(dir);
+  return falha ? { erro: falha } : { ok: true };
+});
+ipcMain.handle("skill_abrir", (e, d) => {
+  try {
+    const arq = path.join(caminhoSkill(d?.origem, d?.pasta, J(e).cwd), "SKILL.md");
+    if (!fs.existsSync(arq)) return { erro: "Essa pasta não é uma skill." };
+    shell.showItemInFolder(arq);
+    return { ok: true };
+  } catch (err) { return { erro: String(err?.message || err) }; }
+});
+// The reason a server failed goes into its log once per distinct text, and the names feed the log attribution.
+const ultimaFalhaMcp = new Map();
+function registraFalhasMcp(cwd, status) {
+  nomesMcp.set(cwd, new Set(status.map((c) => c.name)));
+  for (const c of status) {
+    const chave = `${cwd}|${c.name}`;
+    if (c.status !== "failed" || !c.error) { ultimaFalhaMcp.delete(chave); continue; }
+    if (ultimaFalhaMcp.get(chave) === c.error) continue;
+    ultimaFalhaMcp.set(chave, c.error);
+    ringLog(logsMcp, chave, c.error);
+  }
+}
 ipcMain.handle("painel", async (e) => {
   const j = J(e);
   const ambiente = { computador: os.hostname(), pasta: j.cwd, ramo: ramoGit(j.cwd), modelo: cfgJ(j).model || "" };
@@ -1178,10 +1445,12 @@ ipcMain.handle("painel", async (e) => {
     });
     // a running turn is asked live; only an idle conversation is cached
     const [contexto, conectores] = j.atual?.ativo || turnoDe(j.sessionId) ? await consulta() : await comCache(`painel|${j.cwd}|${cfgJ(j).model || ""}|${j.sessionId || ""}`, 20e3, consulta);
+    registraFalhasMcp(j.cwd, conectores || []);
     return {
       ambiente: { ...ambiente, modelo: contexto?.model || ambiente.modelo },
       contexto: contexto && { total: contexto.totalTokens, max: contexto.maxTokens, pct: contexto.percentage, categorias: (contexto.categories || []).map((c) => ({ nome: c.name, tokens: c.tokens, cor: c.color, tipo: c.kind || (c.isDeferred ? "deferred" : "used") })), memoria: (contexto.memoryFiles || []).map((m) => ({ caminho: m.path, tokens: m.tokens })) },
       conectores: (conectores || []).map((c) => ({ nome: c.name, estado: c.status, erro: c.error || "", escopo: c.scope || c.source || "", ferramentas: c.tools?.length ?? null, tipo: c.config?.type || "", embutido: c.source === "sdk" || c.name === "claudie" || c.name === "computer-use" })),
+      terminalExterno: terminalExterno(),
       rodando: !!(j.atual?.ativo || turnoDe(j.sessionId)),
     };
   } catch (err) { return { ambiente, erro: String(err?.message || err) }; }
@@ -1764,13 +2033,14 @@ ipcMain.handle("claude_checa", async () => {
   return { instalado: true, versao, logado: s.loggedIn, metodo: s.authMethod, email: s.email || "" };
 });
 let instalando = null, entrando = null;
-const linhasPara = (e, fonte) => {
+// Reads a child's output line by line (ANSI stripped, 2000 chars at most) and sends each as the event evento(line) builds.
+const linhasPara = (j, evento) => {
   let resto = "";
   return (b) => {
     const partes = (resto + b.toString()).split(/\r?\n/); resto = partes.pop();
     // the login prompt has no newline: send what is left when it looks like one
     if (/>\s*$/.test(resto)) { partes.push(resto); resto = ""; }
-    for (const l of partes) if (l.trim()) enviarEvento(J(e), { tipo: "claude_setup", fonte, linha: l.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").slice(0, 2000) });
+    for (const l of partes) if (l.trim()) enviarEvento(j, evento(ansi(l).slice(0, 2000)));
   };
 };
 ipcMain.handle("claude_instalar", (e) => instalando ??= new Promise((ok) => {
@@ -1778,7 +2048,7 @@ ipcMain.handle("claude_instalar", (e) => instalando ??= new Promise((ok) => {
   const p = win
     ? spawn(resolveExe("powershell"), ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "irm https://claude.ai/install.ps1 | iex"], { windowsHide: true })
     : spawn("/bin/bash", ["-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
-  const linha = linhasPara(e, "instalar");
+  const linha = linhasPara(J(e), (linha) => ({ tipo: "claude_setup", fonte: "instalar", linha }));
   p.stdout.on("data", linha); p.stderr.on("data", linha);
   const fim = async (codigo) => { instalando = null; claudeExe = undefined; const exe = await achaClaudeAsync(); ok({ ok: !!exe, codigo, exe }); };
   p.on("error", (err) => { linha(Buffer.from(String(err.message || err) + "\n")); fim(-1); });
@@ -1790,7 +2060,7 @@ ipcMain.handle("claude_entrar", async (e, { console: daConsole } = {}) => {
   try { entrando?.kill(); } catch {}
   const c = comandoClaude(exe, ["auth", "login", ...(daConsole ? ["--console"] : [])]);
   const p = entrando = spawn(c.cmd, c.args, { env: c.env, windowsHide: true });
-  const linha = linhasPara(e, "entrar");
+  const linha = linhasPara(J(e), (linha) => ({ tipo: "claude_setup", fonte: "entrar", linha }));
   p.stdout.on("data", linha); p.stderr.on("data", linha);
   p.on("error", (err) => linha(Buffer.from(String(err.message || err) + "\n")));
   p.on("close", (codigo) => { if (entrando === p) entrando = null; enviarEvento(J(e), { tipo: "claude_setup", fonte: "entrar", fim: true, codigo }); });
@@ -2089,7 +2359,7 @@ ipcMain.handle("remoto_ligar", async (e, ligar, nome) => {
   if (t && t.cwd === j.cwd) await ligaRemoto(t);
   else { if (t) encerra(t); turno(j, null, []); }
 });
-app.on("before-quit", () => { sairDeVez = true; ctrl?.aborta(); if (bloqueioEnergia !== null) { powerSaveBlocker.stop(bloqueioEnergia); bloqueioEnergia = null; } liberaTudo(); for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) { terminalMata(j, true); navegadorFecha(j, true); } });
+app.on("before-quit", () => { sairDeVez = true; ctrl?.aborta(); if (bloqueioEnergia !== null) { powerSaveBlocker.stop(bloqueioEnergia); bloqueioEnergia = null; } liberaTudo(); for (const p of filhosMcp) matarArvore(p, true); for (const t of turnos) { encerra(t); t.ac.abort(); } for (const j of janelas.values()) { terminalMata(j, true); navegadorFecha(j, true); } });
 
 app.whenReady().then(() => {
   if (!instanciaUnica) return;

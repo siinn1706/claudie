@@ -1,0 +1,14 @@
+[
+  { "id": "notion", "nome": "Notion", "descricao": "Buscar e editar páginas e bancos de dados do Notion", "url": "https://mcp.notion.com/mcp", "transporte": "http", "categoria": "Produtividade", "auth": "oauth" },
+  { "id": "linear", "nome": "Linear", "descricao": "Consultar e criar tarefas e projetos do Linear", "url": "https://mcp.linear.app/mcp", "transporte": "http", "categoria": "Gestão de projetos", "auth": "oauth" },
+  { "id": "sentry", "nome": "Sentry", "descricao": "Investigar erros e problemas de desempenho do Sentry", "url": "https://mcp.sentry.dev/mcp", "transporte": "http", "categoria": "Monitoramento", "auth": "oauth" },
+  { "id": "github", "nome": "GitHub", "descricao": "Repositórios, issues e pull requests do GitHub (precisa de um token pessoal)", "url": "https://api.githubcopilot.com/mcp/", "transporte": "http", "categoria": "Código", "auth": "chave" },
+  { "id": "atlassian", "nome": "Atlassian", "descricao": "Jira e Confluence da sua organização", "url": "https://mcp.atlassian.com/v1/sse", "transporte": "sse", "categoria": "Gestão de projetos", "auth": "oauth" },
+  { "id": "asana", "nome": "Asana", "descricao": "Tarefas, projetos e metas do Asana", "url": "https://mcp.asana.com/v2/mcp", "transporte": "http", "categoria": "Gestão de projetos", "auth": "oauth" },
+  { "id": "stripe", "nome": "Stripe", "descricao": "Clientes, cobranças e documentação da Stripe", "url": "https://mcp.stripe.com", "transporte": "http", "categoria": "Pagamentos", "auth": "oauth" },
+  { "id": "paypal", "nome": "PayPal", "descricao": "Pedidos, faturas e transações do PayPal", "url": "https://mcp.paypal.com/mcp", "transporte": "http", "categoria": "Pagamentos", "auth": "oauth" },
+  { "id": "figma", "nome": "Figma", "descricao": "Ler designs do Figma para gerar código", "url": "https://mcp.figma.com/mcp", "transporte": "http", "categoria": "Design", "auth": "oauth" },
+  { "id": "cloudflare", "nome": "Cloudflare", "descricao": "Workers, KV, R2 e D1 da sua conta Cloudflare", "url": "https://bindings.mcp.cloudflare.com/mcp", "transporte": "http", "categoria": "Infraestrutura", "auth": "oauth" },
+  { "id": "context7", "nome": "Context7", "descricao": "Documentação atualizada de bibliotecas (a chave de API é opcional)", "url": "https://mcp.context7.com/mcp", "transporte": "http", "categoria": "Documentação", "auth": "chave" },
+  { "id": "vercel", "nome": "Vercel", "descricao": "Projetos, deploys e logs da Vercel", "url": "https://mcp.vercel.com", "transporte": "http", "categoria": "Infraestrutura", "auth": "oauth" }
+]
