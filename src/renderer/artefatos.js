@@ -73,7 +73,18 @@ function artefatos() {
   }
   return mapa;
 }
-const docDeArtefato = (ext, texto) => docPrevia(/^(md|markdown)$/.test(ext) ? md(texto) : texto);
+// Markdown is a document, not a page: it takes the window's colours and font, and its YAML front matter shows as code.
+function docMarkdown(texto) {
+  const css = getComputedStyle(document.body), v = (n, p) => css.getPropertyValue(n).trim() || p;
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/.exec(texto);
+  const corpo = md(fm ? "```yaml\n" + fm[1] + "\n```\n\n" + texto.slice(fm[0].length) : texto);
+  const linha = v("--line", "#444"), codigo = v("--code", "rgba(0,0,0,.3)");
+  return docPrevia(`<style>html,body{background:${v("--menu", v("--bg", "#1f1e1d"))};color:${v("--ui", "#ecebe7")}}body{margin:14px 18px;font:14px/1.6 ${v("--fonte", "system-ui,sans-serif")}}`
+    + `h1,h2,h3,h4{line-height:1.3;margin:1.1em 0 .5em}h1{font-size:1.45em}h2{font-size:1.25em}h3{font-size:1.1em}a{color:${v("--accent", "#d97757")}}`
+    + `pre,code{font:12.5px/1.5 ${v("--mono", "Consolas,monospace")};background:${codigo}}pre{padding:8px 10px;border-radius:8px;overflow:auto;white-space:pre-wrap}:not(pre)>code{padding:1px 4px;border-radius:4px}pre code{background:none}`
+    + `table{border-collapse:collapse}td,th{border:1px solid ${linha};padding:4px 8px}hr{border:0;border-top:1px solid ${linha}}blockquote{margin:0;padding-left:10px;border-left:3px solid ${linha};color:${v("--ui-dim", "#8b8880")}}</style>${corpo}`);
+}
+const docDeArtefato = (ext, texto) => (/^(md|markdown)$/.test(ext) ? docMarkdown(texto) : docPrevia(texto));
 
 let artSeq = 0, artSel = null; // artSel: { f, card } of the file shown
 function abreArtefatos() {
