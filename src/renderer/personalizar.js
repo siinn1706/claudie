@@ -248,6 +248,7 @@ async function desenhaAba() {
       <div class="pz-linha"><span>Entrar com<small>O login do Claude Code usa o seu plano do Claude. A chave de API cobra por uso na sua conta da Anthropic.</small></span>
         <div class="pz-seg" data-conta><button data-v="login">Login do Claude Code</button><button data-v="chave">Chave de API</button></div></div>
       <div class="pz-chave" hidden><input type="password" placeholder="Cole a chave da API (sk-ant-…)" autocomplete="off" spellcheck="false" /><button class="btn forte" data-acao="salvaChave">Salvar</button><button class="btn" data-acao="apagaChave">Apagar</button></div>
+      <div class="pz-chave pz-url" hidden><input type="url" placeholder="Endereço da API (vazio = Anthropic)" autocomplete="off" spellcheck="false" /><button class="btn forte" data-acao="salvaUrl">Salvar</button><button class="btn" data-acao="apagaUrl">Padrão</button></div>
       <p class="pz-desc fraco pz-conta-info"></p>`;
   } else if (abaP === "fundo") {
     const fundos = await vivo.pessoalLista("fundos");
@@ -373,10 +374,12 @@ async function ligaAtualizacao(r) {
 // (it never comes back to the window, only whether there is one).
 async function ligaConta(r) {
   const seg = r.querySelector("[data-conta]"), caixa = r.querySelector(".pz-chave"), info = r.querySelector(".pz-conta-info"), campo = caixa.querySelector("input");
+  const caixaUrl = r.querySelector(".pz-url"), campoUrl = caixaUrl.querySelector("input");
   let c = await vivo.conta();
   const mostra = () => {
     seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === c.entrar));
-    caixa.hidden = c.entrar !== "chave";
+    caixa.hidden = caixaUrl.hidden = c.entrar !== "chave";
+    if (document.activeElement !== campoUrl) campoUrl.value = c.urlApi || "";
     campo.placeholder = c.temChave ? "Chave salva. Cole outra para trocar" : "Cole a chave da API (sk-ant-…)";
     info.innerHTML = (c.claude ? `Claude Code encontrado em <code>${esc(c.claude)}</code>.` : "Claude Code não encontrado. Instale em code.claude.com e abra o Claudie de novo.")
       + (c.entrar === "chave" && !c.temChave ? " Falta salvar uma chave." : "");
@@ -384,7 +387,10 @@ async function ligaConta(r) {
   seg.querySelectorAll("button").forEach((b) => (b.onclick = async () => { c = { ...c, ...(await vivo.contaSalvar({ entrar: b.dataset.v })) }; mostra(); }));
   ACOES.salvaChave = async () => { const v = campo.value.trim(); if (!v) return; const res = await vivo.contaSalvar({ chave: v }); campo.value = ""; if (res.erro) nota(res.erro, true); else { c = { ...c, ...res }; nota("Chave salva"); } mostra(); };
   ACOES.apagaChave = async () => { c = { ...c, ...(await vivo.contaSalvar({ chave: "" })) }; campo.value = ""; mostra(); };
-  r.querySelectorAll("[data-acao='salvaChave'], [data-acao='apagaChave']").forEach((b) => (b.onclick = () => ACOES[b.dataset.acao]()));
+  const salvaUrl = async (v) => { const res = await vivo.contaSalvar({ url: v }); if (res.erro) nota(res.erro, true); else { c = { ...c, ...res }; nota(c.urlApi ? "Endereço salvo" : "Usando o endereço da Anthropic"); campoUrl.value = c.urlApi; } mostra(); };
+  ACOES.salvaUrl = () => salvaUrl(campoUrl.value);
+  ACOES.apagaUrl = () => salvaUrl("");
+  r.querySelectorAll("[data-acao='salvaChave'], [data-acao='apagaChave'], [data-acao='salvaUrl'], [data-acao='apagaUrl']").forEach((b) => (b.onclick = () => ACOES[b.dataset.acao]()));
   mostra();
 }
 

@@ -104,7 +104,7 @@ function query({ logMcp, ...args }) {
   if (logMcp) { extra.extraArgs["debug-to-stderr"] = null; extra.extraArgs.debug = "mcp"; extra.stderr = (d) => alimentaLogMcp(logMcp, String(d)); }
   if (exe) extra.pathToClaudeCodeExecutable = exe;
   const chave = config.entrar === "chave" ? chaveApi() : "";
-  if (chave) extra.env = { ...process.env, ANTHROPIC_API_KEY: chave };
+  if (chave) extra.env = { ...process.env, ANTHROPIC_API_KEY: chave, ...(config.urlApi ? { ANTHROPIC_BASE_URL: config.urlApi } : {}) };
   return querySdk({ ...args, options: { ...extra, ...args.options } });
 }
 const configPath = () => path.join(app.getPath("userData"), "config.json");
@@ -2045,9 +2045,20 @@ ipcMain.handle("pessoal_apagar", (_e, tipo, id) => {
     return true;
   } catch { return false; }
 });
-ipcMain.handle("conta", () => ({ entrar: config.entrar || "login", temChave: !!config.chaveApi, claude: acharClaude(), cifra: safeStorage.isEncryptionAvailable() }));
-ipcMain.handle("conta_salvar", (_e, { entrar, chave }) => {
+ipcMain.handle("conta", () => ({ entrar: config.entrar || "login", temChave: !!config.chaveApi, urlApi: config.urlApi || "", claude: acharClaude(), cifra: safeStorage.isEncryptionAvailable() }));
+ipcMain.handle("conta_salvar", (_e, { entrar, chave, url }) => {
   if (entrar === "login" || entrar === "chave") config.entrar = entrar;
+  // The API key's endpoint (ANTHROPIC_BASE_URL): a proxy or gateway; empty goes back to Anthropic's.
+  if (typeof url === "string") {
+    const u = url.trim();
+    if (!u) delete config.urlApi;
+    else {
+      let p = null;
+      try { p = new URL(u); } catch {}
+      if (!p || !/^https?:$/.test(p.protocol) || p.username || p.password) return { erro: "Endereço inválido: use um http:// ou https:// sem usuário e senha." };
+      config.urlApi = p.href.replace(/\/+$/, "");
+    }
+  }
   if (typeof chave === "string") {
     const c = chave.trim();
     if (!c) delete config.chaveApi;
@@ -2055,7 +2066,7 @@ ipcMain.handle("conta_salvar", (_e, { entrar, chave }) => {
     else config.chaveApi = safeStorage.encryptString(c).toString("base64");
   }
   salvarConfig();
-  return { entrar: config.entrar || "login", temChave: !!config.chaveApi };
+  return { entrar: config.entrar || "login", temChave: !!config.chaveApi, urlApi: config.urlApi || "" };
 });
 // ---- first launch check: Claude Code installed and signed in --------------------------
 // The window asks once when the app opens. Missing Claude Code is installed with

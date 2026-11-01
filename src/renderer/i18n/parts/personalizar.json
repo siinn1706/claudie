@@ -138,5 +138,9 @@
   "Personalizar": { "en": "Customize", "vi": "Tùy chỉnh" },
   "Fechar (Esc)": { "en": "Close (Esc)", "vi": "Đóng (Esc)" },
   "Restaurar tudo": { "en": "Reset everything", "vi": "Khôi phục tất cả" },
-  "Confirmar: restaurar tudo": { "en": "Confirm: reset everything", "vi": "Xác nhận: khôi phục tất cả" }
+  "Confirmar: restaurar tudo": { "en": "Confirm: reset everything", "vi": "Xác nhận: khôi phục tất cả" },
+  "Endereço da API (vazio = Anthropic)": { "en": "API endpoint (empty = Anthropic)", "vi": "Địa chỉ API (để trống = Anthropic)" },
+  "Endereço salvo": { "en": "Endpoint saved", "vi": "Đã lưu địa chỉ" },
+  "Usando o endereço da Anthropic": { "en": "Using the Anthropic endpoint", "vi": "Đang dùng địa chỉ của Anthropic" },
+  "Endereço inválido: use um http:// ou https:// sem usuário e senha.": { "en": "Invalid endpoint: use an http:// or https:// address without a user name or password.", "vi": "Địa chỉ không hợp lệ: hãy dùng http:// hoặc https:// và không kèm tên người dùng hay mật khẩu." }
 }

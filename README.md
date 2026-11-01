@@ -8,7 +8,7 @@ Made by [Nguyễn Văn Nam](https://github.com/siinn1706). A fork of [Claudinho]
 1. Install [Claude Code](https://code.claude.com/docs/en/setup) and sign in.
 2. Download `Claudie-Setup.exe` from [Releases](https://github.com/siinn1706/claudie/releases/latest) and run it. It is not code-signed, so SmartScreen asks first: More info → Run anyway. Requires Windows 10 or 11.
 
-**Sign-in:** by default the app uses your Claude Code login (your plan). Anthropic's Agent SDK docs say third-party apps should not offer claude.ai login without approval, so read [the note in the SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) and decide for yourself. Customize → General → Account lets you use an **Anthropic API key** instead (billed per use, encrypted by the OS).
+**Sign-in:** by default the app uses your Claude Code login (your plan). Anthropic's Agent SDK docs say third-party apps should not offer claude.ai login without approval, so read [the note in the SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) and decide for yourself. Customize → General → Account lets you use an **Anthropic API key** instead (billed per use, encrypted by the OS), with an optional **API endpoint** (`ANTHROPIC_BASE_URL`, for a proxy or gateway; empty uses Anthropic's).
 
 ### From source
 
