@@ -13,7 +13,8 @@ const quandoRenova = (iso) => {
   const hora = d.toLocaleTimeString(i18n.local(), { hour: "2-digit", minute: "2-digit" });
   if (d.toDateString() === hoje.toDateString()) return `às ${hora}`;
   if (d.toDateString() === amanha.toDateString()) return `amanhã às ${hora}`;
-  return window.t("{0} às {1}", d.toLocaleDateString(i18n.local(), { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", ""), hora);
+  // left in Portuguese: the whole "renova em … · {1} às {2}" line is translated in the DOM as one key
+  return `${d.toLocaleDateString(i18n.local(), { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "")} às ${hora}`;
 };
 const cincoHoras = () => usoDados?.janelas?.find((j) => j.id === "five_hour");
 // 0 fresh … 1 spent; at or over 100 he sleeps

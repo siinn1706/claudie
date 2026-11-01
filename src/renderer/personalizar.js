@@ -211,6 +211,7 @@ const PALETAS = [
 const pct = (v) => Math.round(v * 100) + "%";
 const deslizante = (k, rot, min, max, passo, fmt) => `<label class="pz-linha"><span>${rot}</span><input type="range" data-k="${k}" min="${min}" max="${max}" step="${passo}" /><output data-fmt="${fmt}"></output></label>`;
 const segmentos = (k, rot, ops) => `<div class="pz-linha"><span>${rot}</span><div class="pz-seg" data-k="${k}">${ops.map(([v, n]) => `<button data-v="${v}">${n}</button>`).join("")}</div></div>`;
+const OPCOES_NIVEL = '<option value="ver">Só ver</option><option value="clicar">Clicar</option><option value="total">Total</option>';
 const chaveT = (k, rot, desc = "") => `<div class="pz-linha"><span>${rot}${desc ? `<small>${desc}</small>` : ""}</span><button class="chave" role="switch" data-k="${k}"><i></i></button></div>`;
 const cor = (k, rot) => `<label class="pz-linha"><span>${rot}</span><input type="color" data-k="${k}" /></label>`;
 const FMT = { pct, px: (v) => v + "px", n: (v) => v };
@@ -242,6 +243,9 @@ async function desenhaAba() {
       <p class="pz-rapida-erro" hidden></p>
       <h3 class="pz-sub">Controle do computador</h3>
       <label class="pz-linha"><span>Apps bloqueados<small>Nomes dos programas separados por vírgula. O Claude nunca age sobre eles, e gerenciadores de senha já vêm bloqueados.</small></span><input type="text" data-k="geral.computerBloqueio" maxlength="500" placeholder="banco.exe, app.exe" /></label>
+      <div class="pz-linha"><span>Nível por app<small>Sem escolha, navegadores e apps de corretora só são vistos; terminais, editores de código e o Explorer só recebem cliques; o resto tem controle total.</small></span></div>
+      <div class="pz-niveis"></div>
+      <div class="pz-linha pz-nivel-novo"><input type="text" maxlength="80" placeholder="chrome.exe" /><select>${OPCOES_NIVEL}</select><button class="btn" data-nivel-add>Adicionar</button></div>
       <h3 class="pz-sub">Atualizações</h3>
       <div class="pz-linha"><span>Claudie <b class="pz-versao"></b><small class="pz-atualiza-txt"></small></span><button class="btn" data-atualiza hidden></button></div>
       <h3 class="pz-sub">Conta</h3>
@@ -315,7 +319,7 @@ async function desenhaAba() {
   }
   corpoP.innerHTML = h;
   ligaControles(corpoP);
-  if (abaP === "geral") { ligaConta(corpoP); ligaAtualizacao(corpoP); ligaRapida(corpoP); }
+  if (abaP === "geral") { ligaConta(corpoP); ligaAtualizacao(corpoP); ligaRapida(corpoP); ligaNiveis(corpoP); }
 }
 // Quick Entry: the shortcut is recorded from a key press and registered by the main process, which says whether it
 // could take it; on a refusal the previous one stays and the reason shows under the row.
@@ -372,6 +376,25 @@ async function ligaAtualizacao(r) {
 }
 // Sign-in: Claude Code's own login, or an API key kept encrypted by the OS
 // (it never comes back to the window, only whether there is one).
+// Computer control: the tier the person chose for an app ("chrome" → full…), over the built-in one.
+function ligaNiveis(r) {
+  const lista = r.querySelector(".pz-niveis"), novo = r.querySelector(".pz-nivel-novo"), campo = novo.querySelector("input"), sel = novo.querySelector("select");
+  const niveis = () => ({ ...(pega("geral.computerNiveis") || {}) });
+  const grava = (n) => { poe("geral.computerNiveis", n); salva(); desenha(); };
+  const desenha = () => {
+    lista.innerHTML = Object.entries(niveis()).map(([exe, v]) => `<div class="pz-linha"><span><code>${esc(exe)}.exe</code></span><select data-exe="${esc(exe)}">${OPCOES_NIVEL}</select><button class="btn" data-exe="${esc(exe)}">Remover</button></div>`).join("");
+    lista.querySelectorAll("select").forEach((s) => { s.value = niveis()[s.dataset.exe]; s.onchange = () => grava({ ...niveis(), [s.dataset.exe]: s.value }); });
+    lista.querySelectorAll("button").forEach((b) => (b.onclick = () => { const n = niveis(); delete n[b.dataset.exe]; grava(n); }));
+  };
+  novo.querySelector("[data-nivel-add]").onclick = () => {
+    const exe = campo.value.trim().toLowerCase().replace(/\.exe$/, "");
+    if (!exe || /[\\/:*?"<>|]/.test(exe)) return;
+    campo.value = ""; grava({ ...niveis(), [exe]: sel.value });
+  };
+  campo.onkeydown = (e) => { if (e.key === "Enter") novo.querySelector("[data-nivel-add]").click(); };
+  desenha();
+}
+
 async function ligaConta(r) {
   const seg = r.querySelector("[data-conta]"), caixa = r.querySelector(".pz-chave"), info = r.querySelector(".pz-conta-info"), campo = caixa.querySelector("input");
   const caixaUrl = r.querySelector(".pz-url"), campoUrl = caixaUrl.querySelector("input");

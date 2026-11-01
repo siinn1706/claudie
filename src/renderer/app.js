@@ -1273,7 +1273,8 @@ function montaEscolha(id, desenhaPop, rotulo, iconeDe) {
   const escolhe = (v) => { sel.value = v; sel.dispatchEvent(new Event("change")); atualiza(); };
   botoesEscolha[id] = btn;
   const atualiza = () => { btn.classList.toggle("perigo", sel.value === "bypassPermissions"); btn.innerHTML = `${iconeDe ? iconeDe(sel) : icone}<span>${esc(rotulo(sel))}</span>${seta}`; btn.title = ESCOLHAS[id]?.titulo || "Esforço"; desenhaPop(pop, sel, escolhe); };
-  btn.onclick = (e) => { e.stopPropagation(); abreEscolha(pop); };
+  // drawn again on open, so what it reads from main (the apps this conversation allowed) is current
+  btn.onclick = (e) => { e.stopPropagation(); desenhaPop(pop, sel, escolhe); abreEscolha(pop); };
   pop.onclick = (e) => e.stopPropagation();
   escolhas.push(atualiza); atualiza();
 }
@@ -1293,6 +1294,15 @@ const menuEscolha = (id) => (pop, sel, escolhe) => {
     // Computer control belongs to this conversation, like Ultracode; it reopens the conversation's Claude Code.
     pop.insertAdjacentHTML("beforeend", `<div class="esf-ultra"><div><b>Controle do computador</b><small>O Claude vê a tela e usa o mouse e o teclado, só no Windows. Cada app pede a sua aprovação.</small></div><button class="chave" role="switch" aria-checked="${computador}" title="Ligar ou desligar"><i></i></button></div>`);
     pop.querySelector(".esf-ultra .chave").onclick = () => { computador = !computador; guardaEscolha({ computador }); atualizaEscolhas(); };
+    // The apps this conversation already allowed; × takes one back, so it asks again next time.
+    if (computador) vivo.computadorAprovados().then((l) => {
+      pop.querySelector(".cu-aprovados")?.remove();
+      if (!l?.length || !pop.isConnected) return;
+      const caixa = document.createElement("div"); caixa.className = "cu-aprovados";
+      caixa.innerHTML = `<small>${t("Apps permitidos nesta conversa")}</small>` + l.map((a) => `<span class="cu-app">${esc(a.exe)} <em>${t(NIVEL_ROTULO[a.nivel] || NIVEL_ROTULO.total)}</em><button title="${t("Revogar")}" data-exe="${esc(a.exe)}">${ICONE.erro}</button></span>`).join("");
+      caixa.querySelectorAll("button").forEach((b) => (b.onclick = async (ev) => { ev.stopPropagation(); await vivo.computadorRevogar(b.dataset.exe); b.parentElement.remove(); if (!caixa.querySelector(".cu-app")) caixa.remove(); }));
+      pop.append(caixa);
+    }).catch(() => {});
   }
 };
 montaEscolha("modo", menuEscolha("modo"), (s) => s.selectedOptions[0]?.textContent || "", (s) => ICONES_MODO[s.value] || ICONES_MODO.default);

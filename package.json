@@ -1,7 +1,7 @@
 {
   "name": "claudie",
   "productName": "Claudie",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "description": "Claudie: Claude Code with live ASCII wallpapers, in Portuguese, English and Vietnamese (based on Claudinho)",
   "type": "module",

@@ -15,7 +15,7 @@ import os from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { acharClaudeExe, acharClaudeExeAsync, comandoClaude } from "./claude-exe.js";
 import { DICIONARIO, IDIOMAS, IDIOMA_PADRAO, criaT } from "./i18n.js";
-import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo, listaApps, appsMencionados, preAprova, linhaApps } from "./computador.js";
+import { servidorComputadorPara, FERRAMENTAS_COMPUTADOR, PROMPT_COMPUTADOR, liberaControle, liberaTudo, listaApps, appsMencionados, preAprova, linhaApps, nivelDe } from "./computador.js";
 import { iniciaNavegador, FERRAMENTAS_NAVEGADOR, PROMPT_NAVEGADOR } from "./navegador.js";
 import { iniciaAgenda, traduzErro, validaRepete, proximaExecucao } from "./agendadas.js";
 import { nomeMcpValido, idPluginValido, fonteMercadoValida, lerSkills, criarSkill, apagarSkill, caminhoSkill, pastaDeSkills, catalogo, ansi, redige, ringLog } from "./extensoes.js";
@@ -1056,8 +1056,11 @@ ipcMain.handle("janela_nova", (_e, sessao) => { criarJanela(sessao || undefined)
 ipcMain.handle("arquivos", async (e, atualiza) => { try { return await arquivos(J(e), !!atualiza); } catch (err) { console.log("[arquivos]", err?.message || err); return []; } });
 // The apps the @ picker offers while computer control is on (empty elsewhere than Windows).
 ipcMain.handle("apps_computador", async (e) => {
-  try { return (await listaApps(config, !!cfgJ(J(e)).computador)).map(({ nome, exe, nivel, icone }) => ({ nome, exe, nivel, icone })); } catch (err) { console.log("[apps]", err?.message || err); return []; }
+  try { return (await listaApps(config, !!cfgJ(J(e)).computador)).map(({ nome, exe, icone }) => ({ nome, exe, nivel: nivelDe(exe, config), icone })); } catch (err) { console.log("[apps]", err?.message || err); return []; }
 });
+// The apps this window's conversation may control (approved by card or @ mention), and taking one back.
+ipcMain.handle("computador_aprovados", (e) => [...(J(e).atual?.cu?.apps || [])].map((exe) => ({ exe, nivel: nivelDe(exe, config) })));
+ipcMain.handle("computador_revogar", (e, exe) => { J(e).atual?.cu?.apps.delete(String(exe)); return true; });
 ipcMain.handle("comandos", async (e) => { try { return await comandos(J(e)); } catch (e) { console.log("[comandos]", e?.message || e); return []; } });
 ipcMain.handle("anexar", async (e) => {
   const r = await dialog.showOpenDialog(J(e).win, { title: t("Anexar arquivos"), defaultPath: J(e).cwd, properties: ["openFile", "multiSelections"] });
@@ -2017,6 +2020,10 @@ ipcMain.handle("visual_salvar", (_e, visual) => {
   config.visual = visual && typeof visual === "object" ? visual : {};
   // Apps Claude may never control by computer use: the comma-separated field of Customize, as lowercased names.
   config.computerUse = { ...config.computerUse, bloqueados: String(config.visual.geral?.computerBloqueio || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean) };
+  // Per-app tiers chosen in Customize ("chrome" → "total"…), by lowercased name without .exe.
+  const niveis = config.visual.geral?.computerNiveis;
+  config.computerUse.niveis = Object.fromEntries(Object.entries(niveis && typeof niveis === "object" ? niveis : {})
+    .map(([k, v]) => [String(k).trim().toLowerCase().replace(/\.exe$/, ""), v]).filter(([k, v]) => k && ["ver", "clicar", "total"].includes(v)).slice(0, 200));
   salvarConfig();
   if (antes.icone !== config.visual.icone) aplicaIcone();
   aplicaGeral();
