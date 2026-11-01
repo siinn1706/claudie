@@ -311,8 +311,8 @@ body:not(.themed) .comandos { background: #262523; }
 .cmd em { margin-left: auto; flex: none; font: normal 10.5px var(--mono); color: var(--accent-2); }
 .cmd-espera { padding: 7px 10px; font-size: 12px; color: var(--ui-dim); }
 .cmd-grupo { padding: 6px 10px 2px; font: 600 10.5px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ui-dim); }
-.cmd.app { align-items: center; }
-.cmd.app img { width: 18px; height: 18px; flex: none; align-self: center; }
+.cmd.cmd-app { align-items: center; }
+.cmd.cmd-app img { width: 18px; height: 18px; flex: none; align-self: center; }
 .cmd.dica b { font-family: inherit; color: var(--accent-2); }
 
 /* Attachments */

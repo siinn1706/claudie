@@ -700,7 +700,7 @@ function mostraMencoes() {
   const linha = (a, i) => {
     const on = i === mencSel ? " on" : "";
     if (a.dica) return `<div class="cmd dica${on}" data-i="${i}" role="option"><b>Ligue o controle do computador para mencionar apps</b></div>`;
-    if (a.app) return `<div class="cmd app${on}" data-i="${i}" role="option">${a.icone ? `<img src="${esc(a.icone)}" alt="">` : ""}<b>${esc(a.nome)}</b><span>${esc(a.exe)}</span><em>${NIVEL_ROTULO[a.nivel] || NIVEL_ROTULO.total}</em></div>`;
+    if (a.app) return `<div class="cmd cmd-app${on}" data-i="${i}" role="option">${a.icone ? `<img src="${esc(a.icone)}" alt="">` : ""}<b>${esc(a.nome)}</b><span>${esc(a.exe)}</span><em>${NIVEL_ROTULO[a.nivel] || NIVEL_ROTULO.total}</em></div>`;
     const k = a.c.lastIndexOf("/");
     return `<div class="cmd${on}" data-i="${i}" role="option"><b>${esc(a.c.slice(k + 1))}${a.d ? "/" : ""}</b><span>${esc(k >= 0 ? a.c.slice(0, k) : "")}</span></div>`;
   };
