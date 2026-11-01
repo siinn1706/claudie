@@ -245,10 +245,10 @@ function desenhaCartaoRevisao(el) {
     + (lista.length ? ordem.map((a) => `<div class="ach"><div class="ach-l"><span class="ach-sev sev-${a.severity}">${esc(window.t(ROTULO_SEV[a.severity]))}</span><b>#${a.n}</b><button class="ach-arq" data-ir="${a.n}" data-sem-traducao title="${esc(local(a))}">${esc(local(a))}</button></div><p data-sem-traducao>${esc(a.summary)}</p>${a.suggestion ? `<p class="ach-sug" data-sem-traducao>${esc(a.suggestion)}</p>` : ""}<div class="ach-b"><button class="btn" data-corrige="${a.n}">${esc(window.t("Corrigir este"))}</button><button class="btn" data-explica="${a.n}">${esc(window.t("Explicar passo a passo"))}</button></div></div>`).join("") : `<p class="jl-vazio">${esc(window.t("Nenhum achado."))}</p>`);
   const por = (n) => lista.find((a) => a.n === n);
   // only a plain path goes into a message; anything else is pointed at by its number alone
-  const alvo = (a) => (/^[\w@%+=:,.\/\ -]{1,200}$/.test(local(a)) ? ` (arquivo \`${local(a)}\`)` : "");
+  const alvo = (a) => (/^[\w@%+=:,.\/\ -]{1,200}$/.test(local(a)) ? window.t(" (arquivo `{0}`)", local(a)) : "");
   el.querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => abreCaminhoDaConversa(local(por(+b.dataset.ir)))));
-  el.querySelectorAll("[data-corrige]").forEach((b) => (b.onclick = () => { const a = por(+b.dataset.corrige); envia(`Corrija o achado #${a.n} do relatório report_findings acima${alvo(a)} e só ele.`); }));
-  el.querySelectorAll("[data-explica]").forEach((b) => (b.onclick = () => { const a = por(+b.dataset.explica); envia(`Explique passo a passo o achado #${a.n} do relatório report_findings acima${alvo(a)}, sem editar nada.`); }));
+  el.querySelectorAll("[data-corrige]").forEach((b) => (b.onclick = () => { const a = por(+b.dataset.corrige); envia(window.t("Corrija o achado #{0} do relatório report_findings acima{1} e só ele.", a.n, alvo(a))); }));
+  el.querySelectorAll("[data-explica]").forEach((b) => (b.onclick = () => { const a = por(+b.dataset.explica); envia(window.t("Explique passo a passo o achado #{0} do relatório report_findings acima{1}, sem editar nada.", a.n, alvo(a))); }));
   const todas = el.querySelector("[data-todas]");
   if (todas) todas.onclick = () => {
     if (!todas.dataset.arma) {
@@ -428,7 +428,7 @@ aoEvento((ev) => {
     case "sub_ferramenta": subFerramenta(ev); break;
     case "sub_ferramenta_fim": subFim(ev); break;
     case "ferramenta_fim": ferramentaFim(ev.id, ev.erro, ev.saida, ev.maior, ev.imagens); if (planoResultado(ev.id, ev.tarefa)) desenhaPlano(); break;
-    case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", `Quer ${pedido(ev.ferramenta)}.`); break;
+    case "permissao": permissao(ev); window.somEvento?.("permissao"); avisaSistema("O Claude precisa da sua aprovação", window.t("Quer {0}.", window.t(pedido(ev.ferramenta)))); break;
     case "permissao_fim": document.querySelector(`.perm[data-id="${ev.id}"], .pergunta[data-id="${ev.id}"]`)?.remove(); break;
     case "apagada": if (sessaoAtual === ev.id) { novaConversa(); nota("Esta conversa foi apagada em outra janela."); } break;
     case "config": mostraEscolhas(ev); break;
@@ -929,7 +929,7 @@ function telaInicial() {
     <div class="sugestoes grade">${SUGESTOES.map(([p, t, d, ic]) => `<button data-p="${esc(p)}">${svg(ic)}<span><b>${t}</b><small>${d}</small></span></button>`).join("")}</div>
     <p class="boas-dica">${enviar} envia · <kbd>/</kbd> comandos · <kbd>Ctrl</kbd> + <kbd>K</kbd> busca</p>
   </div>`;
-  col.querySelectorAll(".sugestoes button").forEach((b) => (b.onclick = () => envia(b.dataset.p)));
+  col.querySelectorAll(".sugestoes button").forEach((b) => (b.onclick = () => envia(window.t(b.dataset.p))));
   col.querySelector(".boas-pasta").onclick = () => $("pasta").click();
 }
 
@@ -1128,7 +1128,7 @@ function menuSessao(ancora, s) {
   menu.querySelector('[data-a="janela"]').onclick = () => { fechaMenu(); vivo.janelaNova(s.id); };
   menu.querySelector('[data-a="duplicar"]').onclick = async () => {
     fechaMenu(); if (rodando) return;
-    const r2 = await vivo.ramificar(s.id, null, `${s.titulo} (cópia)`, s.cwd);
+    const r2 = await vivo.ramificar(s.id, null, window.t("{0} (cópia)", s.titulo), s.cwd);
     if (r2) { if (r2.cwd && r2.cwd !== $("pasta").title) { mostraPasta(r2.cwd); todosComandos = buscandoComandos = null; } await abreSessao(r2.id, r2.titulo); carregaSessoes(); }
   };
   menu.querySelector('[data-a="exportar"]').onclick = async () => { fechaMenu(); const f = await vivo.exportar(s.id, s.titulo, s.cwd); if (f?.erro) nota(`Não deu pra exportar: ${f.erro}`, true); else if (f) nota(`Exportada: ${f}`); };

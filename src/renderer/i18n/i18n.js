@@ -43,7 +43,7 @@
       const m = p.re.exec(chave);
       if (!m || !p.tr[idioma]) continue;
       const valores = [];
-      p.ordem.forEach((i, k) => (valores[i] = m[k + 1]));
+      p.ordem.forEach((i, k) => (valores[i] = exatos.get(m[k + 1].replace(/\s+/g, " "))?.[idioma] ?? m[k + 1])); // a value that is itself a key ("Permitido · {0}" + a tool label) is translated too
       return antes + preenche(p.tr[idioma], valores) + depois;
     }
     return s;
