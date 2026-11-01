@@ -711,6 +711,8 @@ async function turno(j, texto, anexos, apps) {
       enableFileCheckpointing: true,
       thinking: geral.raciocinio === false ? undefined : { type: "adaptive", display: "summarized" },
       includePartialMessages: true,
+      // After each turn Claude Code predicts the next prompt; it shows in the composer.
+      promptSuggestions: true,
       abortController: ac,
       systemPrompt: { type: "preset", preset: "claude_code", append: [PROMPT_NAVEGADOR, ...(t.cfg.computador ? [PROMPT_COMPUTADOR] : [])].join("\n\n") },
       mcpServers: { claudie: servidorTemasPara(t), ...(t.cfg.computador ? { "computer-use": servidorComputadorPara(t, depsComputador) } : {}) },
@@ -812,6 +814,9 @@ async function turno(j, texto, anexos, apps) {
           if (b.type === "tool_use") ev({ tipo: "sub_ferramenta", pai, id: b.id, nome: b.name, entrada: enxuto(b.input) });
           else if (b.type === "tool_result") ev({ tipo: "sub_ferramenta_fim", pai, id: b.tool_use_id, erro: !!b.is_error });
         }
+      } else if (msg.type === "prompt_suggestion") {
+        // Arrives after the result, when the turn is already over: it goes to the window by conversation, not by turn.
+        if (msg.suggestion) enviarEvento(t.j, { tipo: "sugestao", sid: t.sessionId, texto: String(msg.suggestion).slice(0, 2000) });
       } else if (msg.type === "rate_limit_event") {
         ultimoLimite = msg.rate_limit_info || ultimoLimite;
         if (msg.rate_limit_info?.status === "rejected") t.limiteDito = t.tid;

@@ -566,7 +566,27 @@ entrada.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); escolheComando(cmdVis[cmdSel], true); return; }
     if (e.key === "Escape") { e.stopPropagation(); fechaComandos(); return; }
   }
+  if (sugestao && !entrada.value && (e.key === "Tab" || e.key === "ArrowRight") && !e.ctrlKey && !e.altKey && !e.shiftKey) { e.preventDefault(); aceitaSugestao(); return; }
   if (e.key === "Enter" && !e.shiftKey && (geral().enviar !== "ctrl" || e.ctrlKey)) { e.preventDefault(); envia(); }
+});
+// ---- next-prompt suggestion --------------------------------------------------
+// After a turn Claude Code predicts what the person may ask next. It shows as the
+// composer's placeholder while the box is empty; Tab or → takes it.
+let sugestao = "";
+function mostraSugestao(s) {
+  sugestao = s || "";
+  entrada.placeholder = sugestao || "Mensagem para o Claude";
+  entrada.classList.toggle("com-sugestao", !!sugestao);
+}
+function aceitaSugestao() {
+  const s = sugestao;
+  mostraSugestao("");
+  entrada.value = s; entrada.setSelectionRange(s.length, s.length);
+  ajustaAltura(); atualizaEnviar(); entrada.focus();
+}
+aoEvento((ev) => {
+  if (ev.tipo === "sugestao") { if (ev.sid && ev.sid === sessaoAtual && !rodando) mostraSugestao(ev.texto); }
+  else if (ev.tipo === "inicio") mostraSugestao("");
 });
 const ajustaAltura = () => { entrada.style.height = "auto"; entrada.style.height = Math.min(240, entrada.scrollHeight) + "px"; };
 entrada.addEventListener("input", () => { soltaAppsSemNome(); ajustaAltura(); atualizaEnviar(); cmdSel = 0; mencSel = 0; mostraComandos(); mostraMencoes(); });
@@ -1151,7 +1171,7 @@ async function abreSessao(id, titulo, cwdConhecida) {
   window.transicaoDither?.();
   trocaFila(id);
   limpaRascunhos();
-  sessaoAtual = id; $("titulo").textContent = titulo;
+  sessaoAtual = id; $("titulo").textContent = titulo; mostraSugestao("");
   col.innerHTML = ""; ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true;
   if (r.cfg) mostraEscolhas(r.cfg);
   const t = r.turno;
@@ -1179,7 +1199,7 @@ async function novaConversa() {
   window.transicaoDither?.();
   trocaFila(null);
   limpaRascunhos();
-  sessaoAtual = null; $("titulo").textContent = "Nova conversa";
+  sessaoAtual = null; $("titulo").textContent = "Nova conversa"; mostraSugestao("");
   turnoVisto = null; turnoN = 0; setRodando(false);
   ferramentas.clear(); segmento = null; bufferTexto = ""; tiraPensando(); telaInicial(); marcaSessao(); limpaPlano(); limpaFundo(); escondeCache(); $("medidor").hidden = true; entrada.focus();
 }
